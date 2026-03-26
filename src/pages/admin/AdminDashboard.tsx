@@ -59,75 +59,96 @@ export default function AdminDashboard() {
   const formattedRevenue = (val?: number) => val !== undefined ? `$${val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '$0.00';
 
   return (
-    <Box sx={{ flexGrow: 1, p: 3 }}>
+    <Box>
       {/* Header & Main Filters */}
-      <Box sx={{ mb: 4, display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', gap: 3 }}>
+      <Box sx={{ mb: 6, display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { md: 'flex-start' }, gap: 3 }}>
         <Box>
-          <Typography variant="h4" fontWeight={700} gutterBottom>
-            Admin Dashboard
+          <Typography variant="h3" sx={{ fontWeight: 800, mb: 1, letterSpacing: '-1px' }}>
+            System Analytics
           </Typography>
-          <Typography color="text.secondary">
-            Insights and platform analytics for your drama application
+          <Typography color="text.secondary" variant="body1">
+            Real-time insights and monitoring for the platform
           </Typography>
         </Box>
 
-        <Paper sx={{ p: 2, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center', bgcolor: 'background.paper', borderRadius: 2 }}>
-          <Stack direction="row" spacing={2}>
+        <Paper 
+          elevation={0}
+          sx={{ 
+            p: 1.5, 
+            display: 'flex', 
+            gap: 2, 
+            flexWrap: 'wrap', 
+            alignItems: 'center', 
+            bgcolor: 'background.paper', 
+            borderRadius: '16px',
+            border: '1px solid',
+            borderColor: 'divider',
+            boxShadow: '0 4px 12px -2px rgba(0,0,0,0.05)'
+          }}
+        >
+          <Stack direction="row" spacing={1.5}>
             <TextField
               size="small"
-              label="From"
+              label="Starting"
               type="date"
               InputLabelProps={{ shrink: true }}
               value={filters.from}
               onChange={(e) => handleFilterChange('from', e.target.value)}
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
             />
             <TextField
               size="small"
-              label="To"
+              label="Ending"
               type="date"
               InputLabelProps={{ shrink: true }}
               value={filters.to}
               onChange={(e) => handleFilterChange('to', e.target.value)}
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
             />
           </Stack>
-          <Divider orientation="vertical" flexItem sx={{ display: { xs: 'none', md: 'block' } }} />
-          <Tooltip title="Refresh Data">
-            <IconButton color="primary" onClick={loadAllData} disabled={loading}>
-              <Refresh className={loading ? 'animate-spin' : ''} />
+          <Divider orientation="vertical" flexItem sx={{ display: { xs: 'none', md: 'block' }, my: 0.5 }} />
+          <Tooltip title="Force Refresh">
+            <IconButton 
+              sx={{ bgcolor: 'action.hover', borderRadius: '10px' }} 
+              onClick={loadAllData} 
+              disabled={loading}
+              color="primary"
+            >
+              <Refresh className={loading ? 'animate-spin' : ''} sx={{ fontSize: 20 }} />
             </IconButton>
           </Tooltip>
         </Paper>
       </Box>
 
       {/* Stats Cards */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
+      <Grid container spacing={3} sx={{ mb: 6 }}>
         <Grid item xs={12} sm={6} md={3}>
           <OverviewCard
-            title="Total Users"
-            value={overview?.total_users ?? 0}
+            title="Registered Users"
+            value={(overview?.total_users ?? 0).toLocaleString()}
             icon={<People />}
             color="primary"
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <OverviewCard
-            title="Drama Titles"
-            value={overview?.total_videos ?? 0}
+            title="Video Content"
+            value={(overview?.total_videos ?? 0).toLocaleString()}
             icon={<Slideshow />}
             color="secondary"
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <OverviewCard
-            title="Purchases"
-            value={overview?.total_purchases ?? 0}
+            title="Total Sales"
+            value={(overview?.total_purchases ?? 0).toLocaleString()}
             icon={<ShoppingCart />}
             color="warning"
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <OverviewCard
-            title="Revenue"
+            title="Est. Revenue"
             value={formattedRevenue(overview?.total_revenue)}
             icon={<AttachMoney />}
             color="success"
@@ -136,21 +157,20 @@ export default function AdminDashboard() {
       </Grid>
 
       {/* Detailed Analytics Row */}
-      <Grid container spacing={3}>
+      <Grid container spacing={4}>
         {/* Revenue Chart Section */}
         <Grid item xs={12} lg={8}>
-          <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Typography variant="h6" fontWeight={600}>Revenue Forecast & History</Typography>
-            <FormControl size="small" sx={{ width: 120 }}>
-              <InputLabel>View By</InputLabel>
+          <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Typography variant="h5" sx={{ fontWeight: 700 }}>Revenue Growth</Typography>
+            <FormControl size="small" sx={{ width: 140 }}>
               <Select
                 value={filters.revenuePeriod}
-                label="View By"
                 onChange={(e) => handleFilterChange('revenuePeriod', e.target.value)}
+                sx={{ borderRadius: '12px', bgcolor: 'background.paper' }}
               >
-                <MenuItem value="year">Full year</MenuItem>
-                <MenuItem value="month">Current month</MenuItem>
-                <MenuItem value="week">Current week</MenuItem>
+                <MenuItem value="year">Past Year</MenuItem>
+                <MenuItem value="month">This Month</MenuItem>
+                <MenuItem value="week">This Week</MenuItem>
               </Select>
             </FormControl>
           </Box>
@@ -159,18 +179,14 @@ export default function AdminDashboard() {
 
         {/* Top Videos Table Section */}
         <Grid item xs={12} lg={4}>
-          <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Typography variant="h6" fontWeight={600}>Trending Series</Typography>
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <Tooltip title={`Sorted by ${filters.videoSort}`}>
-                <IconButton
-                  size="small"
-                  onClick={() => handleFilterChange('videoSort', filters.videoSort === 'views' ? 'revenue' : 'views')}
-                >
-                  <FilterList fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            </Box>
+          <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Typography variant="h5" sx={{ fontWeight: 700 }}>Best Performance</Typography>
+            <IconButton
+              sx={{ bgcolor: 'action.hover', borderRadius: '10px' }}
+              onClick={() => handleFilterChange('videoSort', filters.videoSort === 'views' ? 'revenue' : 'views')}
+            >
+              <FilterList sx={{ fontSize: 20 }} />
+            </IconButton>
           </Box>
           <TopVideosTable data={topVideos} loading={loading} />
         </Grid>

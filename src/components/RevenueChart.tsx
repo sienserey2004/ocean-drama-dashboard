@@ -11,21 +11,26 @@ interface RevenueChartProps {
 const RevenueChart: React.FC<RevenueChartProps> = ({ data, loading }) => {
   if (loading) {
     return (
-      <Card sx={{ height: 400, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <Card elevation={0} sx={{ height: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '24px', border: '1px solid', borderColor: 'divider' }}>
         <CircularProgress />
       </Card>
     );
   }
 
-  const months = data.map(d => d.month);
+  const months   = data.map(d => d.month);
   const revenues = data.map(d => d.revenue);
 
   return (
-    <Card sx={{ height: 400 }}>
-      <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-        <Typography variant="h6" fontWeight={600} gutterBottom>
-          Revenue Trends
-        </Typography>
+    <Card elevation={0} sx={{ height: 400, borderRadius: '24px', border: '1px solid', borderColor: 'divider' }}>
+      <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 3 }}>
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="h6" sx={{ fontWeight: 700, color: 'text.primary' }}>
+            Revenue Performance
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Monthly revenue analysis and trending
+          </Typography>
+        </Box>
         <Box sx={{ flexGrow: 1, width: '100%' }}>
           {data.length > 0 ? (
             <LineChart
@@ -34,16 +39,24 @@ const RevenueChart: React.FC<RevenueChartProps> = ({ data, loading }) => {
                 {
                   data: revenues,
                   label: 'Revenue ($)',
-                  color: '#2196f3',
+                  color: '#6366f1', // Modern Indigo
                   area: true,
                 },
               ]}
               height={300}
               margin={{ left: 60, right: 30, top: 20, bottom: 40 }}
+              sx={{
+                '.MuiLineElement-root': {
+                  strokeWidth: 3,
+                },
+                '.MuiAreaElement-root': {
+                  fillOpacity: 0.1,
+                }
+              }}
             />
           ) : (
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-              <Typography color="text.secondary">No data available for the selected period</Typography>
+              <Typography color="text.secondary" variant="body2">No data recorded for this period</Typography>
             </Box>
           )}
         </Box>

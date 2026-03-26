@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react'
 import {
   Box, Card, CardContent, Typography, Grid, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, CircularProgress,
-  TextField, Chip,
+  TextField, Chip, Stack, Paper, Avatar, Divider, Alert
 } from '@mui/material'
-import { AttachMoney, TrendingUp, ShoppingCart, Percent } from '@mui/icons-material'
+import { AttachMoney, TrendingUp, ShoppingCart, Percent, AccountBalanceWallet, ReceiptLong, Wallet } from '@mui/icons-material'
 import type { EarningsSummary, CreatorEarning } from '@/types'
 import { paymentApi } from '@/api/payment.service'
 
@@ -12,18 +12,20 @@ function StatCard({ icon, label, value, sub, color = 'primary.main' }: {
   icon: React.ReactNode; label: string; value: string; sub?: string; color?: string
 }) {
   return (
-    <Card>
-      <CardContent sx={{ p: 2.5 }}>
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-          <Box>
-            <Typography variant="caption" color="text.secondary" fontWeight={600} textTransform="uppercase" letterSpacing="0.06em">{label}</Typography>
-            <Typography variant="h4" fontWeight={700} mt={0.5} sx={{ fontSize: '1.6rem' }}>{value}</Typography>
-            {sub && <Typography variant="caption" color="text.secondary">{sub}</Typography>}
-          </Box>
-          <Box sx={{ width: 42, height: 42, borderRadius: 2, bgcolor: `${color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', color }}>
-            {icon}
-          </Box>
-        </Box>
+    <Card elevation={0} sx={{ height: '100%', borderRadius: '20px', border: '1px solid', borderColor: 'divider' }}>
+      <CardContent sx={{ p: 3 }}>
+        <Stack spacing={2}>
+           <Avatar variant="rounded" sx={{ bgcolor: `${color}15`, color, borderRadius: '12px', width: 44, height: 44 }}>
+              {icon}
+           </Avatar>
+           <Box>
+              <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '0.7rem' }}>
+                 {label}
+              </Typography>
+              <Typography variant="h4" sx={{ fontWeight: 800, mt: 0.5 }}>{value}</Typography>
+              {sub && <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>{sub}</Typography>}
+           </Box>
+        </Stack>
       </CardContent>
     </Card>
   )
@@ -51,80 +53,127 @@ export default function EarningsPage() {
 
   useEffect(() => { load() }, [from, to])
 
-  if (loading) return <Box display="flex" justifyContent="center" mt={8}><CircularProgress /></Box>
+  if (loading) return (
+    <Box sx={{ display: 'flex', justifyContent: 'center', py: 12 }}>
+      <CircularProgress thickness={5} />
+    </Box>
+  )
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
+      {/* Header Section */}
+      <Box sx={{ mb: 6, display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { md: 'flex-start' }, gap: 3 }}>
         <Box>
-          <Typography variant="h4">My Earnings</Typography>
-          <Typography variant="body2" color="text.secondary">90% of each sale goes to you</Typography>
+          <Typography variant="h3" sx={{ fontWeight: 800, letterSpacing: '-1.5px', mb: 1.5 }}>
+            Wallet
+          </Typography>
+          <Typography color="text.secondary" variant="body1">
+            Track your payouts, gross revenue, and platform splits.
+          </Typography>
         </Box>
-        <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
-          <TextField label="From" type="date" size="small" value={from} onChange={e => setFrom(e.target.value)} InputLabelProps={{ shrink: true }} />
-          <TextField label="To"   type="date" size="small" value={to}   onChange={e => setTo(e.target.value)}   InputLabelProps={{ shrink: true }} />
-        </Box>
+
+        <Paper 
+          elevation={0}
+          sx={{ 
+            p: 1.5, 
+            display: 'flex', 
+            gap: 2, 
+            alignItems: 'center', 
+            bgcolor: 'background.paper', 
+            borderRadius: '16px',
+            border: '1px solid',
+            borderColor: 'divider'
+          }}
+        >
+          <Stack direction="row" spacing={2} alignItems="center">
+             <TextField 
+                label="Start" type="date" size="small" value={from} 
+                onChange={e => setFrom(e.target.value)} 
+                InputLabelProps={{ shrink: true }}
+                sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
+             />
+             <TextField 
+                label="End" type="date" size="small" value={to} 
+                onChange={e => setTo(e.target.value)} 
+                InputLabelProps={{ shrink: true }}
+                sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
+             />
+          </Stack>
+        </Paper>
       </Box>
 
+      {/* Financial Overview Cards */}
       {summary && (
-        <Grid container spacing={2} mb={3}>
+        <Grid container spacing={3} mb={6}>
           <Grid item xs={12} sm={6} md={3}>
-            <StatCard icon={<TrendingUp />} label="Net earnings" value={`$${summary.summary.total_net.toFixed(2)}`} sub="After platform fee" color="success.main" />
+            <StatCard icon={<Wallet />} label="Net Earnings" value={`$${summary.summary.total_net.toFixed(2)}`} sub="Ready for payout" color="#10b981" />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <StatCard icon={<AttachMoney />} label="Gross revenue" value={`$${summary.summary.total_gross.toFixed(2)}`} color="primary.main" />
+            <StatCard icon={<TrendingUp />} label="Gross Volume" value={`$${summary.summary.total_gross.toFixed(2)}`} sub="Total sales value" color="#6366f1" />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <StatCard icon={<Percent />} label="Platform fee (10%)" value={`$${summary.summary.total_platform_fee.toFixed(2)}`} color="warning.main" />
+            <StatCard icon={<Percent />} label="Service Fees" value={`$${summary.summary.total_platform_fee.toFixed(2)}`} sub="10% platform share" color="#f59e0b" />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <StatCard icon={<ShoppingCart />} label="Total sales" value={String(summary.summary.total_purchases)} color="secondary.main" />
+            <StatCard icon={<ShoppingCart />} label="Completed Sales" value={String(summary.summary.total_purchases)} sub="Transactions count" color="#8b5cf6" />
           </Grid>
         </Grid>
       )}
 
-      {/* Split info */}
-      <Card sx={{ mb: 3, bgcolor: 'success.light', border: '1px solid', borderColor: 'success.main' }}>
-        <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
-          <Typography variant="body2" color="success.main" fontWeight={500}>
-            Revenue split: You receive 90% of each $2.99 purchase = $2.69 per sale. Platform keeps 10% = $0.30.
-          </Typography>
-        </CardContent>
-      </Card>
+      {/* Policy Insight */}
+      <Alert 
+         severity="success" 
+         icon={<ReceiptLong />}
+         sx={{ mb: 6, borderRadius: '20px', border: '1px solid', borderColor: 'success.light', bgcolor: 'success.lighter', color: 'success.dark' }}
+      >
+        <Typography variant="body2" fontWeight={700}>Transparent Pricing Policy:</Typography>
+        You receive <strong style={{fontSize: '1.1rem'}}>90%</strong> of every transaction. Example: On a $2.99 purchase, you earn <strong>$2.69</strong> while the platform maintains infrastructure for $0.30.
+      </Alert>
 
-      {/* Breakdown table */}
-      <Card>
-        <CardContent sx={{ pb: 0 }}>
-          <Typography variant="h6" mb={0}>Earnings breakdown</Typography>
-        </CardContent>
+      {/* Transaction Table */}
+      <Card elevation={0} sx={{ borderRadius: '24px', border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
+        <Box sx={{ p: 3, bgcolor: 'action.hover', borderBottom: '1px solid', borderColor: 'divider' }}>
+           <Typography variant="h6" fontWeight={800}>Detailed Breakdown</Typography>
+        </Box>
         <TableContainer>
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Video</TableCell>
-                <TableCell align="right">Gross</TableCell>
-                <TableCell align="right">Fee (10%)</TableCell>
-                <TableCell align="right">Net (90%)</TableCell>
-                <TableCell>Date</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', py: 2 }}>Video Content</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' }}>Gross Sales</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' }}>Comm (10%)</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' }}>Your Net (90%)</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' }}>Processed At</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {breakdown.length === 0 ? (
-                <TableRow><TableCell colSpan={5} align="center" sx={{ py: 4 }}>
-                  <Typography color="text.secondary">No earnings yet</Typography>
-                </TableCell></TableRow>
+                <TableRow>
+                   <TableCell colSpan={5} align="center" sx={{ py: 10 }}>
+                      <Stack spacing={1} alignItems="center">
+                         <AccountBalanceWallet sx={{ fontSize: 48, color: 'text.disabled', opacity: 0.3 }} />
+                         <Typography color="text.secondary" fontWeight={700}>No transaction records available</Typography>
+                      </Stack>
+                   </TableCell>
+                </TableRow>
               ) : breakdown.map((e) => (
-                <TableRow key={e.earning_id} hover>
-                  <TableCell>
-                    <Typography variant="body2" fontWeight={500}>{e.video_title || `Video #${e.video_id}`}</Typography>
-                    <Typography variant="caption" color="text.secondary">Purchase #{e.video_purchase_id}</Typography>
+                <TableRow key={e.earning_id} hover sx={{ '&:last-child td': { border: 0 } }}>
+                  <TableCell sx={{ py: 2.5 }}>
+                    <Typography variant="subtitle2" fontWeight={800}>{e.video_title || `Collection ID #${e.video_id}`}</Typography>
+                    <Typography variant="caption" component="code" sx={{ color: 'text.disabled', bgcolor: 'action.selected', px: 0.5, borderRadius: '4px' }}>TRX-{e.video_purchase_id}</Typography>
                   </TableCell>
-                  <TableCell align="right">${Number(e.gross_amount).toFixed(2)}</TableCell>
-                  <TableCell align="right" sx={{ color: 'error.main' }}>-${Number(e.platform_fee).toFixed(2)}</TableCell>
-                  <TableCell align="right" sx={{ color: 'success.main', fontWeight: 600 }}>${Number(e.net_amount).toFixed(2)}</TableCell>
-                  <TableCell>
-                    <Typography variant="caption" color="text.secondary">
-                      {new Date(e.earned_at).toLocaleDateString()}
+                  <TableCell align="right">
+                     <Typography variant="body2" fontWeight={600}>${Number(e.gross_amount).toFixed(2)}</Typography>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Typography variant="body2" color="error.main" fontWeight={600}>-${Number(e.platform_fee).toFixed(2)}</Typography>
+                  </TableCell>
+                  <TableCell align="right">
+                     <Typography variant="subtitle2" color="success.main" fontWeight={800}>+${Number(e.net_amount).toFixed(2)}</Typography>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary' }}>
+                      {new Date(e.earned_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                     </Typography>
                   </TableCell>
                 </TableRow>

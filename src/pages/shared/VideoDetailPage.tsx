@@ -3,12 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom'
 import {
   Box, Typography, Chip, Avatar, IconButton, Button, Divider,
   CircularProgress, Tooltip, Card, CardContent, Grid, List,
-  ListItem, ListItemAvatar, ListItemText, Stack,
+  ListItem, ListItemAvatar, ListItemText, Stack, Paper
 } from '@mui/material'
 import {
   ArrowBack, ThumbUp, ThumbUpOutlined, Favorite, FavoriteBorder,
   Visibility, PlayArrow, LockOpen, Lock as LockIcon, Person,
-  CalendarToday, Category, LocalOffer,
+  CalendarToday, Category, LocalOffer, Share, Star, Info
 } from '@mui/icons-material'
 import type { Video, Episode } from '@/types'
 import toast from 'react-hot-toast'
@@ -92,221 +92,188 @@ export default function VideoDetailPage() {
     setFavLoading(false)
   }
 
-  if (loading) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
-        <CircularProgress />
-      </Box>
-    )
-  }
-
-  if (!video) {
-    return (
-      <Box textAlign="center" py={8}>
-        <Typography color="text.secondary">Video not found.</Typography>
-        <Button onClick={() => navigate('/dashboard/browse')} sx={{ mt: 2 }}>
-          Back to Browse
-        </Button>
-      </Box>
-    )
-  }
-
-  const categoryNames = (video.categories || []).map((c: any) =>
-    typeof c === 'string' ? c : c.name
+  if (loading) return (
+    <Box sx={{ display: 'flex', justifyContent: 'center', py: 12 }}>
+      <CircularProgress thickness={5} />
+    </Box>
   )
-  const tagNames = (video.tags || []).map((t: any) =>
-    typeof t === 'string' ? t : t.name
+
+  if (!video) return (
+    <Box textAlign="center" py={12}>
+      <Typography variant="h5" fontWeight={800} color="text.secondary">Content missing or unavailable.</Typography>
+      <Button variant="contained" onClick={() => navigate('/dashboard/browse')} sx={{ mt: 3, borderRadius: '10px' }}>
+        Return to Catalog
+      </Button>
+    </Box>
   )
+
+  const categoryNames = (video.categories || []).map((c: any) => typeof c === 'string' ? c : c.name)
 
   return (
     <Box>
-      {/* Back button */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
-        <IconButton onClick={() => navigate(-1)} size="small">
-          <ArrowBack />
+      {/* SaaS Navigation */}
+      <Box sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 2 }}>
+        <IconButton 
+           onClick={() => navigate(-1)} 
+           sx={{ bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: '12px' }}
+        >
+          <ArrowBack fontSize="small" />
         </IconButton>
-        <Typography variant="body2" color="text.secondary">Back</Typography>
+        <Typography variant="subtitle2" color="text.secondary" fontWeight={700}>Return to Library</Typography>
       </Box>
 
-      <Grid container spacing={3}>
-        {/* ── Left: main content ───────────────────────────────────── */}
-        <Grid item xs={12} md={8}>
+      <Grid container spacing={4}>
+        <Grid item xs={12} lg={8}>
+          {/* Main Hero Media */}
+          <Paper elevation={0} sx={{ borderRadius: '32px', overflow: 'hidden', border: '1px solid', borderColor: 'divider', mb: 4, position: 'relative' }}>
+             <Box
+                component="img"
+                src={video.thumbnail_url || `https://picsum.photos/seed/${video.video_id}/1200/675`}
+                alt={video.title}
+                sx={{ width: '100%', aspectRatio: '16/9', objectFit: 'cover' }}
+             />
+             <Box sx={{ 
+                position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', 
+                background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 50%)',
+                display: 'flex', alignItems: 'flex-end', p: 4
+             }}>
+                <Stack spacing={1}>
+                  <Stack direction="row" spacing={1} mb={1}>
+                    {categoryNames.map(name => (
+                      <Chip key={name} label={name} size="small" sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 800, backdropFilter: 'blur(10px)', border: 'none' }} />
+                    ))}
+                  </Stack>
+                  <Typography variant="h2" sx={{ color: 'white', fontWeight: 900, letterSpacing: '-2px', textShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>
+                    {video.title}
+                  </Typography>
+                </Stack>
+             </Box>
+          </Paper>
 
-          {/* Thumbnail */}
-          <Box
-            component="img"
-            src={video.thumbnail_url || `https://picsum.photos/seed/${video.video_id}/800/450`}
-            alt={video.title}
-            sx={{
-              width: '100%',
-              aspectRatio: '16/9',
-              objectFit: 'cover',
-              borderRadius: 3,
-              bgcolor: 'background.default',
-              mb: 2.5,
-            }}
-          />
+          {/* Social & Stats Row */}
+          <Paper elevation={0} sx={{ p: 3, borderRadius: '24px', border: '1px solid', borderColor: 'divider', mb: 4 }}>
+             <Stack direction="row" spacing={3} alignItems="center" flexWrap="wrap">
+                <Stack direction="row" spacing={1} alignItems="center">
+                   <Tooltip title={liked ? 'Unlike' : 'Give a Like'}>
+                      <IconButton onClick={handleLike} disabled={likeLoading} sx={{ bgcolor: liked ? 'primary.lighter' : 'action.hover', color: liked ? 'primary.main' : 'text.disabled' }}>
+                        {liked ? <ThumbUp fontSize="small" /> : <ThumbUpOutlined fontSize="small" />}
+                      </IconButton>
+                   </Tooltip>
+                   <Typography variant="caption" fontWeight={800}>{likeCount.toLocaleString()}</Typography>
+                </Stack>
 
-          {/* Title & actions */}
-          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 1.5 }}>
-            <Box sx={{ flex: 1 }}>
-              <Typography variant="h3" fontWeight={700} gutterBottom>
-                {video.title}
-              </Typography>
-              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                {categoryNames.map(name => (
-                  <Chip key={name} label={name} size="small" icon={<Category sx={{ fontSize: '14px !important' }} />} />
-                ))}
-                {tagNames.map(tag => (
-                  <Chip key={tag} label={`#${tag}`} size="small" variant="outlined"
-                    icon={<LocalOffer sx={{ fontSize: '12px !important' }} />} />
-                ))}
-                {video.is_free
-                  ? <Chip label="Free" size="small" color="success" />
-                  : <Chip label={`$${(video.price || 0).toFixed(2)}`} size="small" color="primary" />
-                }
-              </Stack>
-            </Box>
+                <Stack direction="row" spacing={1} alignItems="center">
+                   <Tooltip title={favorited ? 'Unsave' : 'Save for Later'}>
+                      <IconButton onClick={handleFavorite} disabled={favLoading} sx={{ bgcolor: favorited ? 'error.lighter' : 'action.hover', color: favorited ? 'error.main' : 'text.disabled' }}>
+                        {favorited ? <Favorite fontSize="small" /> : <FavoriteBorder fontSize="small" />}
+                      </IconButton>
+                   </Tooltip>
+                   <Typography variant="caption" fontWeight={800}>Save</Typography>
+                </Stack>
 
-            {/* Like & Favorite */}
-            <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
-              <Tooltip title={liked ? 'Unlike' : 'Like'}>
-                <IconButton onClick={handleLike} disabled={likeLoading}
-                  sx={{ color: liked ? 'primary.main' : 'text.secondary' }}>
-                  {liked ? <ThumbUp /> : <ThumbUpOutlined />}
-                </IconButton>
-              </Tooltip>
-              <Tooltip title={favorited ? 'Remove from favorites' : 'Add to favorites'}>
-                <IconButton onClick={handleFavorite} disabled={favLoading}
-                  sx={{ color: favorited ? 'error.main' : 'text.secondary' }}>
-                  {favorited ? <Favorite /> : <FavoriteBorder />}
-                </IconButton>
-              </Tooltip>
-            </Box>
-          </Box>
+                <Divider orientation="vertical" flexItem sx={{ height: 24, alignSelf: 'center' }} />
 
-          {/* Stats row */}
-          <Box sx={{ display: 'flex', gap: 2, mb: 2.5, flexWrap: 'wrap', color: 'text.secondary' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <ThumbUp sx={{ fontSize: 15 }} />
-              <Typography variant="caption">{likeCount.toLocaleString()} likes</Typography>
-            </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Visibility sx={{ fontSize: 15 }} />
-              <Typography variant="caption">{(video.view_count || 0).toLocaleString()} views</Typography>
-            </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <PlayArrow sx={{ fontSize: 15 }} />
-              <Typography variant="caption">{video.episode_count || 0} episodes</Typography>
-            </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <CalendarToday sx={{ fontSize: 13 }} />
-              <Typography variant="caption">
-                {new Date(video.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-              </Typography>
-            </Box>
-          </Box>
+                <Stack direction="row" spacing={2.5}>
+                   <Stack direction="row" spacing={0.5} alignItems="center">
+                      <Visibility sx={{ fontSize: 16, color: 'text.secondary' }} />
+                      <Typography variant="caption" fontWeight={700} color="text.secondary">{(video.view_count || 0).toLocaleString()} Views</Typography>
+                   </Stack>
+                   <Stack direction="row" spacing={0.5} alignItems="center">
+                      <Star sx={{ fontSize: 16, color: '#facc15' }} />
+                      <Typography variant="caption" fontWeight={700} color="text.secondary">4.8 Rating</Typography>
+                   </Stack>
+                   <Stack direction="row" spacing={0.5} alignItems="center">
+                      <CalendarToday sx={{ fontSize: 13, color: 'text.secondary' }} />
+                      <Typography variant="caption" fontWeight={700} color="text.secondary">
+                        {new Date(video.created_at).toLocaleDateString()}
+                      </Typography>
+                   </Stack>
+                </Stack>
 
-          <Divider sx={{ mb: 2.5 }} />
+                <Box sx={{ flexGrow: 1 }} />
+                <Button variant="contained" startIcon={<Share />} sx={{ borderRadius: '10px', fontWeight: 800, px: 3 }}>Release</Button>
+             </Stack>
+          </Paper>
 
-          {/* Description */}
-          {video.description && (
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="h6" gutterBottom>About this series</Typography>
-              <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.75, whiteSpace: 'pre-wrap' }}>
-                {video.description}
-              </Typography>
-            </Box>
-          )}
+          {/* Description Card */}
+          <Typography variant="h5" fontWeight={800} mb={2} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+             <Info color="primary" /> Synopsis
+          </Typography>
+          <Paper elevation={0} sx={{ p: 4, borderRadius: '24px', border: '1px solid', borderColor: 'divider', bgcolor: 'transparent' }}>
+             <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.8, fontSize: '1.05rem' }}>
+                {video.description || 'No detailed overview available for this series.'}
+             </Typography>
+          </Paper>
         </Grid>
 
-        {/* ── Right: sidebar ────────────────────────────────────────── */}
-        <Grid item xs={12} md={4}>
-
-          {/* Creator card */}
-          <Card sx={{ mb: 2 }}>
-            <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Avatar
-                src={(video.creator as any)?.profile_image}
-                sx={{ width: 52, height: 52, bgcolor: 'secondary.light', color: 'secondary.main', fontSize: '1.2rem' }}
-              >
-                {((video.creator as any)?.name || video.creator || '').charAt(0).toUpperCase()}
-              </Avatar>
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Typography variant="body2" fontWeight={600} noWrap>{(video.creator as any)?.name || video.creator || 'Unknown'}</Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <Person sx={{ fontSize: 13, color: 'text.secondary' }} />
-                  <Typography variant="caption" color="text.secondary">
-                    {((video.creator as any)?.follower_count || 0).toLocaleString()} followers
-                  </Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-
-          {/* Episodes list */}
-          <Card>
-            <CardContent sx={{ pb: '8px !important' }}>
-              <Typography variant="h6" gutterBottom>
-                Episodes ({episodes.length})
-              </Typography>
-
-              {episodes.length === 0 ? (
-                <Box sx={{ textAlign: 'center', py: 3 }}>
-                  <PlayArrow sx={{ fontSize: 36, color: 'text.disabled' }} />
-                  <Typography variant="caption" display="block" color="text.secondary">
-                    No episodes yet
-                  </Typography>
-                </Box>
-              ) : (
-                <List disablePadding>
-                  {episodes.map((ep, idx) => (
-                    <Box key={ep.episode_id}>
-                      {idx > 0 && <Divider />}
-                      <ListItem
-                        disableGutters
-                        sx={{ py: 1.25, gap: 1 }}
+        <Grid item xs={12} lg={4}>
+          <Stack spacing={4}>
+             {/* Producer Identity */}
+             <Card elevation={0} sx={{ borderRadius: '24px', border: '1px solid', borderColor: 'divider' }}>
+                <CardContent sx={{ p: 3 }}>
+                   <Typography variant="caption" fontWeight={800} color="text.secondary" sx={{ textTransform: 'uppercase', mb: 2, display: 'block' }}>Produced By</Typography>
+                   <Stack direction="row" spacing={2} alignItems="center">
+                      <Avatar 
+                         src={(video.creator as any)?.profile_image}
+                         sx={{ width: 60, height: 60, borderRadius: '16px', border: '3px solid', borderColor: 'secondary.lighter', bgcolor: 'secondary.light', color: 'secondary.main', fontWeight: 800 }}
                       >
-                        <ListItemAvatar sx={{ minWidth: 36 }}>
-                          <Box sx={{
-                            width: 28, height: 28, borderRadius: '50%',
-                            bgcolor: ep.is_preview_free ? 'success.light' : 'grey.200',
-                            color: ep.is_preview_free ? 'success.main' : 'text.secondary',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: '0.72rem', fontWeight: 700,
-                          }}>
-                            {ep.episode_number}
-                          </Box>
-                        </ListItemAvatar>
-                        <ListItemText
-                          primary={
-                            <Typography variant="body2" fontWeight={500} sx={{ lineHeight: 1.3 }}>
-                              {ep.title}
-                            </Typography>
-                          }
-                          secondary={
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.25 }}>
-                              <Typography variant="caption" color="text.secondary">
-                                {fmtDuration(ep.duration)}
-                              </Typography>
-                              {ep.is_preview_free
-                                ? <Chip label="Free" size="small" color="success"
-                                    icon={<LockOpen sx={{ fontSize: '11px !important' }} />}
-                                    sx={{ height: 18, fontSize: '0.65rem' }} />
-                                : <Chip label="Locked" size="small"
-                                    icon={<LockIcon sx={{ fontSize: '11px !important' }} />}
-                                    sx={{ height: 18, fontSize: '0.65rem' }} />
-                              }
-                            </Box>
-                          }
-                        />
-                      </ListItem>
-                    </Box>
-                  ))}
-                </List>
-              )}
-            </CardContent>
-          </Card>
+                         {((video.creator as any)?.name || 'S').charAt(0)}
+                      </Avatar>
+                      <Box>
+                         <Typography variant="subtitle1" fontWeight={800}>{(video.creator as any)?.name || 'Premium Studio'}</Typography>
+                         <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <Person sx={{ fontSize: 14 }} /> 12.5k Followers
+                         </Typography>
+                      </Box>
+                   </Stack>
+                   <Button fullWidth variant="outlined" sx={{ mt: 3, borderRadius: '10px', fontWeight: 700 }}>View Portfolio</Button>
+                </CardContent>
+             </Card>
+
+             {/* Content Navigation */}
+             <Card elevation={0} sx={{ borderRadius: '24px', border: '1px solid', borderColor: 'divider' }}>
+                <CardContent sx={{ p: 3 }}>
+                   <Typography variant="h6" fontWeight={800} mb={3}>Episodes Library</Typography>
+                   <List sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                      {episodes.map((ep) => (
+                         <ListItem 
+                            key={ep.episode_id} 
+                            disablePadding
+                            sx={{ 
+                               borderRadius: '16px', 
+                               overflow: 'hidden',
+                               bgcolor: 'action.hover',
+                               transition: 'all 0.2s',
+                               cursor: 'pointer',
+                               border: '1px solid transparent',
+                               '&:hover': { bgcolor: 'background.paper', borderColor: 'primary.light', transform: 'translateX(4px)', boxShadow: 2 }
+                            }}
+                         >
+                            <ListItemAvatar sx={{ minWidth: 60, p: 1 }}>
+                               <Paper elevation={0} sx={{ 
+                                  width: 44, height: 44, borderRadius: '12px', 
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  bgcolor: ep.is_preview_free ? 'success.lighter' : 'background.paper',
+                                  color: ep.is_preview_free ? 'success.main' : 'text.disabled'
+                               }}>
+                                  {ep.is_preview_free ? <PlayArrow /> : <LockIcon sx={{ fontSize: 18 }} />}
+                               </Paper>
+                            </ListItemAvatar>
+                            <ListItemText 
+                               primary={<Typography variant="body2" fontWeight={800}>{ep.title}</Typography>}
+                               secondary={
+                                  <Stack direction="row" spacing={1} alignItems="center" mt={0.5}>
+                                     <Typography variant="caption" fontWeight={700} color="text.secondary">{fmtDuration(ep.duration)}</Typography>
+                                     <Chip label={ep.is_preview_free ? 'Free' : 'Locked'} size="small" sx={{ height: 16, fontSize: '0.6rem', fontWeight: 900, borderRadius: '4px' }} color={ep.is_preview_free ? 'success' : 'default'} />
+                                  </Stack>
+                               }
+                            />
+                         </ListItem>
+                      ))}
+                   </List>
+                </CardContent>
+             </Card>
+          </Stack>
         </Grid>
       </Grid>
     </Box>

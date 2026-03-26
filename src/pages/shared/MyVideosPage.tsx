@@ -5,10 +5,12 @@ import {
   FormControl, InputLabel, Chip, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Paper, IconButton, Dialog, DialogTitle, DialogContent,
   DialogActions, Avatar, CircularProgress, Pagination, Tooltip, LinearProgress,
+  Stack, InputAdornment, Divider,
+  Grid
 } from '@mui/material'
 import {
   Add, Edit, Delete, PlayArrow, CheckCircle, Cancel, Visibility,
-  Search,
+  Search, FilterList, MoreVert, FolderOutlined, Layers
 } from '@mui/icons-material'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -32,8 +34,10 @@ const schema = z.object({
 })
 type FormData = z.infer<typeof schema>
 
-const STATUS_COLORS: Record<string, 'warning' | 'success' | 'error' | 'default'> = {
-  pending: 'warning', published: 'success', rejected: 'error',
+const STATUS_CONFIG: Record<string, { color: 'warning' | 'success' | 'error' | 'default', label: string }> = {
+  pending:   { color: 'warning', label: 'Pending Review' },
+  published: { color: 'success', label: 'Published' },
+  rejected:  { color: 'error',   label: 'Rejected' },
 }
 
 export default function MyVideosPage() {
@@ -67,10 +71,9 @@ export default function MyVideosPage() {
       const params = { page, limit: LIMIT, ...(statusFilter && { status: statusFilter }) }
       const res = isAdmin
         ? await adminVideoApi.list(params)
-        : await videoApi.list({ ...params, creator_id: -1 }) // -1 = own videos
+        : await videoApi.list({ ...params, creator_id: -1 })
       setVideos(res.data as any)
       setTotal(res.total)
-      console.log(res.data);
     } catch { }
     setLoading(false)
   }, [isAdmin, page, statusFilter])
@@ -81,7 +84,7 @@ export default function MyVideosPage() {
     tagApi.list().then(r => setTags(r.data))
   }, [])
 
-  const openCreate = () => { setEditVideo(null); reset({ price: 0, is_free: false, category_ids: [], tag_ids: [] }); setPreview(null); setFile(null); setProgress(0); setDialogOpen(true) }
+  const openCreate = () => { navigate('/dashboard/videos/create') }
   const openEdit = async (vs: VideoRess) => {
     try {
       const v = await videoApi.getById(vs.video_id)
@@ -107,9 +110,6 @@ export default function MyVideosPage() {
       if (editVideo) {
         await videoApi.update(editVideo.video_id, data)
         toast.success('Video updated')
-      } else {
-        await videoApi.create(data)
-        toast.success('Video created — awaiting admin review')
       }
       setDialogOpen(false)
       load()
@@ -141,38 +141,24 @@ export default function MyVideosPage() {
     } catch { }
   }
 
-
-
   const handleChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
     const selected = e.target.files[0];
     if (selected) {
       setFile(selected);
-      setPreview(URL.createObjectURL(selected)); // preview image
-      
+      setPreview(URL.createObjectURL(selected));
       const formData = new FormData();
       formData.append("photo", selected);
-      
       try {
         const resp = await axios.post("http://localhost:3000/api/upload-photo", formData, {
           headers: { "Content-Type": "multipart/form-data" },
-          onUploadProgress: (progressEvent: any) => {
-            if (progressEvent.total) {
-              setProgress(Math.round((progressEvent.loaded * 100) / progressEvent.total));
-            }
-          },
+          onUploadProgress: (p: any) => p.total && setProgress(Math.round((p.loaded * 100) / p.total))
         });
-        
         const url = resp.data?.url || resp.data?.path || resp.data?.file || (typeof resp.data === 'string' ? resp.data : null);
-        if (url) {
-          setValue('thumbnail_url', url, { shouldValidate: true });
-        } else if (resp.data?.data?.url || resp.data?.data?.path) {
-          setValue('thumbnail_url', resp.data?.data?.url || resp.data?.data?.path, { shouldValidate: true });
-        }
-        toast.success("Upload photo success");
-      } catch (err) {
-        console.error(err);
-        toast.error("Upload photo failed");
+        if (url) setValue('thumbnail_url', url, { shouldValidate: true });
+        toast.success("Upload success");
+      } catch {
+        toast.error("Upload failed");
         setProgress(0);
       }
     }
@@ -180,106 +166,168 @@ export default function MyVideosPage() {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 1 }}>
+      {/* Header Section */}
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { sm: 'center' }, gap: 3, mb: 6 }}>
         <Box>
-          <Typography variant="h4">Videos</Typography>
-          <Typography variant="body2" color="text.secondary">
-            {isAdmin ? 'All videos on the platform' : 'Your uploaded series'}
+          <Typography variant="h3" sx={{ fontWeight: 800, letterSpacing: '-1px', mb: 1 }}>
+            Video Library
+          </Typography>
+          <Typography color="text.secondary" variant="body1">
+            {isAdmin ? 'Complete overview of all video series across the platform.' : 'Manage and track your published drama series.'}
           </Typography>
         </Box>
-        <Button variant="contained" startIcon={<Add />} onClick={() => navigate('/dashboard/videos/create')}>Upload series</Button>
+        <Button 
+          variant="contained" 
+          startIcon={<Add />} 
+          onClick={openCreate}
+          sx={{ 
+            borderRadius: '12px', 
+            py: 1.5, 
+            px: 3, 
+            fontWeight: 700, 
+            boxShadow: '0 8px 16px -4px rgba(99, 102, 241, 0.3)' 
+          }}
+        >
+          New Series
+        </Button>
       </Box>
 
-      {/* Filters */}
-      <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
-        <FormControl size="small" sx={{ minWidth: 140 }}>
-          <InputLabel>Status</InputLabel>
-          <Select label="Status" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1) }}>
-            <MenuItem value="">All</MenuItem>
-            <MenuItem value="published">Published</MenuItem>
-            <MenuItem value="pending">Pending</MenuItem>
-            <MenuItem value="rejected">Rejected</MenuItem>
-          </Select>
-        </FormControl>
-      </Box>
+      {/* Main Container */}
+      <Card elevation={0} sx={{ borderRadius: '24px', border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
+        {/* Table Filters/Actions Header */}
+        <Box sx={{ p: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2, bgcolor: 'action.hover' }}>
+          <Stack direction="row" spacing={2} alignItems="center">
+            <TextField
+              size="small"
+              placeholder="Search series..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search fontSize="small" sx={{ color: 'text.secondary' }} />
+                  </InputAdornment>
+                ),
+                sx: { borderRadius: '10px', bgcolor: 'background.paper' }
+              }}
+            />
+            <FormControl size="small" sx={{ minWidth: 140 }}>
+              <Select
+                value={statusFilter}
+                onChange={e => { setStatusFilter(e.target.value); setPage(1) }}
+                displayEmpty
+                sx={{ borderRadius: '10px', bgcolor: 'background.paper' }}
+                startAdornment={<FilterList fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />}
+              >
+                <MenuItem value="">All Statuses</MenuItem>
+                <MenuItem value="published">Published</MenuItem>
+                <MenuItem value="pending">Pending</MenuItem>
+                <MenuItem value="rejected">Rejected</MenuItem>
+              </Select>
+            </FormControl>
+          </Stack>
+          <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary' }}>
+            {total} results found
+          </Typography>
+        </Box>
 
-      <Card>
         <TableContainer>
           <Table>
             <TableHead>
-              <TableRow>
-                <TableCell>Title</TableCell>
-                {isAdmin && <TableCell>Creator</TableCell>}
-                <TableCell>Episodes</TableCell>
-                <TableCell>Price</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell align="right">Actions</TableCell>
+              <TableRow sx={{ bgcolor: 'transparent' }}>
+                <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', py: 2 }}>Title & ID</TableCell>
+                {isAdmin && <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' }}>Creator</TableCell>}
+                <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' }}>Assets</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' }}>Pricing</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' }}>Status</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' }}>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={6} align="center" sx={{ py: 4 }}><CircularProgress size={24} /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} align="center" sx={{ py: 10 }}><CircularProgress size={32} /></TableCell></TableRow>
               ) : videos.length === 0 ? (
-                <TableRow><TableCell colSpan={6} align="center" sx={{ py: 4 }}>
-                  <Typography color="text.secondary">No videos found</Typography>
-                </TableCell></TableRow>
+                <TableRow>
+                  <TableCell colSpan={6} align="center" sx={{ py: 10 }}>
+                    <Box sx={{ textAlign: 'center' }}>
+                      <FolderOutlined sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
+                      <Typography variant="h6" fontWeight={700}>No video series found</Typography>
+                      <Typography variant="body2" color="text.secondary">Try adjusting your filters or search terms.</Typography>
+                    </Box>
+                  </TableCell>
+                </TableRow>
               ) : videos.map((v) => (
-                <TableRow key={v.video_id} hover>
-                  <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                      <Avatar variant="rounded" sx={{ width: 44, height: 32, bgcolor: 'primary.light' }}>
-                        <PlayArrow sx={{ color: 'primary.main', fontSize: 16 }} />
+                <TableRow key={v.video_id} hover sx={{ '&:last-child td': { border: 0 } }}>
+                  <TableCell sx={{ py: 2.5 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Avatar variant="rounded" sx={{ width: 48, height: 48, borderRadius: '12px', bgcolor: 'primary.light' }}>
+                        <Layers sx={{ color: 'primary.main', fontSize: 24 }} />
                       </Avatar>
                       <Box>
-                        <Typography variant="body2" fontWeight={500}>{v.title}</Typography>
-                        <Typography variant="caption" color="text.secondary">Series ID: {v.video_id}</Typography>
+                        <Typography variant="subtitle2" fontWeight={700}>{v.title}</Typography>
+                        <Typography variant="caption" sx={{ color: 'text.disabled', fontFamily: 'monospace' }}>#{v.video_id}</Typography>
                       </Box>
                     </Box>
                   </TableCell>
                   {isAdmin && (
                     <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                        <Avatar sx={{ width: 22, height: 22, fontSize: '0.7rem', bgcolor: 'secondary.light', color: 'secondary.main' }}>
-                          {(v.creator || '').charAt(0).toUpperCase()}
-                        </Avatar>
-                        <Typography variant="caption">{v.creator || 'Unknown'}</Typography>
-                      </Box>
+                      <Chip 
+                        avatar={<Avatar src={''}>{(v.creator || 'U').charAt(0)}</Avatar>}
+                        label={v.creator || 'Unknown'} 
+                        size="small" 
+                        variant="outlined"
+                        sx={{ fontWeight: 600, borderRadius: '8px' }}
+                      />
                     </TableCell>
                   )}
-                  <TableCell>{v.episodes_count || 0}</TableCell>
-                  <TableCell>${(v.total_price || 0).toFixed(2)}</TableCell>
                   <TableCell>
-                    <Chip label={v.status} size="small" color={STATUS_COLORS[v.status]} sx={{ textTransform: 'capitalize' }} />
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography variant="body2" fontWeight={700}>{v.episodes_count || 0}</Typography>
+                      <Typography variant="caption" color="text.secondary">Episodes</Typography>
+                    </Box>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2" sx={{ fontWeight: 700, color: 'success.main' }}>
+                      ${(v.total_price || 0).toFixed(2)}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Chip 
+                      label={STATUS_CONFIG[v.status]?.label || v.status} 
+                      size="small" 
+                      color={STATUS_CONFIG[v.status]?.color} 
+                      sx={{ fontWeight: 700, borderRadius: '8px', textTransform: 'capitalize' }} 
+                    />
                   </TableCell>
                   <TableCell align="right">
-                    <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
-                      <Tooltip title="Manage episodes">
-                        <IconButton size="small" onClick={() => navigate(`/dashboard/videos/${v.video_id}/episodes`)}>
+                    <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                      <Tooltip title="Manage Content">
+                        <IconButton size="small" onClick={() => navigate(`/dashboard/videos/${v.video_id}/episodes`)} sx={{ bgcolor: 'action.hover' }}>
                           <PlayArrow fontSize="small" />
                         </IconButton>
                       </Tooltip>
-                      <Tooltip title="Edit">
-                        <IconButton size="small" onClick={() => openEdit(v)}><Edit fontSize="small" /></IconButton>
+                      <Tooltip title="Edit Properties">
+                        <IconButton size="small" onClick={() => openEdit(v)} sx={{ bgcolor: 'action.hover' }}>
+                          <Edit fontSize="small" />
+                        </IconButton>
                       </Tooltip>
                       {isAdmin && v.status === 'pending' && (
                         <>
                           <Tooltip title="Approve">
-                            <IconButton size="small" color="success" onClick={() => handleApprove(v.video_id)}>
+                            <IconButton size="small" color="success" onClick={() => handleApprove(v.video_id)} sx={{ bgcolor: 'success.light', color: 'success.dark', '&:hover': { bgcolor: 'success.main', color: 'white' } }}>
                               <CheckCircle fontSize="small" />
                             </IconButton>
                           </Tooltip>
                           <Tooltip title="Reject">
-                            <IconButton size="small" color="error" onClick={() => setRejectDialog({ open: true, videoId: v.video_id })}>
+                            <IconButton size="small" color="error" onClick={() => setRejectDialog({ open: true, videoId: v.video_id })} sx={{ bgcolor: 'error.light', color: 'error.dark', '&:hover': { bgcolor: 'error.main', color: 'white' } }}>
                               <Cancel fontSize="small" />
                             </IconButton>
                           </Tooltip>
                         </>
                       )}
-                      <Tooltip title="Delete">
-                        <IconButton size="small" color="error" onClick={() => handleDelete(v.video_id)}>
-                          <Delete fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
+                      <IconButton size="small" color="error" onClick={() => handleDelete(v.video_id)}>
+                        <Delete fontSize="small" />
+                      </IconButton>
                     </Box>
                   </TableCell>
                 </TableRow>
@@ -287,124 +335,180 @@ export default function MyVideosPage() {
             </TableBody>
           </Table>
         </TableContainer>
+
         {total > LIMIT && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
-            <Pagination count={Math.ceil(total / LIMIT)} page={page} onChange={(_, p) => setPage(p)} />
+          <Box sx={{ p: 4, display: 'flex', justifyContent: 'center', borderTop: '1px solid', borderColor: 'divider' }}>
+            <Pagination 
+              count={Math.ceil(total / LIMIT)} 
+              page={page} 
+              onChange={(_, p) => setPage(p)} 
+              variant="outlined" 
+              shape="rounded"
+              color="primary"
+            />
           </Box>
         )}
       </Card>
 
-      {/* Create/Edit Dialog */}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>{editVideo ? 'Edit video' : 'Upload new series'}</DialogTitle>
+      {/* Edit Component Properties Dialog */}
+      <Dialog 
+        open={dialogOpen} 
+        onClose={() => setDialogOpen(false)} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '24px', p: 1 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, fontSize: '1.5rem' }}>
+          {editVideo ? 'Edit Series Details' : 'Initialize New Series'}
+        </DialogTitle>
         <Box component="form" onSubmit={handleSubmit(onSubmit)}>
-          <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <TextField label="Title *" fullWidth {...register('title')} error={!!errors.title} helperText={errors.title?.message} />
-            <TextField label="Description *" fullWidth multiline rows={3} {...register('description')} error={!!errors.description} helperText={errors.description?.message} />
-            <Box sx={{ border: '1px dashed', borderRadius: 1, p: 2, display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center', borderColor: errors.thumbnail_url ? 'error.main' : 'divider' }}>
-              {preview ? (
-                <Box sx={{ position: 'relative', width: '100%', maxWidth: 300 }}>
-                  <img src={preview} alt="Preview" style={{ width: '100%', height: 'auto', borderRadius: 8, objectFit: 'cover' }} />
-                  <IconButton
-                    size="small"
-                    sx={{ position: 'absolute', top: 8, right: 8, bgcolor: 'background.paper', '&:hover': { bgcolor: 'grey.200' } }}
-                    onClick={() => { setPreview(null); setFile(null); setProgress(0); setValue('thumbnail_url', ''); }}
-                  >
-                    <Cancel fontSize="small" />
-                  </IconButton>
+          <DialogContent>
+            <Grid container spacing={4}>
+              <Grid item xs={12} md={5}>
+                <Box sx={{ 
+                  border: '2px dashed', 
+                  borderRadius: '16px', 
+                  p: 2, 
+                  textAlign: 'center', 
+                  borderColor: errors.thumbnail_url ? 'error.main' : 'divider',
+                  bgcolor: 'action.hover',
+                  minHeight: 240,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  position: 'relative'
+                }}>
+                  {preview ? (
+                    <Box sx={{ position: 'relative', width: '100%' }}>
+                      <img src={preview} alt="Preview" style={{ width: '100%', height: 'auto', borderRadius: '12px', objectFit: 'cover' }} />
+                      <IconButton
+                        size="small"
+                        sx={{ position: 'absolute', top: 8, right: 8, bgcolor: 'background.paper', boxShadow: 1 }}
+                        onClick={() => { setPreview(null); setFile(null); setProgress(0); setValue('thumbnail_url', ''); }}
+                      >
+                        <Cancel fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  ) : (
+                    <Stack spacing={1} alignItems="center">
+                      <FolderOutlined sx={{ fontSize: 40, color: 'text.disabled' }} />
+                      <Typography variant="body2" color="text.secondary">No thumbnail uploaded</Typography>
+                    </Stack>
+                  )}
                 </Box>
-              ) : (
-                <Typography color="text.secondary">No thumbnail selected</Typography>
-              )}
-              
-              <Box sx={{ display: 'flex', gap: 2, width: '100%' }}>
-                <Button variant="outlined" component="label" fullWidth disabled={progress > 0 && progress < 100}>
-                  {progress > 0 && progress < 100 ? 'Uploading...' : progress === 100 ? 'Change Photo (Uploaded!)' : 'Select & Upload Photo'}
+                <Button 
+                  variant="outlined" 
+                  component="label" 
+                  fullWidth 
+                  sx={{ mt: 2, borderRadius: '10px' }}
+                  disabled={progress > 0 && progress < 100}
+                >
+                  {progress > 0 && progress < 100 ? `Uploading... ${progress}%` : 'Replace Thumbnail'}
                   <input type="file" hidden accept="image/*" onChange={handleChange} />
                 </Button>
-              </Box>
-              {progress > 0 && progress < 100 && <LinearProgress variant="determinate" value={progress} sx={{ width: '100%' }} />}
-            </Box>
-            <input type="hidden" {...register('thumbnail_url')} />
-            {errors.thumbnail_url && (
-              <Typography color="error" variant="caption" sx={{ ml: 1, mt: -2 }}>
-                {errors.thumbnail_url.message}
-              </Typography>
-            )}
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <TextField label="Price (USD)" type="number" inputProps={{ step: '0.01', min: '0' }} {...register('price')} error={!!errors.price} helperText={errors.price?.message} sx={{ flex: 1 }} />
-              <Controller
-                name="is_free"
-                control={control}
-                render={({ field }) => (
-                  <FormControl sx={{ flex: 1 }}>
-                    <InputLabel>Access</InputLabel>
-                    <Select label="Access" value={field.value ? 'free' : 'paid'} onChange={e => field.onChange(e.target.value === 'free')}>
-                      <MenuItem value="paid">Paid</MenuItem>
-                      <MenuItem value="free">Free</MenuItem>
-                    </Select>
-                  </FormControl>
-                )}
-              />
-            </Box>
-            <Controller
-              name="category_ids"
-              control={control}
-              render={({ field }) => (
-                <FormControl fullWidth>
-                  <InputLabel>Categories</InputLabel>
-                  <Select label="Categories" multiple value={field.value || []} onChange={e => field.onChange(e.target.value)}
-                    renderValue={(sel) => (
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                        {(sel as number[] || []).map(id => <Chip key={id} label={categories.find(c => c.category_id === id)?.name} size="small" />)}
-                      </Box>
-                    )}>
-                    {(categories || []).map(c => <MenuItem key={c.category_id} value={c.category_id}>{c.name}</MenuItem>)}
-                  </Select>
-                </FormControl>
-              )}
-            />
-            <Controller
-              name="tag_ids"
-              control={control}
-              render={({ field }) => (
-                <FormControl fullWidth>
-                  <InputLabel>Tags</InputLabel>
-                  <Select label="Tags" multiple value={field.value || []} onChange={e => field.onChange(e.target.value)}
-                    renderValue={(sel) => (
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                        {(sel as number[] || []).map(id => <Chip key={id} label={tags.find(t => t.tag_id === id)?.name} size="small" />)}
-                      </Box>
-                    )}>
-                    {(tags || []).map(t => <MenuItem key={t.tag_id} value={t.tag_id}>{t.name}</MenuItem>)}
-                  </Select>
-                </FormControl>
-              )}
-            />
+                {progress > 0 && progress < 100 && <LinearProgress variant="determinate" value={progress} sx={{ mt: 1, borderRadius: 1 }} />}
+              </Grid>
+
+              <Grid item xs={12} md={7}>
+                <Stack spacing={3}>
+                  <TextField label="Series Title" fullWidth {...register('title')} error={!!errors.title} helperText={errors.title?.message} />
+                  <TextField label="Description" fullWidth multiline rows={4} {...register('description')} error={!!errors.description} helperText={errors.description?.message} />
+                  
+                  <Stack direction="row" spacing={2}>
+                    <TextField label="Price (USD)" type="number" {...register('price')} sx={{ flex: 1 }} />
+                    <Controller
+                      name="is_free"
+                      control={control}
+                      render={({ field }) => (
+                        <FormControl sx={{ flex: 1 }}>
+                          <InputLabel>Access Model</InputLabel>
+                          <Select label="Access Model" value={field.value ? 'free' : 'paid'} onChange={e => field.onChange(e.target.value === 'free')}>
+                            <MenuItem value="paid">Premium (Paid)</MenuItem>
+                            <MenuItem value="free">Standard (Free)</MenuItem>
+                          </Select>
+                        </FormControl>
+                      )}
+                    />
+                  </Stack>
+                </Stack>
+              </Grid>
+
+              <Grid item xs={12}>
+                <Divider sx={{ mb: 3 }} />
+                <Stack direction="row" spacing={3}>
+                  <Controller
+                    name="category_ids"
+                    control={control}
+                    render={({ field }) => (
+                      <FormControl fullWidth>
+                        <InputLabel>Categories</InputLabel>
+                        <Select label="Categories" multiple value={field.value || []} onChange={e => field.onChange(e.target.value)}
+                          renderValue={(sel) => (
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                              {(sel as number[] || []).map(id => <Chip key={id} label={categories.find(c => c.category_id === id)?.name} size="small" />)}
+                            </Box>
+                          )}>
+                          {(categories || []).map(c => <MenuItem key={c.category_id} value={c.category_id}>{c.name}</MenuItem>)}
+                        </Select>
+                      </FormControl>
+                    )}
+                  />
+                  <Controller
+                    name="tag_ids"
+                    control={control}
+                    render={({ field }) => (
+                      <FormControl fullWidth>
+                        <InputLabel>Tags</InputLabel>
+                        <Select label="Tags" multiple value={field.value || []} onChange={e => field.onChange(e.target.value)}
+                          renderValue={(sel) => (
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                              {(sel as number[] || []).map(id => <Chip key={id} label={tags.find(t => t.tag_id === id)?.name} size="small" />)}
+                            </Box>
+                          )}>
+                          {(tags || []).map(t => <MenuItem key={t.tag_id} value={t.tag_id}>{t.name}</MenuItem>)}
+                        </Select>
+                      </FormControl>
+                    )}
+                  />
+                </Stack>
+              </Grid>
+            </Grid>
           </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button type="submit" variant="contained">{editVideo ? 'Save changes' : 'Create series'}</Button>
+          <DialogActions sx={{ px: 4, pb: 4, gap: 1 }}>
+            <Button onClick={() => setDialogOpen(false)} sx={{ fontWeight: 700 }}>Discard</Button>
+            <Button type="submit" variant="contained" sx={{ px: 4, py: 1, borderRadius: '10px', fontWeight: 800 }}>
+              Update Changes
+            </Button>
           </DialogActions>
         </Box>
       </Dialog>
 
-      {/* Reject Dialog */}
-      <Dialog open={rejectDialog.open} onClose={() => setRejectDialog({ open: false, videoId: null })} maxWidth="sm" fullWidth>
-        <DialogTitle>Reject video</DialogTitle>
+      {/* Reject Intent Dialog */}
+      <Dialog 
+        open={rejectDialog.open} 
+        onClose={() => setRejectDialog({ open: false, videoId: null })} 
+        maxWidth="xs" 
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '24px' } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800 }}>Reject Submission</DialogTitle>
         <DialogContent>
+          <Typography variant="body2" color="text.secondary" mb={2}>
+            Please provide a detailed reason for rejecting this video series. This will be sent to the creator.
+          </Typography>
           <TextField
-            label="Reason for rejection *"
+            label="Rejection Feedback"
             fullWidth
-            multiline rows={3}
+            multiline rows={4}
             value={rejectReason}
             onChange={e => setRejectReason(e.target.value)}
-            sx={{ mt: 1 }}
           />
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ p: 3 }}>
           <Button onClick={() => setRejectDialog({ open: false, videoId: null })}>Cancel</Button>
-          <Button variant="contained" color="error" onClick={handleReject} disabled={!rejectReason.trim()}>Reject video</Button>
+          <Button variant="contained" color="error" onClick={handleReject} disabled={!rejectReason.trim()} sx={{ borderRadius: '10px', px: 3 }}>
+            Confirm Rejection
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>
