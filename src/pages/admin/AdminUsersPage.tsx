@@ -20,7 +20,8 @@ const ROLE_CONFIG: Record<Role, { color: 'error' | 'secondary' | 'primary' | 'de
 const STATUS_CONFIG: Record<UserStatus, { color: 'success' | 'warning' | 'error', label: string }> = { 
   active:    { color: 'success', label: 'Active' }, 
   suspended: { color: 'warning', label: 'Suspended' }, 
-  banned:    { color: 'error',   label: 'Banned' } 
+  banned:    { color: 'error',   label: 'Banned' },
+  deleted:   { color: 'error',   label: 'Deleted' }
 }
 
 export default function AdminUsersPage() {
@@ -125,7 +126,7 @@ export default function AdminUsersPage() {
             sx={{ borderRadius: '12px' }}
             startAdornment={<FilterList fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />}
           >
-            <MenuItem value="">All Statuses</MenuItem>
+            <MenuItem value="">All Roles</MenuItem>
             <MenuItem value="viewer">Standard Member</MenuItem>
             <MenuItem value="creator">Content Creator</MenuItem>
             <MenuItem value="admin">System Admin</MenuItem>
@@ -142,6 +143,7 @@ export default function AdminUsersPage() {
             <MenuItem value="active">Active Accounts</MenuItem>
             <MenuItem value="suspended">Suspended Only</MenuItem>
             <MenuItem value="banned">Banned Users</MenuItem>
+            <MenuItem value="deleted">Deleted Users</MenuItem>
           </Select>
         </FormControl>
       </Paper>
@@ -181,17 +183,17 @@ export default function AdminUsersPage() {
                   <TableCell><Typography variant="body2" color="text.secondary" fontWeight={500}>{u.email}</Typography></TableCell>
                   <TableCell>
                     <Chip 
-                      label={ROLE_CONFIG[u.role].label} 
+                      label={ROLE_CONFIG[u.role]?.label || u.role || 'Unknown'} 
                       size="small" 
-                      color={ROLE_CONFIG[u.role].color} 
+                      color={ROLE_CONFIG[u.role]?.color || 'default'} 
                       sx={{ fontWeight: 700, borderRadius: '8px', border: 'none' }} 
                     />
                   </TableCell>
                   <TableCell>
                     <Chip 
-                      label={STATUS_CONFIG[u.status].label} 
+                      label={STATUS_CONFIG[u.status]?.label || u.status || 'Unknown'} 
                       size="small" 
-                      color={STATUS_CONFIG[u.status].color} 
+                      color={STATUS_CONFIG[u.status]?.color || 'default'} 
                       sx={{ fontWeight: 700, borderRadius: '8px' }} 
                     />
                   </TableCell>
@@ -201,7 +203,17 @@ export default function AdminUsersPage() {
                     </Typography>
                   </TableCell>
                   <TableCell align="right">
-                    <IconButton size="small" onClick={(e) => openMenu(e, u)} sx={{ bgcolor: 'action.hover' }}><MoreVert fontSize="small" /></IconButton>
+                    <IconButton 
+                      size="small" 
+                      onClick={(e) => openMenu(e, u)} 
+                      sx={{ bgcolor: 'action.hover' }}
+                      id={`user-menu-button-${u.user_id}`}
+                      aria-haspopup="true"
+                      aria-expanded={Boolean(anchorEl && activeUser?.user_id === u.user_id)}
+                      aria-controls={Boolean(anchorEl && activeUser?.user_id === u.user_id) ? `user-menu-${u.user_id}` : undefined}
+                    >
+                      <MoreVert fontSize="small" />
+                    </IconButton>
                   </TableCell>
                 </TableRow>
               ))}
@@ -227,6 +239,10 @@ export default function AdminUsersPage() {
         anchorEl={anchorEl} 
         open={Boolean(anchorEl)} 
         onClose={() => setAnchorEl(null)}
+        id={activeUser ? `user-menu-${activeUser.user_id}` : undefined}
+        MenuListProps={{
+          'aria-labelledby': activeUser ? `user-menu-button-${activeUser.user_id}` : undefined,
+        }}
         PaperProps={{
            elevation: 0,
            sx: { 

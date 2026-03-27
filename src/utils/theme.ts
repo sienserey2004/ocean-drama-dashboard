@@ -1,4 +1,6 @@
 import { createTheme } from '@mui/material/styles'
+// If Vite continues to have issues with named exports, this is sometimes the fallback:
+// import createTheme from '@mui/material/styles/createTheme';
 
 const sharedTypography = {
   fontFamily: "'Inter', system-ui, sans-serif",

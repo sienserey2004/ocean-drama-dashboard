@@ -135,9 +135,9 @@ export default function AdminReportsPage() {
                   </TableCell>
                   <TableCell>
                     <Chip 
-                      label={STATUS_CONFIG[r.status].label} 
+                      label={STATUS_CONFIG[r.status]?.label || r.status} 
                       size="small" 
-                      color={STATUS_CONFIG[r.status].color} 
+                      color={STATUS_CONFIG[r.status]?.color || 'default'} 
                       sx={{ fontWeight: 800, borderRadius: '8px', border: 'none' }} 
                     />
                   </TableCell>

@@ -1,7 +1,8 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { RouterProvider } from 'react-router-dom'
-import { ThemeProvider, CssBaseline } from '@mui/material'
+import ThemeProvider from '@mui/material/styles/ThemeProvider'
+import CssBaseline from '@mui/material/CssBaseline'
 import { Toaster } from 'react-hot-toast'
 import { router } from '@/router'
 import { lightTheme, darkTheme } from '@/utils/theme'
@@ -15,7 +16,7 @@ function AppRoot() {
   return (
     <ThemeProvider theme={activeTheme}>
       <CssBaseline />
-      <RouterProvider router={router} />
+      <RouterProvider router={router} future={{ v7_startTransition: true }} />
       <Toaster
         position="top-right"
         toastOptions={{

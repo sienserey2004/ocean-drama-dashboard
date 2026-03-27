@@ -364,7 +364,11 @@ export default function DashboardLayout() {
               </IconButton>
               
               <Box sx={{ position: 'relative', ml: 1 }}>
-                 <IconButton 
+                  <IconButton 
+                    id="profile-menu-button"
+                    aria-controls={Boolean(anchorEl) ? 'profile-menu' : undefined}
+                    aria-haspopup="true"
+                    aria-expanded={Boolean(anchorEl) ? 'true' : undefined}
                     onClick={(e) => setAnchorEl(e.currentTarget)} 
                     sx={{ 
                        p: 0, 
@@ -389,9 +393,13 @@ export default function DashboardLayout() {
             </Stack>
 
             <Menu 
+              id="profile-menu"
               anchorEl={anchorEl} 
               open={Boolean(anchorEl)} 
               onClose={() => setAnchorEl(null)}
+              MenuListProps={{
+                'aria-labelledby': 'profile-menu-button',
+              }}
               PaperProps={{
                 elevation: 0,
                 sx: {

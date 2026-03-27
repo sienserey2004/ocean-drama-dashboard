@@ -1,7 +1,8 @@
 import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { lazy, Suspense } from 'react'
-import { CircularProgress, Box } from '@mui/material'
+import CircularProgress from '@mui/material/CircularProgress'
+import Box from '@mui/material/Box'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 
 // Lazy pages
@@ -24,6 +25,12 @@ const AdminCategoriesPage = lazy(() => import('@/pages/admin/AdminCategoriesPage
 const AdminRevenuePage  = lazy(() => import('@/pages/admin/AdminRevenuePage'))
 const AdminNotifPage    = lazy(() => import('@/pages/admin/AdminNotifPage'))
 const AdminDashboard    = lazy(() => import('@/pages/admin/AdminDashboard'))
+
+
+const TikTokLanding     = lazy(() => import('@/pages/client/TikTokLanding'))
+
+const ViewerLayout      = lazy(() => import('@/components/layout/ViewerLayout'))
+const ClientProfilePage = lazy(() => import('@/pages/client/ClientProfilePage'))
 
 const Loader = () => (
   <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
@@ -61,6 +68,35 @@ function DashboardHome() {
   return <Navigate to="/dashboard/analytics" replace />
 }
 
+/**
+ * Guard for /viewer route
+ * Only role === 'viewer' can access
+ */
+function ViewerGuard() {
+  const { role } = useAuthStore()
+  if (role !== "viewer") return <Navigate to="/" replace />
+  return (
+    <Suspense fallback={<Loader />}>
+      <Outlet />
+    </Suspense>
+  )
+}
+
+/**
+ * Layout for the root / path
+ * Shows ViewerLayout (sidebar/tabbar) + Redirect if needed
+ */
+function RootHomeLayout() {
+  const { role } = useAuthStore()
+  if (role === "viewer") return <Navigate to="/viewer" replace />
+  
+  return (
+    <Suspense fallback={<Loader />}>
+      <Outlet />
+    </Suspense>
+  )
+}
+  
 // ─── Router ──────────────────────────────────────────────────────────────────
 
 export const router = createBrowserRouter([
@@ -82,7 +118,49 @@ export const router = createBrowserRouter([
   },
   {
     path: '/',
-    element: <Navigate to="/dashboard" replace />,
+    element: <RootHomeLayout />,
+    children: [
+      {
+        element: (
+          <Suspense fallback={<Loader />}>
+            <ViewerLayout />
+          </Suspense>
+        ),
+        children: [
+          {
+            index: true,
+            element: <TikTokLanding />
+          },
+          {
+            path: 'profile',
+            element: <ClientProfilePage />
+          }
+        ]
+      }
+    ]
+  },
+  {
+    path: '/viewer',
+    element: <ViewerGuard />,
+    children: [
+      {
+        element: (
+          <Suspense fallback={<Loader />}>
+            <ViewerLayout />
+          </Suspense>
+        ),
+        children: [
+          {
+            index: true,
+            element: <TikTokLanding />
+          },
+          {
+            path: 'profile',
+            element: <ClientProfilePage />
+          }
+        ]
+      }
+    ]
   },
   {
     path: '/dashboard',

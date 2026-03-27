@@ -2,7 +2,7 @@ import React from 'react';
 import { Box, Typography, Link, Stack, IconButton, Tooltip } from '@mui/material';
 import { ArrowBack } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import CreateVideoForm from '@/components/CreateVideoForm';
+import CreateVideoForm from '@/components/admin/CreateVideoForm';
 
 export default function CreateVideoPage() {
   const navigate = useNavigate();

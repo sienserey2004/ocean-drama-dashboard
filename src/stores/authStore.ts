@@ -57,6 +57,10 @@ export const useAuthStore = create<AuthState>()(
             device_name: navigator.userAgent.slice(0, 80),
             ip_address: '0.0.0.0',
           })
+          if (res.user.status === 'deleted') {
+            set({ isLoading: false })
+            throw new Error('Your account has been deleted. Please contact the administrator.')
+          }
           localStorage.setItem('access_token', res.access_token)
           localStorage.setItem('refresh_token', res.refresh_token)
           set({
@@ -103,6 +107,10 @@ export const useAuthStore = create<AuthState>()(
           
           const res = await authApi.loginGoogle(idToken)
           
+          if (res.user.status === 'deleted') {
+            set({ isLoading: false })
+            throw new Error('Your account has been deleted. Please contact the administrator.')
+          }
           localStorage.setItem('access_token', res.access_token)
           localStorage.setItem('refresh_token', res.refresh_token)
           set({
@@ -134,6 +142,10 @@ export const useAuthStore = create<AuthState>()(
         try {
           const user = await userApi.getMe()
           if (!user) {
+            get().clearAuth()
+            return
+          }
+          if (user.status === 'deleted') {
             get().clearAuth()
             return
           }

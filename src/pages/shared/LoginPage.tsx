@@ -33,9 +33,15 @@ export default function LoginPage() {
     try {
       await login(data.email, data.password)
       toast.success('Welcome back!')
-      navigate('/dashboard')
+      
+      const role = useAuthStore.getState().role
+      if (role === 'viewer') {
+        navigate('/viewer')
+      } else {
+        navigate('/dashboard')
+      }
     } catch (e: any) {
-      setError(e?.response?.data?.message || 'Invalid credentials')
+      setError(e?.response?.data?.message || e?.message || 'Invalid credentials')
     }
   }
 
@@ -44,7 +50,13 @@ export default function LoginPage() {
     try {
       await loginWithGoogle()
       toast.success('Welcome back!')
-      navigate('/dashboard')
+      
+      const role = useAuthStore.getState().role
+      if (role === 'viewer') {
+        navigate('/viewer')
+      } else {
+        navigate('/dashboard')
+      }
     } catch (e: any) {
       setError(e?.message || 'Google sign-in failed')
     }

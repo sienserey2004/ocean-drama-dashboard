@@ -1,7 +1,7 @@
 // ─── Enums ───────────────────────────────────────────────────────────────────
 
 export type Role = 'viewer' | 'creator' | 'admin'
-export type UserStatus = 'active' | 'suspended' | 'banned'
+export type UserStatus = 'active' | 'suspended' | 'banned' | 'deleted'
 export type VideoStatus = 'pending' | 'published' | 'rejected'
 export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded'
 export type ReportStatus = 'pending' | 'reviewed' | 'dismissed'

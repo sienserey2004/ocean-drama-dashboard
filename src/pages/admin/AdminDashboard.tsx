@@ -8,9 +8,9 @@ import {
   People, Slideshow, ShoppingCart, AttachMoney, Refresh,
   TrendingDown, TrendingUp, FilterList
 } from '@mui/icons-material';
-import OverviewCard from '@/components/OverviewCard';
-import RevenueChart from '@/components/RevenueChart';
-import TopVideosTable from '@/components/TopVideosTable';
+import OverviewCard from '@/components/admin/OverviewCard';
+import RevenueChart from '@/components/admin/RevenueChart';
+import TopVideosTable from '@/components/admin/TopVideosTable';
 import { adminAnalyticsApi } from '@/api/adminAnalytics.service';
 import { PlatformOverview, PlatformRevenueTrend, PlatformTopVideo } from '@/types';
 import toast from 'react-hot-toast';
