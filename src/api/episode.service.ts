@@ -17,11 +17,21 @@ export const episodeApi = {
   checkAccess: (episode_id: number) =>
     api.get<{ has_access: boolean; reason: string }>(`/episodes/${episode_id}/access`).then(r => r.data),
 
-  create: (video_id: number, data: CreateEpisodePayload) =>
-    api.post<{ episode_id: number }>(`/videos/${video_id}/episodes`, data).then(r => r.data),
+  create: (video_id: number, formData: FormData, onProgress?: (pct: number) => void) =>
+    api.post<{ episode_id: number }>(`/videos/${video_id}/episodes`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress: (ev) => {
+        if (onProgress && ev.total) onProgress(Math.round((ev.loaded * 100) / ev.total))
+      },
+    }).then(r => r.data),
 
-  update: (episode_id: number, data: Partial<CreateEpisodePayload>) =>
-    api.put(`/episodes/${episode_id}`, data).then(r => r.data),
+  update: (episode_id: number, formData: FormData, onProgress?: (pct: number) => void) =>
+    api.put(`/episodes/${episode_id}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress: (ev) => {
+        if (onProgress && ev.total) onProgress(Math.round((ev.loaded * 100) / ev.total))
+      },
+    }).then(r => r.data),
 
   delete: (episode_id: number) =>
     api.delete(`/episodes/${episode_id}`).then(r => r.data),

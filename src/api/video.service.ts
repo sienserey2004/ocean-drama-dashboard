@@ -3,6 +3,30 @@
 import { PaginatedResponse, Video, CreateVideoPayload, UpdateVideoPayload, PaginationParams } from "@/types";
 import api from "./client";
 
+export interface FeedPreviewItem {
+  episodeId: number;
+  previewVideoUrl: string;
+  video: {
+    videoId: number;
+    title: string;
+    thumbnailUrl: string;
+    is_free: boolean;
+    price: number;
+    creator: {
+      name: string;
+    };
+  };
+}
+
+export interface FeedPreviewResponse {
+  data: FeedPreviewItem[];
+  pagination: {
+    limit: number;
+    offset: number;
+    total: number;
+  };
+}
+
 export const videoApi = {
   list: (params?: { page?: number; limit?: number; category?: string; sort?: string; tag?: string; creator_id?: number }) =>
     api.get<PaginatedResponse<Video>>('/videos', { params }).then(r => r.data),
@@ -35,8 +59,13 @@ export const videoApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     }).then(r => r.data),
 
-  update: (video_id: number, data: UpdateVideoPayload) =>
-    api.put(`/videos/${video_id}`, data).then(r => r.data),
+  update: (video_id: number, formData: FormData, onProgress?: (pct: number) => void) =>
+    api.put(`/videos/${video_id}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress: (ev) => {
+        if (onProgress && ev.total) onProgress(Math.round((ev.loaded * 100) / ev.total))
+      },
+    }).then(r => r.data),
 
   delete: (video_id: number) =>
     api.delete(`/videos/${video_id}`).then(r => r.data),
@@ -76,4 +105,7 @@ export const videoApi = {
 
   removeFavorite: (video_id: number) =>
     api.delete(`/videos/${video_id}/favorite`).then(r => r.data),
+
+  feedPreview: (params?: { limit?: number; offset?: number }) =>
+    api.get<FeedPreviewResponse>('/feed/preview', { params }).then(r => r.data),
 }

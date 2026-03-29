@@ -81,7 +81,8 @@ export interface VideoRess {
   status: "published" | "pending";
   creator: string;
   episodes_count: number;
-  total_price: number;
+  price: number;
+  thumbnail_url?: string;
 }
 
 export interface VideoRes {
@@ -142,18 +143,16 @@ export interface Episode {
   preview_video_url: string
   full_video_url?: string
   duration: number
-  is_preview_free: boolean
-  has_access?: boolean
+  has_access: boolean
   created_at: string
 }
 
 export interface CreateEpisodePayload {
   episode_number: number
   title: string
-  preview_video_url: string
-  full_video_url: string
   duration: number
-  is_preview_free: boolean
+  price?: number
+  is_free?: boolean
 }
 
 // ─── Category & Tag ──────────────────────────────────────────────────────────

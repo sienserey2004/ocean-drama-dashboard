@@ -34,6 +34,7 @@ function StatCard({ icon, label, value, sub, color = 'primary.main' }: {
 export default function EarningsPage() {
   const [summary, setSummary] = useState<EarningsSummary | null>(null)
   const [breakdown, setBreakdown] = useState<CreatorEarning[]>([])
+  const [totalSales, setTotalSales] = useState(0)
   const [loading, setLoading] = useState(true)
   const [from, setFrom] = useState('2025-01-01')
   const [to, setTo] = useState(new Date().toISOString().split('T')[0])
@@ -45,8 +46,10 @@ export default function EarningsPage() {
         paymentApi.getEarnings({ from, to }),
         paymentApi.getEarningsBreakdown({ limit: 50 }),
       ])
-      setSummary(sum)
-      setBreakdown(brk.data)
+      setSummary((sum as any)?.data || sum || null)
+      console.log("sum", sum)
+      setBreakdown(brk?.data || (Array.isArray(brk) ? brk : []))
+      setTotalSales((brk as any)?.total || 0)
     } catch {}
     setLoading(false)
   }
@@ -106,16 +109,16 @@ export default function EarningsPage() {
       {summary && (
         <Grid container spacing={3} mb={6}>
           <Grid item xs={12} sm={6} md={3}>
-            <StatCard icon={<Wallet />} label="Net Earnings" value={`$${summary.summary.total_net.toFixed(2)}`} sub="Ready for payout" color="#10b981" />
+            <StatCard icon={<Wallet />} label="Net Earnings" value={`$${(summary?.summary?.total_net ?? (summary as any)?.total_net ?? 0).toFixed(2)}`} sub="Ready for payout" color="#10b981" />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <StatCard icon={<TrendingUp />} label="Gross Volume" value={`$${summary.summary.total_gross.toFixed(2)}`} sub="Total sales value" color="#6366f1" />
+            <StatCard icon={<TrendingUp />} label="Gross Volume" value={`$${(summary?.summary?.total_gross ?? (summary as any)?.total_gross ?? 0).toFixed(2)}`} sub="Total sales value" color="#6366f1" />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <StatCard icon={<Percent />} label="Service Fees" value={`$${summary.summary.total_platform_fee.toFixed(2)}`} sub="10% platform share" color="#f59e0b" />
+            <StatCard icon={<Percent />} label="Service Fees" value={`$${(summary?.summary?.total_platform_fee ?? (summary as any)?.total_fee ?? 0).toFixed(2)}`} sub="10% platform share" color="#f59e0b" />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <StatCard icon={<ShoppingCart />} label="Completed Sales" value={String(summary.summary.total_purchases)} sub="Transactions count" color="#8b5cf6" />
+            <StatCard icon={<ShoppingCart />} label="Completed Sales" value={String(totalSales || 0)} sub="Transactions count" color="#8b5cf6" />
           </Grid>
         </Grid>
       )}
@@ -160,16 +163,16 @@ export default function EarningsPage() {
                 <TableRow key={e.earning_id} hover sx={{ '&:last-child td': { border: 0 } }}>
                   <TableCell sx={{ py: 2.5 }}>
                     <Typography variant="subtitle2" fontWeight={800}>{e.video_title || `Collection ID #${e.video_id}`}</Typography>
-                    <Typography variant="caption" component="code" sx={{ color: 'text.disabled', bgcolor: 'action.selected', px: 0.5, borderRadius: '4px' }}>TRX-{e.video_purchase_id}</Typography>
+                    <Typography variant="caption" component="code" sx={{ color: 'text.disabled', bgcolor: 'action.selected', px: 0.5, borderRadius: '4px' }}>TRX-{e.earning_id}</Typography>
                   </TableCell>
                   <TableCell align="right">
-                     <Typography variant="body2" fontWeight={600}>${Number(e.gross_amount).toFixed(2)}</Typography>
+                     <Typography variant="body2" fontWeight={600}>${Number((e as any).gross ?? e.gross_amount ?? 0).toFixed(2)}</Typography>
                   </TableCell>
                   <TableCell align="right">
-                    <Typography variant="body2" color="error.main" fontWeight={600}>-${Number(e.platform_fee).toFixed(2)}</Typography>
+                    <Typography variant="body2" color="error.main" fontWeight={600}>-${Number((e as any).fee ?? e.platform_fee ?? 0).toFixed(2)}</Typography>
                   </TableCell>
                   <TableCell align="right">
-                     <Typography variant="subtitle2" color="success.main" fontWeight={800}>+${Number(e.net_amount).toFixed(2)}</Typography>
+                     <Typography variant="subtitle2" color="success.main" fontWeight={800}>+${Number((e as any).net ?? e.net_amount ?? 0).toFixed(2)}</Typography>
                   </TableCell>
                   <TableCell align="right">
                     <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary' }}>

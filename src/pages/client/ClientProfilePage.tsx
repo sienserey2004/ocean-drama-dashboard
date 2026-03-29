@@ -73,7 +73,7 @@ const ClientProfilePage: React.FC = () => {
 
                 <Button 
                     variant="outlined" 
-                    onClick={() => navigate('/dashboard/profile')}
+                    onClick={() => navigate('/profile')}
                     sx={{ 
                         color: 'white', 
                         borderColor: 'rgba(255,255,255,0.2)', 

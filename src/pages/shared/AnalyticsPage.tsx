@@ -67,11 +67,11 @@ export default function AnalyticsPage() {
             analyticsApi.overview(),
             paymentApi.getEarnings(),
           ])
-          setOverview(ov)
-          setEarnings(earn)
+          setOverview((ov as any)?.data || ov)
+          setEarnings((earn as any)?.data || earn)
         } else {
           const earn = await paymentApi.getEarnings()
-          setEarnings(earn)
+          setEarnings((earn as any)?.data || earn)
         }
       } catch {}
       setLoading(false)
@@ -106,7 +106,7 @@ export default function AnalyticsPage() {
       </Box>
 
       {/* Admin stats */}
-      {isAdmin && overview && (
+      {isAdmin && overview?.users && overview?.content && overview?.revenue && overview?.engagement && (
         <>
           <Grid container spacing={3} mb={6}>
             <Grid item xs={12} sm={6} md={3}>
@@ -204,7 +204,7 @@ export default function AnalyticsPage() {
       )}
 
       {/* Creator View */}
-      {(isCreator || isAdmin) && earnings && (
+      {(isCreator || isAdmin) && earnings?.summary && (
         <Stack spacing={3}>
           <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.secondary', display: 'flex', alignItems: 'center', gap: 1 }}>
              <AttachMoney />
