@@ -1,6 +1,6 @@
 // ─── VIDEOS ───────────────────────────────────────────────────────────────────
 
-import { PaginatedResponse, Video, CreateVideoPayload, UpdateVideoPayload, PaginationParams } from "@/types";
+import { PaginatedResponse, Video, CreateVideoPayload, UpdateVideoPayload, PaginationParams, Episode } from "@/types";
 import api from "./client";
 
 export interface FeedPreviewItem {
@@ -25,6 +25,29 @@ export interface FeedPreviewResponse {
     offset: number;
     total: number;
   };
+}
+
+export interface PurchaseItem {
+  purchaseId: number;
+  userId: number;
+  videoId: number;
+  transactionId: string;
+  amountPaid: string;
+  currency: string;
+  purchaseDate: string;
+  video: Video;
+}
+
+export interface PurchaseResponse {
+  status: string;
+  count: number;
+  data: PurchaseItem[];
+}
+
+export interface EpisodesResponse {
+  status: string;
+  count: number;
+  data: Episode[];
 }
 
 export const videoApi = {
@@ -108,4 +131,10 @@ export const videoApi = {
 
   feedPreview: (params?: { limit?: number; offset?: number }) =>
     api.get<FeedPreviewResponse>('/feed/preview', { params }).then(r => r.data),
+
+  getPurchases: () =>
+    api.get<PurchaseResponse>('/videos/getAllpurchases').then(r => r.data),
+
+  getEpisodesByVideoId: (video_id: number, params?: { page?: number; limit?: number }) =>
+    api.get<EpisodesResponse>(`/episodes/video/${video_id}`, { params }).then(r => r.data),
 }

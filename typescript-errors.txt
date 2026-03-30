@@ -1,0 +1,5 @@
+src/pages/shared/VideoDetailPage.tsx(256,47): error TS2339: Property 'is_preview_free' does not exist on type 'Episode'.
+src/pages/shared/VideoDetailPage.tsx(257,45): error TS2339: Property 'is_preview_free' does not exist on type 'Episode'.
+src/pages/shared/VideoDetailPage.tsx(259,39): error TS2339: Property 'is_preview_free' does not exist on type 'Episode'.
+src/pages/shared/VideoDetailPage.tsx(267,54): error TS2339: Property 'is_preview_free' does not exist on type 'Episode'.
+src/pages/shared/VideoDetailPage.tsx(267,192): error TS2339: Property 'is_preview_free' does not exist on type 'Episode'.

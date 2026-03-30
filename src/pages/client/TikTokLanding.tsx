@@ -32,6 +32,7 @@ const TikTokLanding: React.FC = () => {
                 setError(null);
                 const response = await videoApi.feedPreview({ limit: 20, offset: 0 });
                 setFeedItems(response.data);
+                console.log("feedItems", response.data);
             } catch (err) {
                 console.error('Failed to fetch feed:', err);
                 setError('Failed to load feed. Please try again.');
@@ -153,7 +154,7 @@ const TikTokLanding: React.FC = () => {
                 </Typography>
             </Stack>
 
-            {/* ── Volume Control — top-left ──────────────────────────── */}
+            {/* ── Volume Control — top-left */}
             <Box
                 onClick={(e) => e.stopPropagation()}
                 sx={{
@@ -223,18 +224,20 @@ const TikTokLanding: React.FC = () => {
             </Box>
 
             {/* ── Video Feed ────────────────────────────────────────── */}
+            {/* Video Feed */}
             {feedItems.map((item, index) => (
                 <VideoCard
                     key={item.episodeId}
-                    videoUrl={item.previewVideoUrl}
+                    video={item.video}
+                    videoUrl={item.previewVideoUrl ?? ''}
                     username={item.video.creator?.name ?? 'Unknown'}
-                    description={item.video.title}
+                    description={item.video.title ?? 'No title'}
                     likes="0"
                     comments="0"
                     favorites="0"
                     shares="0"
-                    music={item.video.title}
-                    profilePic={item.video.thumbnailUrl}
+                    music={item.video.title ?? 'Original Sound'}
+                    profilePic={item.video.thumbnailUrl ?? ''}
                     active={index === activeIndex}
                     muted={muted}
                     volume={volume}

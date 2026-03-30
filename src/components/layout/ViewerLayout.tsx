@@ -10,6 +10,9 @@ import PersonIcon from '@mui/icons-material/Person'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import Avatar from '@mui/material/Avatar'
+import TvIcon from '@mui/icons-material/Tv';
+import MovieIcon from '@mui/icons-material/Movie';
+import VideoLibraryIcon from '@mui/icons-material/VideoLibrary';
 
 const ViewerLayout: React.FC = () => {
     const navigate = useNavigate();
@@ -71,6 +74,17 @@ const ViewerLayout: React.FC = () => {
                     direction="row" 
                     alignItems="center" 
                     spacing={2} 
+                    sx={{ p: 1.5, bgcolor: location.pathname.includes('/series') ? 'rgba(255,255,255,0.1)' : 'transparent', borderRadius: 2, cursor: 'pointer', opacity: location.pathname.includes('/series') ? 1 : 0.6, '&:hover': { opacity: 1 } }}
+                    onClick={() => navigate('series')}
+                >
+                    <VideoLibraryIcon />
+                    <Typography fontWeight="bold">Series</Typography>
+                </Stack>
+
+                <Stack 
+                    direction="row" 
+                    alignItems="center" 
+                    spacing={2} 
                     sx={{ p: 1.5, opacity: 1, cursor: 'pointer', mt: 'auto', borderTop: '1px solid rgba(255,255,255,0.1)' }}
                     onClick={() => navigate(isAuthenticated ? 'profile' : '/login')}
                 >
@@ -115,7 +129,7 @@ const ViewerLayout: React.FC = () => {
             }}>
                 <HomeIcon sx={{ color: 'white', cursor: 'pointer' }} onClick={() => navigate('/viewer')} />
                 <SearchIcon sx={{ color: 'rgba(255,255,255,0.6)', cursor: 'pointer' }} />
-                <AddBoxIcon sx={{ color: 'white', fontSize: 40, cursor: 'pointer' }} />
+                <VideoLibraryIcon sx={{ color: location.pathname.includes('/series') ? '#FE2C55' : 'white', cursor: 'pointer' }} onClick={() => navigate('series')} /> 
                 <MessageIcon sx={{ color: 'rgba(255,255,255,0.6)', cursor: 'pointer' }} />
                 <Avatar 
                     src={user?.profile_image || ''} 

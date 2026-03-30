@@ -4,11 +4,11 @@ import { Payment, PaginationParams, PaginatedResponse, EarningsSummary, CreatorE
 import api from "./client";
 
 export const paymentApi = {
-  initiate: (data: { amount: number; currency: string; payment_method: string; video_id: number }) =>
-    api.post<{ payment_id: number; transaction_id: string; qr_code_base64: string; expires_at: string }>('/payments/initiate', data).then(r => r.data),
+  initiate: (data: { amount: number; currency?: string; video_id: number }) =>
+    api.post<{ payment_id: string; transaction_id: string; qr_code: string; qr_string?: string; expires_at: string; status: string }>('/payment/initiate', data).then(r => r.data),
 
   verify: (transaction_id: string) =>
-    api.post<Payment>('/payments/verify', { transaction_id }).then(r => r.data),
+    api.post<{ payment_id: string; status: string; amount: string; purchase_id: number }>('/payment/verify', { transaction_id }).then(r => r.data),
 
   history: (params?: PaginationParams) =>
     api.get<PaginatedResponse<Payment>>('/payments/history', { params }).then(r => r.data),

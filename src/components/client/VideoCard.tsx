@@ -4,6 +4,8 @@ import Typography from '@mui/material/Typography'
 import IconButton from '@mui/material/IconButton'
 import Stack from '@mui/material/Stack'
 import Avatar from '@mui/material/Avatar'
+import Button from '@mui/material/Button'
+import { useNavigate } from 'react-router-dom'
 import { IconButtonProps } from '@mui/material/IconButton'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import FavoriteIcon from '@mui/icons-material/Favorite'
@@ -15,6 +17,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 
 
 interface VideoCardProps {
+    video: any;
     videoUrl: string;
     username: string;
     description: string;
@@ -51,9 +54,10 @@ const InteractionButton = (props: IconButtonProps) => (
 );
 
 const VideoCard: React.FC<VideoCardProps> = ({ 
-    videoUrl, username, description, likes, comments, favorites, shares, music, profilePic,
+    video, videoUrl, username, description, likes, comments, favorites, shares, music, profilePic,
     active, muted, volume,
 }) => {
+    const navigate = useNavigate();
     const videoRef = useRef<HTMLVideoElement>(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [liked, setLiked] = useState(false);
@@ -133,8 +137,24 @@ const VideoCard: React.FC<VideoCardProps> = ({
                 }} 
             />
 
+            {/* Episode List Button */}
+            <Button
+                variant="contained"
+                onClick={(e) => { e.stopPropagation(); navigate(`episodes/${video.videoId}`, { state: { video } }); }}
+                sx={{
+                    position: 'absolute',
+                    bottom: { xs: 90, md: 20 },
+                    zIndex: 30,
+                    left: 20,
+                    bgcolor: '#FE2C55',
+                    '&:hover': { bgcolor: '#FE2C55' },
+                }}
+            >
+                Buy Full Season
+            </Button>
+
             {/* Content Bottom Info */}
-            <Box sx={{ position: 'absolute', bottom: 70, left: 15, right: 80, zIndex: 10, color: 'white' }}>
+            <Box sx={{ position: 'absolute', bottom: { xs: 140, md: 70 }, left: 15, right: 80, zIndex: 10, color: 'white' }}>
                 <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
                     <Typography variant="h6" fontWeight="900" sx={{ letterSpacing: '0.05em' }}>@{username}</Typography>
                     <CheckCircleIcon sx={{ fontSize: 16, color: '#20D5EC' }} />
@@ -149,7 +169,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
             </Box>
 
             {/* Right Side Buttons */}
-            <Stack spacing={2} alignItems="center" sx={{ position: 'absolute', bottom: 80, right: 12, zIndex: 10 }}>
+            <Stack spacing={2} alignItems="center" sx={{ position: 'absolute', bottom: { xs: 150, md: 80 }, right: 12, zIndex: 10 }}>
                 {/* Profile */}
                 <Box position="relative" sx={{ mb: 2 }}>
                     <Avatar 

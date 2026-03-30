@@ -253,10 +253,10 @@ export default function VideoDetailPage() {
                                <Paper elevation={0} sx={{ 
                                   width: 44, height: 44, borderRadius: '12px', 
                                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                  bgcolor: ep.is_preview_free ? 'success.lighter' : 'background.paper',
-                                  color: ep.is_preview_free ? 'success.main' : 'text.disabled'
+                                  bgcolor: ep.has_access ? 'success.lighter' : 'background.paper',
+                                  color: ep.has_access ? 'success.main' : 'text.disabled'
                                }}>
-                                  {ep.is_preview_free ? <PlayArrow /> : <LockIcon sx={{ fontSize: 18 }} />}
+                                  {ep.has_access ? <PlayArrow /> : <LockIcon sx={{ fontSize: 18 }} />}
                                </Paper>
                             </ListItemAvatar>
                             <ListItemText 
@@ -264,7 +264,7 @@ export default function VideoDetailPage() {
                                secondary={
                                   <Stack direction="row" spacing={1} alignItems="center" mt={0.5}>
                                      <Typography variant="caption" fontWeight={700} color="text.secondary">{fmtDuration(ep.duration)}</Typography>
-                                     <Chip label={ep.is_preview_free ? 'Free' : 'Locked'} size="small" sx={{ height: 16, fontSize: '0.6rem', fontWeight: 900, borderRadius: '4px' }} color={ep.is_preview_free ? 'success' : 'default'} />
+                                     <Chip label={ep.has_access ? 'Free' : 'Locked'} size="small" sx={{ height: 16, fontSize: '0.6rem', fontWeight: 900, borderRadius: '4px' }} color={ep.has_access ? 'success' : 'default'} />
                                   </Stack>
                                }
                             />
