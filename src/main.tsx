@@ -4,9 +4,9 @@ import { RouterProvider } from 'react-router-dom'
 import ThemeProvider from '@mui/material/styles/ThemeProvider'
 import CssBaseline from '@mui/material/CssBaseline'
 import { Toaster } from 'react-hot-toast'
-import { router } from '@/router/index.route'
-import { lightTheme, darkTheme } from '@/utils/theme'
-import { useAppStore } from '@/stores/appStore'
+import { router } from '@/ocean/router/index.route'
+import { lightTheme, darkTheme } from '@/ocean/utils/theme'
+import { useAppStore } from '@/ocean/stores/appStore'
 import './index.css'
 
 function AppRoot() {
