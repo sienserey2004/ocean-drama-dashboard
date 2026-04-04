@@ -1,0 +1,37 @@
+
+> drama-dashboard@1.0.0 build
+> tsc && vite build
+
+src/app/module/shared/episodes/EpisodesPage.tsx(17,34): error TS2307: Cannot find module '@/ocean/components/MultipartUploadPanel' or its corresponding type declarations.
+src/app/module/shared/episodes/EpisodesPage.tsx(18,23): error TS2307: Cannot find module '@/ocean/components/client/HLSPlayer' or its corresponding type declarations.
+src/app/module/shared/episodes/EpisodesPage.tsx(377,40): error TS7006: Parameter 'key' implicitly has an 'any' type.
+src/app/module/shared/episodes/EpisodesPage.tsx(382,37): error TS7006: Parameter 'err' implicitly has an 'any' type.
+src/app/module/shared/episodes/EpisodesPage.tsx(403,40): error TS7006: Parameter 'key' implicitly has an 'any' type.
+src/app/module/shared/episodes/EpisodesPage.tsx(408,37): error TS7006: Parameter 'err' implicitly has an 'any' type.
+src/app/module/shared/my-videos/MyVideosPage.tsx(99,41): error TS2345: Argument of type '(c: Category) => number' is not assignable to parameter of type '(value: { category_id: number; name: string; }, index: number, array: { category_id: number; name: string; }[]) => number'.
+  Types of parameters 'c' and 'value' are incompatible.
+    Property 'created_at' is missing in type '{ category_id: number; name: string; }' but required in type 'Category'.
+src/app/module/shared/my-videos/MyVideosPage.tsx(100,30): error TS2345: Argument of type '(t: Tag) => number' is not assignable to parameter of type '(value: { tag_id: number; name: string; }, index: number, array: { tag_id: number; name: string; }[]) => number'.
+  Types of parameters 't' and 'value' are incompatible.
+    Property 'created_at' is missing in type '{ tag_id: number; name: string; }' but required in type 'Tag'.
+src/app/module/shared/video/CreateVideoPage.tsx(5,29): error TS2307: Cannot find module '@/ocean/components/admin/CreateVideoForm' or its corresponding type declarations.
+src/app/router/auth.route.tsx(6,40): error TS2307: Cannot find module '@/ocean/pages/shared/LoginPage' or its corresponding type declarations.
+src/app/router/auth.route.tsx(7,40): error TS2307: Cannot find module '@/ocean/pages/shared/RegisterPage' or its corresponding type declarations.
+src/app/router/dashboard.route.tsx(4,29): error TS2307: Cannot find module '@/app/layout/DashboardLayout' or its corresponding type declarations.
+src/app/router/dashboard.route.tsx(10,44): error TS2307: Cannot find module '@/ocean/pages/shared/AnalyticsPage' or its corresponding type declarations.
+src/app/router/dashboard.route.tsx(11,44): error TS2307: Cannot find module '@/ocean/pages/shared/BrowseVideosPage' or its corresponding type declarations.
+src/app/router/dashboard.route.tsx(12,44): error TS2307: Cannot find module '@/ocean/pages/shared/VideoDetailPage' or its corresponding type declarations.
+src/app/router/dashboard.route.tsx(13,44): error TS2307: Cannot find module '@/ocean/pages/shared/MyVideosPage' or its corresponding type declarations.
+src/app/router/dashboard.route.tsx(14,44): error TS2307: Cannot find module '@/ocean/pages/shared/EpisodesPage' or its corresponding type declarations.
+src/app/router/dashboard.route.tsx(15,44): error TS2307: Cannot find module '@/ocean/pages/shared/EarningsPage' or its corresponding type declarations.
+src/app/router/dashboard.route.tsx(16,44): error TS2307: Cannot find module '@/ocean/pages/shared/ProfilePage' or its corresponding type declarations.
+src/app/router/dashboard.route.tsx(17,44): error TS2307: Cannot find module '@/ocean/pages/shared/CreateVideoPage' or its corresponding type declarations.
+src/app/router/dashboard.route.tsx(20,47): error TS2307: Cannot find module '@/ocean/pages/admin/AdminUsersPage' or its corresponding type declarations.
+src/app/router/dashboard.route.tsx(21,47): error TS2307: Cannot find module '@/ocean/pages/admin/AdminReviewPage' or its corresponding type declarations.
+src/app/router/dashboard.route.tsx(22,47): error TS2307: Cannot find module '@/ocean/pages/admin/AdminReportsPage' or its corresponding type declarations.
+src/app/router/dashboard.route.tsx(23,47): error TS2307: Cannot find module '@/ocean/pages/admin/AdminCategoriesPage' or its corresponding type declarations.
+src/app/router/dashboard.route.tsx(24,47): error TS2307: Cannot find module '@/ocean/pages/admin/AdminRevenuePage' or its corresponding type declarations.
+src/app/router/dashboard.route.tsx(25,47): error TS2307: Cannot find module '@/ocean/pages/admin/AdminNotifPage' or its corresponding type declarations.
+src/app/router/dashboard.route.tsx(26,47): error TS2307: Cannot find module '@/ocean/pages/admin/AdminDashboard' or its corresponding type declarations.
+src/app/router/index.route.tsx(5,26): error TS2307: Cannot find module '@/ocean/pages/shared/NotFoundPage' or its corresponding type declarations.
+src/app/stores/authStore.ts(4,22): error TS2307: Cannot find module '@/ocean/lib/firebase' or its corresponding type declarations.
