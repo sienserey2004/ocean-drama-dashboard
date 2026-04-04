@@ -31,7 +31,7 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     const path = location.pathname;
     if (path.startsWith("/explore")) return "/explore";
     if (path.startsWith("/library")) return "/library";
-    if (path.startsWith("/profile")) return "/profile";
+    if (path.startsWith("/profile-screen")) return "/profile-screen";
     return "/"; // Home default (covers / and /viewer)
   };
 
@@ -75,27 +75,27 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           py: 0.5,
         }}
       >
-       
 
-        {/* Explore */}
+
+        {/* Home */}
         <BottomNavigationAction
-          value="/explore"
+          value="/"
           icon={<HomeIcon sx={{ fontSize: 22 }} />}
           label="Home"
           sx={{
             color: "#777",
-            "&.Mui-selected": { color: "#FE2C55" },
+            "&.Mui-selected": { color: "#FF2D2D" },
             fontSize: 10,
           }}
         />
- {/* Home */}
+        {/* Explore */}
         <BottomNavigationAction
-          value="/"
+          value="/explore"
           icon={<TravelExploreIcon sx={{ fontSize: 22 }} />}
           label="Explore"
           sx={{
             color: "#777",
-            "&.Mui-selected": { color: "#FE2C55" },
+            "&.Mui-selected": { color: "#FF2D2D" },
             fontSize: 10,
           }}
         />
@@ -106,14 +106,14 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           label="My List"
           sx={{
             color: "#777",
-            "&.Mui-selected": { color: "#FE2C55" },
+            "&.Mui-selected": { color: "#FF2D2D" },
             fontSize: 10,
           }}
         />
 
         {/* Profile (with Avatar) */}
         <BottomNavigationAction
-          value="/profile"
+          value="/profile-screen"
           label="Profile"
           icon={
             <Box>
@@ -124,7 +124,7 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   height: 26,
                   border: "1.5px solid white",
                   bgcolor: isAuthenticated
-                    ? "primary.main"
+                    ? "#FF2D2D"
                     : "rgba(255,255,255,0.3)",
                 }}
               >
@@ -136,7 +136,7 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           }
           sx={{
             color: "#777",
-            "&.Mui-selected": { color: "#FE2C55" },
+            "&.Mui-selected": { color: "#FF2D2D" },
             fontSize: 10,
           }}
         />

@@ -68,7 +68,7 @@ export default function EpisodesPage() {
       setTotalEpisodes(eps.total || eps.data.length || 0)
       setEpisodes(eps.data || [])
       console.log("eps data", eps.data)
-    } catch {}
+    } catch { }
     setLoading(false)
   }, [videoId])
 
@@ -144,7 +144,7 @@ export default function EpisodesPage() {
       await episodeApi.delete(id)
       toast.success('Episode deleted')
       load()
-    } catch {}
+    } catch { }
   }
 
   if (loading) return (
@@ -471,13 +471,13 @@ export default function EpisodesPage() {
             if (!videoPlayerOpen || !currentVideoUrl) return (
               <Typography sx={{ color: 'white' }}>Video not available</Typography>
             );
-            
+
             console.log('📽️ Playing Dashboard Video URL:', currentVideoUrl);
             return (
-              <HLSPlayer 
+              <HLSPlayer
                 key={currentVideoUrl}
-                url={currentVideoUrl} 
-                autoPlay 
+                url={currentVideoUrl}
+                autoPlay
               />
             );
           })()}

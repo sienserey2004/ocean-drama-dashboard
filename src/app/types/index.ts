@@ -331,7 +331,8 @@ export interface PlatformRevenueTrend {
 export interface PlatformTopVideo {
   video_id: number
   title: string
-  views: number
+  thumbnail_url?: string
+  view_count: number
   revenue: number
 }
 

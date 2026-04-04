@@ -33,6 +33,7 @@ const SeriesPlayerPage: React.FC = () => {
     videoId: string;
     episodeId?: string;
   }>();
+  
   const navigate = useNavigate();
   const location = useLocation();
 

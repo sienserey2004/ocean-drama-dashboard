@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -13,9 +15,28 @@ html, body, #root {
 }
 
 body {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Poppins', 'Inter', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: #0B0B0F;
+  color: #FFFFFF;
+}
+
+#root {
+  background-image: radial-gradient(circle at top, rgba(255, 45, 45, 0.15), transparent 70%);
+  background-attachment: fixed;
+}
+
+/* Custom Utilities */
+@layer utilities {
+  .text-glow {
+    text-shadow: 0 0 20px rgba(255, 45, 45, 0.4);
+  }
+  .glass-card {
+    background: rgba(26, 26, 34, 0.6);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(42, 42, 53, 0.5);
+  }
 }
 
 /* Scrollbar */

@@ -54,7 +54,7 @@ const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
       {navItems.map((item) => (
         <Stack
           key={item.label}
-          direction="row"
+          direction="row" 
           alignItems="center"
           spacing={2}
           sx={{

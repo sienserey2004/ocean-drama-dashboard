@@ -46,11 +46,21 @@ const HLSPlayer: React.FC<HLSPlayerProps> = ({
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const lastUrlRef = useRef<string>("");
+
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !url) return;
 
-    console.log("HLSPlayer init", { url, startTime, autoPlay });
+    // Check if source changed to avoid redundant reloads and infinite request loops 
+    // especially during React re-renders or minor state updates.
+    if (lastUrlRef.current === url) {
+      console.log("📽️ Source already set for URL, skipping re-init:", url);
+      return;
+    }
+
+    console.log("HLSPlayer init source:", { url, startTime, autoPlay });
+    lastUrlRef.current = url;
 
     let hls: Hls | null = null;
 
@@ -61,12 +71,8 @@ const HLSPlayer: React.FC<HLSPlayerProps> = ({
 
     video.addEventListener("error", handleVideoError);
 
-    /**
-     * Determine if this is an HLS manifest.
-     * We check for .m3u8 but also allow for blob URLs or cloud URLs that might 
-     * use HLS but don't strictly end in .m3u8 (though rare).
-     */
-    const isHls = url.includes(".m3u8");
+    // Determine HLS vs Native based on file extension or presence of .m3u8
+    const isHls = url.split("?")[0].toLowerCase().endsWith(".m3u8") || url.includes(".m3u8");
 
     if (isHls && Hls.isSupported()) {
       const tokenMatch = url.match(/[?&]token=([^&]+)/);
@@ -75,45 +81,68 @@ const HLSPlayer: React.FC<HLSPlayerProps> = ({
       hls = new Hls({
         xhrSetup: (xhr, _reqUrl) => {
           if (token) {
-            xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+            xhr.setRequestHeader("Authorization", `Bearer ${token}`);
           }
-        }
+        },
       });
       hls.loadSource(url);
       hls.attachMedia(video);
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         console.log("📽️ HLS manifest parsed for URL:", url);
-        if (startTime > 0) video.currentTime = startTime;
-        if (autoPlay)
-          video
-            .play()
-            .catch((err) => console.error("⚠️ Video autoplay failed:", err));
+        if (startTime > 0) {
+          video.currentTime = startTime;
+        }
+        if (autoPlay) {
+          video.play().catch((err) => console.error("⚠️ HLS autoplay failed:", err));
+        }
       });
       hls.on(Hls.Events.ERROR, (_event, data) => {
         console.error("❌ HLS error event:", data);
+        if (data.fatal) {
+          switch (data.type) {
+            case Hls.ErrorTypes.NETWORK_ERROR:
+              console.log("Fatal network error, trying to recover...");
+              hls?.startLoad();
+              break;
+            case Hls.ErrorTypes.MEDIA_ERROR:
+              console.log("Fatal media error, trying to recover...");
+              hls?.recoverMediaError();
+              break;
+            default:
+              hls?.destroy();
+              break;
+          }
+        }
       });
     } else {
       // Direct playback for MP4 or native HLS (Safari)
       console.log("📽️ Direct/Native playback for URL:", url);
-      
+
       const onLoadedMetadata = () => {
         console.log("✅ Video metadata loaded");
-        if (startTime > 0) video.currentTime = startTime;
-        if (autoPlay)
-          video
-            .play()
-            .catch((err) => console.error("⚠️ Video autoplay failed:", err));
+        if (startTime > 0 && Math.abs(video.currentTime - startTime) > 1) {
+          video.currentTime = startTime;
+        }
+        if (autoPlay) {
+          video.play().catch((err) => console.error("⚠️ Video autoplay failed:", err));
+        }
       };
 
       video.addEventListener("loadedmetadata", onLoadedMetadata);
       video.crossOrigin = "anonymous";
+      
+      // Setting src triggers an immediate fetch in most browsers
       video.src = url;
+      // We call load() to ensure the browser strictly re-evaluates the new source
+      // but only if we're actually changing it (which we are if we reached here)
       video.load();
 
       return () => {
         video.removeEventListener("loadedmetadata", onLoadedMetadata);
         video.removeEventListener("error", handleVideoError);
-        if (hls) hls.destroy();
+        if (hls) {
+          hls.destroy();
+        }
       };
     }
 
@@ -124,7 +153,26 @@ const HLSPlayer: React.FC<HLSPlayerProps> = ({
         console.log("HLS destroyed");
       }
     };
-  }, [url, startTime, autoPlay]);
+  }, [url]); // Removed startTime and autoPlay from dependencies to prevent full reload on seeking
+
+  // Separate effect to handle startTime changes without reloading the whole source
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || startTime <= 0) return;
+
+    const handleInitialSeek = () => {
+      if (Math.abs(video.currentTime - startTime) > 1) {
+        console.log("📽️ Applying startTime seek:", startTime);
+        video.currentTime = startTime;
+      }
+    };
+
+    if (video.readyState >= 1) {
+      handleInitialSeek();
+    } else {
+      video.addEventListener("loadedmetadata", handleInitialSeek, { once: true });
+    }
+  }, [startTime]);
 
   const togglePlay = () => {
     if (!videoRef.current) return;

@@ -3,14 +3,13 @@ import React from 'react';
 import Box from '@mui/material/Box';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/app/stores/authStore';
-import DesktopSidebar from './components/DesktopSidebar';
+import DesktopNavbar from './components/DesktopNavbar';
 import MobileBottomNav from './components/MobileBottomNav';
 
 const ViewerLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, refreshUser, isAuthenticated } = useAuthStore();
-  const [value, setValue] = React.useState(location.pathname === '/viewer' ? 0 : -1);
 
   // Refresh user if token exists but store not authenticated
   React.useEffect(() => {
@@ -24,12 +23,12 @@ const ViewerLayout: React.FC = () => {
       sx={{
         height: '100vh',
         display: 'flex',
-        flexDirection: { xs: 'column', md: 'row' },
+        flexDirection: 'column',
         bgcolor: '#000',
         color: 'white',
       }}
     >
-      <DesktopSidebar
+      <DesktopNavbar
         user={user}
         isAuthenticated={isAuthenticated}
         location={location}
