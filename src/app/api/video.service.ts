@@ -1,7 +1,36 @@
-// ─── VIDEOS ───────────────────────────────────────────────────────────────────
-
 import { PaginatedResponse, Video, CreateVideoPayload, UpdateVideoPayload, PaginationParams, Episode } from "@/app/types";
 import api from "./client";
+
+// ─── CACHE & DE-DUPLICATION ──────────────────────────────────────────────────
+interface CacheStore {
+  trending: { data: Video[] } | null;
+  recommended: { data: Video[] } | null;
+  purchases: PurchaseResponse | null;
+}
+
+const cache: CacheStore = {
+  trending: null,
+  recommended: null,
+  purchases: null,
+};
+
+const promises: Record<string, Promise<any> | undefined> = {};
+
+async function dedupeRequest<T>(key: string, fetchFn: () => Promise<T>, useCache = true): Promise<T> {
+  if (useCache && (cache as any)[key]) return (cache as any)[key];
+  if (promises[key]) return promises[key]!;
+
+  promises[key] = fetchFn().then(res => {
+    if (useCache) (cache as any)[key] = res;
+    delete promises[key];
+    return res;
+  }).catch(err => {
+    delete promises[key];
+    throw err;
+  });
+
+  return promises[key];
+}
 
 export interface FeedPreviewItem {
   episodeId: number;
@@ -63,10 +92,28 @@ export const videoApi = {
     api.get<PaginatedResponse<Video>>('/videos/search', { params }).then(r => r.data),
 
   trending: (params?: { limit?: number; period?: string }) =>
-    api.get<{ data: Video[] }>('/videos/trending', { params }).then(r => r.data),
+    dedupeRequest('trending', async () => {
+      const res = await api.get<{ data: Video[] }>('/videos/trending', { params }).then(r => r.data);
+      // Enrich with full details to get price/is_free
+      const enriched = await Promise.all(
+        res.data.map(v => 
+          api.get<Video>(`/videos/${v.video_id}`).then(r => ({ ...v, ...r.data })).catch(() => v)
+        )
+      );
+      return { data: enriched };
+    }),
 
   recommended: (params?: { limit?: number }) =>
-    api.get<{ data: Video[] }>('/videos/recommended', { params }).then(r => r.data),
+    dedupeRequest('recommended', async () => {
+      const res = await api.get<{ data: Video[] }>('/videos/recommended', { params }).then(r => r.data);
+      // Enrich with full details to get price/is_free
+      const enriched = await Promise.all(
+        res.data.map(v => 
+          api.get<Video>(`/videos/${v.video_id}`).then(r => ({ ...v, ...r.data })).catch(() => v)
+        )
+      );
+      return { data: enriched };
+    }),
 
   getById: (video_id: number) =>
     api.get<Video>(`/videos/${video_id}`).then(r => r.data),
@@ -138,11 +185,22 @@ export const videoApi = {
     api.get<FeedPreviewResponse>('/feed/preview', { params }).then(r => r.data),
 
   getPurchases: () =>
-    api.get<PurchaseResponse>('/videos/getAllpurchases').then(r => r.data),
+    dedupeRequest('purchases', () => 
+      api.get<PurchaseResponse>('/videos/getAllpurchases').then(r => r.data)
+    ),
 
   getEpisodesByVideoId: (video_id: number, params?: { page?: number; limit?: number }) =>
     api.get<EpisodesResponse>(`/episodes/video/${video_id}`, { params }).then(r => r.data),
 
   checkAccess: (video_id: number) =>
     api.get<{ hasAccess: boolean }>(`/purchases/check`, { params: { videoId: video_id } }).then(r => r.data),
+
+  clearCache: () => {
+    Object.keys(cache).forEach(key => {
+      (cache as any)[key] = null;
+    });
+    Object.keys(promises).forEach(key => {
+      delete promises[key];
+    });
+  }
 }

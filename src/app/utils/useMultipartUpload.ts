@@ -369,9 +369,11 @@ export function useMultipartUpload() {
         episodeId?: string | number;
         fileType: FileType;
         chunkSize?: number;
+        /** Quality levels to encode. Omit to encode all 4 (360p/480p/720p/1080p). */
+        qualities?: Array<'360p' | '480p' | '720p' | '1080p'>;
       }
     ) => {
-      const { videoId, episodeId, fileType, chunkSize = DEFAULT_CHUNK_SIZE } = options;
+      const { videoId, episodeId, fileType, chunkSize = DEFAULT_CHUNK_SIZE, qualities } = options;
 
       // Reset state
       fileRef.current = file;
@@ -438,6 +440,7 @@ export function useMultipartUpload() {
           episodeId,
           fileType,
           key,
+          qualities, // pass selected qualities (undefined = all)
         });
 
         console.log(`📝 Upload confirmed in database: ${key}`);

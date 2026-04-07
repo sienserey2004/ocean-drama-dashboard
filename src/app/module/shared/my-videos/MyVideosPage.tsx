@@ -18,9 +18,12 @@ import { z } from 'zod'
 import { useAuthStore } from '@/app/stores/authStore'
 import { videoApi } from '@/app/api/video.service'
 import { adminVideoApi } from '@/app/api/admin.service'
+import { episodeApi } from '@/app/api/episode.service'
 import { categoryApi, tagApi } from '@/app/api/categoryTag.service'
-import type { Video, Category, Tag, VideoRess } from '@/app/types'
+import type { Video, Category, Tag, VideoRess, Episode } from '@/app/types'
 import toast from 'react-hot-toast'
+import { useProcessingStatus } from '@/app/utils/useProcessingStatus'
+import { CheckCircleOutline, PendingActions, ErrorOutline, Settings } from '@mui/icons-material'
 
 const schema = z.object({
   title: z.string().min(1, 'Required'),
@@ -58,7 +61,11 @@ export default function MyVideosPage() {
   const [progress, setProgress] = useState(0)
   const [submitting, setSubmitting] = useState(false)
   const [dragging, setDragging] = useState(false)
+  const [processingDialog, setProcessingDialog] = useState<{ open: boolean; videoId: number | null; videoTitle: string }>({ open: false, videoId: null, videoTitle: '' })
+  const [processingEpisodes, setProcessingEpisodes] = useState<Episode[]>([])
+  const [pollingEpisodes, setPollingEpisodes] = useState<Record<number, any>>({})
   const thumbInputRef = useRef<HTMLInputElement>(null)
+  const pollTimerRef = useRef<NodeJS.Timeout | null>(null)
   const LIMIT = 10
 
   const { control, register, handleSubmit, reset, formState: { errors } } = useForm<VideoFormData>({
@@ -166,6 +173,59 @@ export default function MyVideosPage() {
     if (f && f.type.startsWith('image/')) handleThumbnailFile(f)
   }
 
+  const openGlobalProcessingStatus = async () => {
+    setProcessingDialog({ open: true, videoId: null, videoTitle: 'Global Processing Queue' })
+    fetchAllProcessingEpisodes()
+    
+    if (pollTimerRef.current) clearInterval(pollTimerRef.current)
+    pollTimerRef.current = setInterval(fetchAllProcessingEpisodes, 5000)
+  }
+
+  const fetchAllProcessingEpisodes = async () => {
+    try {
+      if (processingDialog.videoId) {
+        const res = await episodeApi.list(processingDialog.videoId, { limit: 50 })
+        // @ts-ignore
+        setProcessingEpisodes(res.data)
+      } else {
+        // Fetch episodes for all videos on the current page and aggregate
+        const allEpisodesPromises = videos.map(v => episodeApi.list(v.video_id, { limit: 50 }))
+        const results = await Promise.all(allEpisodesPromises)
+        // @ts-ignore
+        const allEps = results.flatMap(r => r.data).filter(ep => ep.status !== 'READY')
+        setProcessingEpisodes(allEps)
+      }
+    } catch (err) {
+      console.error('Failed to fetch processing episodes', err)
+    }
+  }
+
+  const openProcessingStatus = async (videoId: number, title: string) => {
+    setProcessingDialog({ open: true, videoId, videoTitle: title })
+    try {
+      const res = await episodeApi.list(videoId, { limit: 50 })
+      // @ts-ignore
+      setProcessingEpisodes(res.data)
+      
+      if (pollTimerRef.current) clearInterval(pollTimerRef.current)
+      pollTimerRef.current = setInterval(fetchAllProcessingEpisodes, 5000)
+    } catch (err) {
+      toast.error('Failed to load episodes')
+    }
+  }
+
+  const closeProcessingStatus = () => {
+    setProcessingDialog({ open: false, videoId: null, videoTitle: '' });
+    setProcessingEpisodes([]);
+    if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+    };
+  }, []);
+
   return (
     <Box>
       {/* Header Section */}
@@ -178,20 +238,35 @@ export default function MyVideosPage() {
             {isAdmin ? 'Complete overview of all video series across the platform.' : 'Manage and track your published drama series.'}
           </Typography>
         </Box>
-        <Button 
-          variant="contained" 
-          startIcon={<Add />} 
-          onClick={openCreate}
-          sx={{ 
-            borderRadius: '12px', 
-            py: 1.5, 
-            px: 3, 
-            fontWeight: 700, 
-            boxShadow: '0 8px 16px -4px rgba(99, 102, 241, 0.3)' 
-          }}
-        >
-          New Series
-        </Button>
+        <Stack direction="row" spacing={2}>
+          <Button 
+            variant="outlined" 
+            startIcon={<PendingActions />} 
+            onClick={() => openGlobalProcessingStatus()}
+            sx={{ 
+              borderRadius: '12px', 
+              py: 1.5, 
+              px: 3, 
+              fontWeight: 700, 
+            }}
+          >
+            Processing Queue
+          </Button>
+          <Button 
+            variant="contained" 
+            startIcon={<Add />} 
+            onClick={openCreate}
+            sx={{ 
+              borderRadius: '12px', 
+              py: 1.5, 
+              px: 3, 
+              fontWeight: 700, 
+              boxShadow: '0 8px 16px -4px rgba(99, 102, 241, 0.3)' 
+            }}
+          >
+            New Series
+          </Button>
+        </Stack>
       </Box>
 
       {/* Main Container */}
@@ -310,6 +385,11 @@ export default function MyVideosPage() {
                       <Tooltip title="Manage Content">
                         <IconButton size="small" onClick={() => navigate(`/dashboard/videos/${v.video_id}/episodes`)} sx={{ bgcolor: 'action.hover' }}>
                           <PlayArrow fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Processing Status">
+                        <IconButton size="small" onClick={() => openProcessingStatus(v.video_id, v.title)} sx={{ bgcolor: 'action.hover', color: 'info.main' }}>
+                          <PendingActions fontSize="small" />
                         </IconButton>
                       </Tooltip>
                       <Tooltip title="Edit Properties">
@@ -573,6 +653,108 @@ export default function MyVideosPage() {
           <Button onClick={() => setRejectDialog({ open: false, videoId: null })}>Cancel</Button>
           <Button variant="contained" color="error" onClick={handleReject} disabled={!rejectReason.trim()} sx={{ borderRadius: '10px', px: 3 }}>
             Confirm Rejection
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Episode Processing Status Dialog */}
+      <Dialog
+        open={processingDialog.open}
+        onClose={closeProcessingStatus}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '24px' } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Stack direction="row" spacing={1.5} alignItems="center">
+            <PendingActions color="primary" />
+            <Box>
+              <Typography variant="h6" fontWeight={800}>Processing Status</Typography>
+              <Typography variant="caption" color="text.secondary">{processingDialog.videoTitle}</Typography>
+            </Box>
+          </Stack>
+          <IconButton size="small" onClick={closeProcessingStatus}><Close /></IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ p: 0 }}>
+          <Divider />
+          {processingEpisodes.length === 0 ? (
+            <Box sx={{ p: 6, textAlign: 'center' }}>
+              <Typography variant="body2" color="text.secondary">No episodes found for this series.</Typography>
+            </Box>
+          ) : (
+            <Stack divider={<Divider />}>
+              {processingEpisodes.map((ep) => {
+                // @ts-ignore - Assuming these fields exist in the live API response even if not in type
+                const status = ep.status || 'READY';
+                // @ts-ignore
+                const progress = ep.processing_progress || 100;
+                const isReady = status === 'READY';
+
+                return (
+                  <Box key={ep.episode_id} sx={{ p: 2.5, '&:hover': { bgcolor: 'action.hover' } }}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1.5}>
+                      <Box>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Typography variant="subtitle2" fontWeight={800}>
+                            Episode {ep.episode_number}: {ep.title}
+                          </Typography>
+                          {!processingDialog.videoId && (
+                            <Chip 
+                              label={videos.find(v => v.video_id === ep.video_id)?.title || 'Series'} 
+                              size="small" 
+                              variant="outlined" 
+                              sx={{ height: 18, fontSize: '0.65rem', fontWeight: 700 }} 
+                            />
+                          )}
+                        </Stack>
+                        <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                          {isReady ? 'All assets are ready' : `Current State: ${status}`}
+                        </Typography>
+                      </Box>
+                      <Chip
+                        size="small"
+                        icon={isReady ? <CheckCircleOutline /> : status === 'FAILED' ? <ErrorOutline /> : <CircularProgress size={12} color="inherit" />}
+                        label={status}
+                        color={isReady ? 'success' : status === 'FAILED' ? 'error' : 'primary'}
+                        variant={isReady ? 'filled' : 'outlined'}
+                        sx={{ fontWeight: 700, borderRadius: '8px' }}
+                      />
+                    </Stack>
+                    
+                    {!isReady && status !== 'FAILED' && (
+                      <Stack spacing={1.5}>
+                        {/* Preview Progress */}
+                        <Box>
+                          <Stack direction="row" justifyContent="space-between" alignItems="center" mb={0.5}>
+                            <Typography variant="caption" fontWeight={700} sx={{ opacity: 0.8 }}>Preview Asset</Typography>
+                            {/* @ts-ignore */}
+                            <Typography variant="caption" fontWeight={800}>{ep.preview_progress || progress}%</Typography>
+                          </Stack>
+                          {/* @ts-ignore */}
+                          <LinearProgress variant="determinate" value={ep.preview_progress || progress} sx={{ height: 4, borderRadius: 2 }} />
+                        </Box>
+
+                        {/* Full Video Progress */}
+                        <Box>
+                          <Stack direction="row" justifyContent="space-between" alignItems="center" mb={0.5}>
+                            <Typography variant="caption" fontWeight={700} sx={{ opacity: 0.8 }}>Full Video Asset</Typography>
+                            {/* @ts-ignore */}
+                            <Typography variant="caption" fontWeight={800}>{ep.full_progress || progress}%</Typography>
+                          </Stack>
+                          {/* @ts-ignore */}
+                          <LinearProgress variant="determinate" value={ep.full_progress || progress} color="secondary" sx={{ height: 4, borderRadius: 2 }} />
+                        </Box>
+                      </Stack>
+                    )}
+                  </Box>
+                );
+              })}
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2, bgcolor: 'action.hover' }}>
+          <Button fullWidth variant="outlined" onClick={closeProcessingStatus} sx={{ borderRadius: '10px', fontWeight: 700 }}>
+            Dismiss
           </Button>
         </DialogActions>
       </Dialog>

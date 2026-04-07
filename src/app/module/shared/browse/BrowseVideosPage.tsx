@@ -45,6 +45,7 @@ export default function BrowseVideosPage() {
         : await videoApi.list(params)
 
       setVideos(res.data)
+      console.log("BrowseVideosPage", res.data)
       setTotal(res.total)
     } catch {
       setVideos([])

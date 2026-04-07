@@ -37,6 +37,7 @@ import {
 import OverviewCard from "./components/OverviewCard";
 import RevenueChart from "./components/RevenueChart";
 import TopVideosTable from "./components/TopVideosTable";
+import ProcessingQueue from "./components/ProcessingQueue";
 
 export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
@@ -266,6 +267,44 @@ export default function AdminDashboard() {
           <TopVideosTable data={topVideos} loading={loading} />
         </Grid>
       </Grid>
+
+      {/* Processing & System Rows */}
+      <Box sx={{ mt: 6 }}>
+        <Typography variant="h5" sx={{ fontWeight: 700, mb: 3 }}>
+          Media Operations
+        </Typography>
+        <Grid container spacing={4}>
+          <Grid item xs={12} lg={6}>
+            <ProcessingQueue />
+          </Grid>
+          <Grid item xs={12} lg={6}>
+            {/* Future placeholder for other system maintenance or logging tasks */}
+            <Box
+              sx={{
+                p: 4,
+                bgcolor: "background.paper",
+                borderRadius: "24px",
+                border: "1px solid",
+                borderColor: "divider",
+                height: "100%",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "center",
+                alignItems: "center",
+                textAlign: "center",
+                opacity: 0.8,
+              }}
+            >
+              <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
+                Resource Usage
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Storage and bandwidth metrics will appear here in the next update.
+              </Typography>
+            </Box>
+          </Grid>
+        </Grid>
+      </Box>
     </Box>
   );
 }

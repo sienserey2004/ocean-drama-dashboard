@@ -48,6 +48,8 @@ export interface ConfirmUploadPayload {
   episodeId?: string | number;
   fileType: string;
   key: string;
+  /** Optional quality selection — e.g. ['360p','720p']. Omit for all 4. */
+  qualities?: Array<'360p' | '480p' | '720p' | '1080p'>;
 }
 
 export const multipartApi = {

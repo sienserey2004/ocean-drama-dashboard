@@ -20,16 +20,19 @@ export default function Explore() {
   const [recommended, setRecommended] = useState<Video[]>([]);
   const [trending, setTrending] = useState<Video[]>([]);
   const [purchased, setPurchased] = useState<Video[]>([]);
+  const [loadingPurchases, setLoadingPurchases] = useState(true);
   useEffect(() => {
     videoApi.recommended().then((res) => {
       setRecommended(res.data);
-    });
+    }).catch(() => {});
     videoApi.trending({ limit: 10, period: "week" }).then((res) => {
+      console.log("Trending videos:", res.data);
       setTrending(res.data);
-    });
+    }).catch(() => {});
     videoApi.getPurchases().then((res) => {
       setPurchased(res.data.map((item) => item.video));
-    });
+      setLoadingPurchases(false);
+    }).catch(() => setLoadingPurchases(false));
   }, []);
   // AUTO SLIDE (With manual reset)
   useEffect(() => {
@@ -396,11 +399,20 @@ export default function Explore() {
                 </div>
 
                 <div className="mt-4 md:mt-6 text-right">
+                  <div className="flex items-center justify-end gap-2 mb-1">
+                    {item.already_purchased ? (
+                      <span className="px-2 py-0.5 rounded-md bg-[#E50914] text-white text-[8px] font-black uppercase tracking-widest">Owned</span>
+                    ) : (
+                      <span className={`px-2 py-0.5 rounded-md ${item.is_free ? 'bg-emerald-500' : 'bg-white/10'} text-white text-[8px] font-black uppercase tracking-widest`}>
+                        {item.is_free ? 'Free' : `$${item.price}`}
+                      </span>
+                    )}
+                  </div>
                   <h3 className="text-xs md:text-lg font-black text-[#F9FAFB] truncate uppercase italic tracking-tighter group-hover:text-[#E50914] transition-colors">
                     {item.title}
                   </h3>
                   <p className="text-[10px] md:text-xs text-[#9CA3AF] font-bold uppercase tracking-widest opacity-50">
-                    Drama • 2024
+                    {item.episode_count} Episodes • 2024
                   </p>
                 </div>
               </div>
@@ -560,41 +572,71 @@ export default function Explore() {
         {/* MY PURCHASES */}
         <section className="mb-10">
           <SectionHeader title="My vault" className="px-5 md:px-0" />
-          <div className="flex gap-6 px-5 md:px-0 overflow-x-auto no-scrollbar pb-6 md:grid md:grid-cols-4 lg:grid-cols-6">
-            {purchased.map((item, i) => (
-              <div
-                key={i}
-                className="min-w-[160px] md:min-w-0 group cursor-pointer"
-              >
-                <div
-                  className={`h-[220px] md:h-[320px] rounded-2xl bg-[#181A20] relative overflow-hidden mb-4 group-hover:scale-[1.03] transition-all duration-500 border border-[#262A33] group-hover:border-[#E50914]/50 shadow-2xl`}
-                >
-                  <img
-                    src={item.thumbnail_url}
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                  />
-                  <div className="absolute top-3 right-3 bg-[#E50914] text-white text-[9px] font-bold px-2.5 py-1 rounded-lg shadow-glow tracking-widest">
-                    Owned
-                  </div>
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
-                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 backdrop-blur-[1px]">
-                    <Play
-                      size={40}
-                      fill="white"
-                      className="text-white transform scale-50 group-hover:scale-100 transition-transform duration-500"
-                    />
-                  </div>
+          
+          {loadingPurchases ? (
+            <div className="flex gap-6 px-5 md:px-0 overflow-x-auto no-scrollbar pb-6 md:grid md:grid-cols-4 lg:grid-cols-6">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="min-w-[160px] md:min-w-0 animate-pulse">
+                  <div className="h-[220px] md:h-[320px] rounded-2xl bg-white/5 border border-white/5 mb-4" />
+                  <div className="h-4 bg-white/5 rounded w-3/4 mb-2" />
+                  <div className="h-3 bg-white/5 rounded w-1/2" />
                 </div>
-                <h3 className="text-sm md:text-base font-extrabold text-[#F9FAFB] truncate group-hover:text-[#E50914] transition-colors italic tracking-tight">
-                  {item.title}
-                </h3>
-                <p className="text-[10px] md:text-xs text-[#9CA3AF] font-bold tracking-widest opacity-50">
-                  Ready to stream
-                </p>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : purchased.length > 0 ? (
+            <div className="flex gap-6 px-5 md:px-0 overflow-x-auto no-scrollbar pb-6 md:grid md:grid-cols-4 lg:grid-cols-6">
+              {purchased.map((item, i) => (
+                <div
+                  key={i}
+                  className="min-w-[160px] md:min-w-0 group cursor-pointer"
+                >
+                  <div
+                    className={`h-[220px] md:h-[320px] rounded-2xl bg-[#181A20] relative overflow-hidden mb-4 group-hover:scale-[1.03] transition-all duration-500 border border-[#262A33] group-hover:border-[#E50914]/50 shadow-2xl`}
+                  >
+                    <img
+                      src={item.thumbnail_url}
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                    />
+                    <div className="absolute top-3 right-3 bg-[#E50914] text-white text-[9px] font-bold px-2.5 py-1 rounded-lg shadow-glow tracking-widest">
+                      Owned
+                    </div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 backdrop-blur-[1px]">
+                      <Play
+                        size={40}
+                        fill="white"
+                        className="text-white transform scale-50 group-hover:scale-100 transition-transform duration-500"
+                      />
+                    </div>
+                  </div>
+                  <h3 className="text-sm md:text-base font-extrabold text-[#F9FAFB] truncate group-hover:text-[#E50914] transition-colors italic tracking-tight">
+                    {item.title}
+                  </h3>
+                  <p className="text-[10px] md:text-xs text-[#9CA3AF] font-bold tracking-widest opacity-50">
+                    Ready to stream
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="px-5 md:px-0">
+               <div className="w-full py-12 md:py-20 rounded-[32px] bg-white/5 border-2 border-dashed border-white/10 flex flex-col items-center justify-center text-center group hover:border-[#E50914]/30 transition-all duration-500">
+                  <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-white/5 flex items-center justify-center mb-6 group-hover:scale-110 group-hover:rotate-12 transition-all duration-500 group-hover:bg-[#E50914]/10">
+                    <GridIcon size={32} className="text-[#9CA3AF] group-hover:text-[#E50914] transition-colors" />
+                  </div>
+                  <h3 className="text-xl md:text-3xl font-black text-white mb-2 italic tracking-tight uppercase">Your vault is empty</h3>
+                  <p className="text-[#9CA3AF] text-xs md:text-base font-bold mb-8 max-w-xs md:max-w-md px-4 opacity-70">Unlock premium dramas and start building your private collection to watch anytime.</p>
+                  <button 
+                    onClick={() => window.scrollTo({ top: 400, behavior: 'smooth' })}
+                    className="px-8 py-3.5 md:px-10 md:py-4 bg-white text-black rounded-full font-black text-xs md:text-sm uppercase tracking-[0.2em] shadow-2xl hover:bg-[#E50914] hover:text-white hover:scale-110 active:scale-95 transition-all"
+                  >
+                    Browse Dramas
+                  </button>
+               </div>
+            </div>
+          )}
         </section>
+        
       </div>
     </div>
   );

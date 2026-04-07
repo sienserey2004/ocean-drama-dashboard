@@ -21,6 +21,7 @@ import { engagementApi } from "@/app/api/engagement.service";
 import { commentApi, Comment } from "@/app/api/comment.service";
 import { useAuthStore } from "@/app/stores/authStore";
 import toast from "react-hot-toast";
+import HLSPlayer from "../library/components/HLSPlayer";
 
 interface VideoCardProps {
   video: any;
@@ -84,8 +85,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
 }) => {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuthStore();
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(true);
 
   // Engagement states
   const [liked, setLiked] = useState(false);
@@ -265,38 +265,8 @@ const VideoCard: React.FC<VideoCardProps> = ({
     }
   };
 
-  // Play / pause when active changes
-  useEffect(() => {
-    if (!videoRef.current) return;
-    if (active) {
-      videoRef.current.load();
-      videoRef.current.play().catch(() => {});
-      setIsPlaying(true);
-    } else {
-      videoRef.current.pause();
-      setIsPlaying(false);
-    }
-  }, [active]);
-
-  // Apply volume imperatively (avoids remounting video element)
-  useEffect(() => {
-    if (!videoRef.current) return;
-    videoRef.current.muted = muted;
-    videoRef.current.volume = volume;
-  }, [muted, volume]);
-
   const togglePlay = () => {
-    if (!videoRef.current) return;
-    if (videoRef.current.paused) {
-      videoRef.current.play().catch((error) => {
-        if (error.name !== "AbortError")
-          console.error("Video play failed:", error);
-      });
-      setIsPlaying(true);
-    } else {
-      videoRef.current.pause();
-      setIsPlaying(false);
-    }
+    setIsPlaying(!isPlaying);
   };
 
   return (
@@ -322,17 +292,18 @@ const VideoCard: React.FC<VideoCardProps> = ({
         lastTapRef.current = now;
       }}
     >
-      {/* Video Background */}
-      <video
-        ref={videoRef}
-        loop
-        playsInline
-        style={{ height: "100%", width: "100%", objectFit: "cover" }}
-        key={videoUrl}
-      >
-        <source src={videoUrl} type="video/mp4" />
-        Your browser does not support the video tag.
-      </video>
+      <HLSPlayer
+        episodeId={episodeId}
+        type="preview"
+        url={videoUrl}
+        playing={active && isPlaying}
+        muted={muted}
+        volume={volume}
+        hideControls={true}
+        objectFit="cover"
+        autoPlay={active}
+        onEnded={() => setIsPlaying(false)}
+      />
 
       {!isPlaying && (
         <Box

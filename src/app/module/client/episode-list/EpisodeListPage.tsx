@@ -26,6 +26,8 @@ import { videoApi } from "@/app/api/video.service";
 import { paymentApi } from "@/app/api/payment.service";
 import { Episode } from "@/app/types";
 import QRPaymentCard from "../../shared/QRPaymentCard";
+import HLSPlayer from "../library/components/HLSPlayer";
+import VisibilityIcon from '@mui/icons-material/Visibility';
 
 const EpisodeListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -36,6 +38,7 @@ const EpisodeListPage: React.FC = () => {
 
   // The video object is passed via router state from VideoCard
   const [video, setVideo] = useState<any>(location.state?.video || null);
+  console.log("Current video state:", video);
 
   const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,7 +49,8 @@ const EpisodeListPage: React.FC = () => {
 
   // Full screen player state
   const [playerOpen, setPlayerOpen] = useState(false);
-  const [activeVideoUrl, setActiveVideoUrl] = useState<string | null>(null);
+  const [activeEpisode, setActiveEpisode] = useState<Episode | null>(null);
+  const [activeVideoType, setActiveVideoType] = useState<"preview" | "full">("preview");
 
   // Payment state
   const [paymentInfo, setPaymentInfo] = useState<{
@@ -82,9 +86,10 @@ const EpisodeListPage: React.FC = () => {
     const loadData = async () => {
       try {
         setLoading(true);
-        if (!video) {
+        if (!video || video.price === undefined) {
           try {
             const videoData = await videoApi.getById(numericVideoId);
+            console.log("Fetched full video data:", videoData);
             setVideo(videoData);
           } catch (e) {
             console.error("Failed to fetch video missing from state", e);
@@ -119,13 +124,20 @@ const EpisodeListPage: React.FC = () => {
   };
 
   const handleEpisodeClick = (ep: Episode) => {
+    setActiveEpisode(ep);
     if (ep.has_access) {
-      setActiveVideoUrl(ep.full_video_url || ep.preview_video_url);
+      setActiveVideoType("full");
       setPlayerOpen(true);
     } else {
-      // Locked -> open purchase modal
-      setModalOpen(true);
+      // Locked -> can still watch preview
+      setActiveVideoType("preview");
+      setPlayerOpen(true);
     }
+  };
+
+  const openPurchaseModal = (ep: Episode) => {
+    setActiveEpisode(ep);
+    setModalOpen(true);
   };
 
   const startVerifyPolling = (transactionId: string) => {
@@ -139,6 +151,7 @@ const EpisodeListPage: React.FC = () => {
 
         if (res.status === "completed") {
           if (pollingRef.current) clearInterval(pollingRef.current);
+          videoApi.clearCache();
           setEpisodes((prev) =>
             prev.map((ep) => ({ ...ep, has_access: true })),
           );
@@ -166,7 +179,8 @@ const EpisodeListPage: React.FC = () => {
     try {
       setPurchasing(true);
       const res = await paymentApi.initiate({
-        amount: video.price,
+        amount: Number(video.price) || 0,
+        currency: 'USD',
         video_id: vidId,
       });
 
@@ -594,6 +608,29 @@ const EpisodeListPage: React.FC = () => {
                   )}
                 </Stack>
               </Box>
+              
+              {!ep.has_access && (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openPurchaseModal(ep);
+                  }}
+                  sx={{ 
+                    ml: 1, 
+                    borderRadius: '8px', 
+                    color: '#FF2D2D', 
+                    borderColor: 'rgba(255,45,45,0.3)',
+                    fontWeight: 700,
+                    textTransform: 'none',
+                    fontSize: '0.75rem',
+                    '&:hover': { borderColor: '#FF2D2D', bgcolor: 'rgba(255,45,45,0.05)' }
+                  }}
+                >
+                  Buy
+                </Button>
+              )}
             </Paper>
           ))}
         </Stack>
@@ -835,19 +872,36 @@ const EpisodeListPage: React.FC = () => {
           >
             <ArrowBackIosNewIcon />
           </IconButton>
-          {activeVideoUrl && (
-            <video
-              src={activeVideoUrl}
-              controls
-              autoPlay
-              playsInline
-              style={{
-                width: "100%",
-                height: "100%",
-                maxHeight: "100vh",
-                objectFit: "contain",
-              }}
-            />
+          
+          {activeEpisode && (
+            <Box sx={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+               <HLSPlayer
+                key={activeEpisode.episode_id + activeVideoType}
+                episodeId={activeEpisode.episode_id}
+                url={activeVideoType === 'full' ? activeEpisode.full_video_url : activeEpisode.preview_video_url}
+                type={activeVideoType}
+                autoPlay
+                objectFit="contain"
+              />
+              
+              {!activeEpisode.has_access && activeVideoType === 'preview' && (
+                <Box sx={{ position: 'absolute', bottom: 40, left: '50%', transform: 'translateX(-50%)', zIndex: 10, textAlign: 'center' }}>
+                  <Typography variant="body2" sx={{ color: 'white', mb: 2, textShadow: '0 2px 4px rgba(0,0,0,0.5)', fontWeight: 600 }}>
+                    You are watching a preview. Unlock the full series to continue.
+                  </Typography>
+                  <Button 
+                    variant="contained" 
+                    onClick={() => {
+                      setPlayerOpen(false);
+                      setModalOpen(true);
+                    }}
+                    sx={{ bgcolor: '#FF2D2D', borderRadius: '50px', px: 4, fontWeight: 800 }}
+                  >
+                    Unlock Full Series
+                  </Button>
+                </Box>
+              )}
+            </Box>
           )}
         </Box>
       </Dialog>

@@ -5,9 +5,10 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   IconButton, Dialog, DialogTitle, DialogContent, DialogActions,
   Chip, CircularProgress, Alert, Paper,
-  Stack, Avatar, Grid
+  Stack, Avatar, Grid,
+  LinearProgress
 } from '@mui/material'
-import { Add, Edit, Delete, ArrowBack, PlayArrow, FolderSpecial, Close, Visibility, UploadFile, VideoFile, CheckCircle } from '@mui/icons-material'
+import { Add, Edit, Delete, ArrowBack, PlayArrow, FolderSpecial, Close, Visibility, UploadFile, VideoFile, CheckCircle, CloudUpload } from '@mui/icons-material'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -16,6 +17,7 @@ import toast from 'react-hot-toast'
 import { episodeApi } from '@/app/api/episode.service'
 import MultipartUploadPanel from '@/app/module/admin/videos/components/MultipartUploadPanel'
 import HLSPlayer from '@/app/module/client/library/components/HLSPlayer'
+import { useProcessingStatus } from '@/app/utils/useProcessingStatus'
 
 const schema = z.object({
   episode_number: z.coerce.number().min(1),
@@ -45,12 +47,15 @@ export default function EpisodesPage() {
   const [currentVideoUrl, setCurrentVideoUrl] = useState('')
   const [currentVideoTitle, setCurrentVideoTitle] = useState('')
   const [currentVideoType, setCurrentVideoType] = useState<'preview' | 'full'>('full')
+  const [currentEpisodeId, setCurrentEpisodeId] = useState<number | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [isFree, setIsFree] = useState(false)
 
-  // Track which uploads completed for the current dialog session
-  const [previewUploadKey, setPreviewUploadKey] = useState<string | null>(null)
-  const [fullUploadKey, setFullUploadKey] = useState<string | null>(null)
+  const [previewFile, setPreviewFile] = useState<File | null>(null)
+  const [fullFile, setFullFile] = useState<File | null>(null)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  
+  const processingStatus = useProcessingStatus();
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -74,7 +79,8 @@ export default function EpisodesPage() {
 
   useEffect(() => { load() }, [load])
 
-  const handlePlayVideo = (url: string, title: string, type: 'preview' | 'full') => {
+  const handlePlayVideo = (epId: number, url: string, title: string, type: 'preview' | 'full') => {
+    setCurrentEpisodeId(epId)
     setCurrentVideoUrl(url)
     setCurrentVideoTitle(title)
     setCurrentVideoType(type)
@@ -83,8 +89,10 @@ export default function EpisodesPage() {
 
   const openCreate = () => {
     setEditEp(null)
-    setPreviewUploadKey(null)
-    setFullUploadKey(null)
+    setPreviewFile(null)
+    setFullFile(null)
+    setUploadProgress(0)
+    processingStatus.reset()
     setIsFree(false)
     reset({ episode_number: episodes.length + 1, title: '', duration: 60, price: 0, is_free: false })
     setDialogOpen(true)
@@ -92,8 +100,10 @@ export default function EpisodesPage() {
 
   const openEdit = (ep: Episode) => {
     setEditEp(ep)
-    setPreviewUploadKey(null)
-    setFullUploadKey(null)
+    setPreviewFile(null)
+    setFullFile(null)
+    setUploadProgress(0)
+    processingStatus.reset()
     setIsFree(false)
     reset({ episode_number: ep.episode_number, title: ep.title, duration: ep.duration })
     setDialogOpen(true)
@@ -108,6 +118,7 @@ export default function EpisodesPage() {
    */
   const onSubmit = async (data: FormData) => {
     setSubmitting(true)
+    setUploadProgress(0)
     try {
       const fd = new window.FormData()
       fd.append('episode_number', String(data.episode_number))
@@ -115,28 +126,38 @@ export default function EpisodesPage() {
       fd.append('duration', String(data.duration))
       if (data.price !== undefined) fd.append('price', String(data.price))
       fd.append('is_free', String(isFree))
-      // Note: No file data — files are uploaded via multipart upload panels
+      
+      if (previewFile) fd.append('preview_video', previewFile)
+      if (fullFile) fd.append('full_video', fullFile)
 
+      let result;
       if (editEp) {
-        await episodeApi.update(editEp.episode_id, fd)
+        result = await episodeApi.update(editEp.episode_id, fd, (pct) => setUploadProgress(pct))
         toast.success('Episode updated')
-        setDialogOpen(false)
       } else {
-        // Create the episode, then switch to edit mode so upload panels appear
-        const result = await episodeApi.create(Number(videoId), fd)
-        toast.success('Episode created! You can now upload videos below.')
-        // Fetch the newly created episode and switch dialog to edit mode
-        const newEp = await episodeApi.getById(result.episode_id)
-        setEditEp(newEp)
-        // Keep dialog open — don't call setDialogOpen(false)
+        result = await episodeApi.create(Number(videoId), fd, (pct) => setUploadProgress(pct))
+        toast.success('Episode created successfully, processing started')
       }
+
+      // If we have an episode_id, start polling for status
+      if (result && result.episode_id) {
+        processingStatus.startPolling(result.episode_id)
+      }
+      
       load()
-    } catch {
+    } catch (err: any) {
+      console.error(err)
       toast.error('Failed to save episode')
     } finally {
       setSubmitting(false)
     }
   }
+
+  const handleCloseDialog = () => {
+    if (submitting) return;
+    setDialogOpen(false);
+    processingStatus.stop();
+  };
 
   const handleDelete = async (id: number) => {
     if (!confirm('Delete this episode permanently?')) return
@@ -194,8 +215,8 @@ export default function EpisodesPage() {
         </Grid>
         <Grid item xs={12} md={8}>
           <Alert severity="info" sx={{ borderRadius: '16px', border: '1px solid', borderColor: 'info.light', bgcolor: 'info.lighter' }}>
-            <Typography variant="body2" fontWeight={600}>🚀 Multipart Upload Enabled:</Typography>
-            Videos are now uploaded directly to storage in parallel chunks. Create an episode first, then use the <strong>upload panels</strong> to add preview and full videos.
+            <Typography variant="body2" fontWeight={600}>🚀 Asynchronous Processing Enabled:</Typography>
+            Episodes now support direct multipart upload. The server will acknowledge receipt and process HLS in the background.
           </Alert>
         </Grid>
       </Grid>
@@ -242,7 +263,7 @@ export default function EpisodesPage() {
                   <TableCell>
                     <Stack direction="row" spacing={1}>
                       <Chip
-                        onClick={ep.preview_video_url ? () => handlePlayVideo(ep.preview_video_url, `Preview · ${ep.title}`, 'preview') : undefined}
+                        onClick={ep.preview_video_url ? () => handlePlayVideo(ep.episode_id, ep.preview_video_url, `Preview · ${ep.title}`, 'preview') : undefined}
                         label="Preview"
                         size="small"
                         icon={<Visibility sx={{ fontSize: '14px !important' }} />}
@@ -251,7 +272,7 @@ export default function EpisodesPage() {
                         sx={{ fontWeight: 700, cursor: ep.preview_video_url ? 'pointer' : 'default' }}
                       />
                       <Chip
-                        onClick={ep.full_video_url ? () => handlePlayVideo(ep.full_video_url!, `Full · ${ep.title}`, 'full') : undefined}
+                        onClick={ep.full_video_url ? () => handlePlayVideo(ep.episode_id, ep.full_video_url!, `Full · ${ep.title}`, 'full') : undefined}
                         label="Full"
                         size="small"
                         icon={<PlayArrow sx={{ fontSize: '14px !important' }} />}
@@ -289,14 +310,14 @@ export default function EpisodesPage() {
       {/* ─── Add/Edit Episode Dialog ─────────────────────────────────── */}
       <Dialog
         open={dialogOpen}
-        onClose={() => !submitting && setDialogOpen(false)}
+        onClose={handleCloseDialog}
         maxWidth="md"
         fullWidth
         PaperProps={{ sx: { borderRadius: '24px', p: 1 } }}
       >
         <DialogTitle component="div" sx={{ fontWeight: 800, fontSize: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           {editEp ? `Edit Episode ${editEp.episode_number}` : 'Add New Episode'}
-          <IconButton size="small" onClick={() => !submitting && setDialogOpen(false)} disabled={submitting}>
+          <IconButton size="small" onClick={handleCloseDialog} disabled={submitting}>
             <Close fontSize="small" />
           </IconButton>
         </DialogTitle>
@@ -359,76 +380,104 @@ export default function EpisodesPage() {
                 </Stack>
               </Grid>
 
-              {/* Right column: Upload Panels */}
+              {/* Right column: Upload & Progress */}
               <Grid item xs={12} md={7}>
                 <Stack spacing={2.5}>
                   <Typography variant="overline" fontWeight={800} color="text.secondary">
-                    Video Uploads (Multipart)
+                    Video Content
                   </Typography>
 
-                  {/* Preview Video Upload */}
-                  <MultipartUploadPanel
-                    videoId={videoId!}
-                    episodeId={editEp?.episode_id}
-                    fileType="preview"
-                    compact
-                    disabled={!editEp}
-                    disabledHint="Click 'Create Episode' below to enable upload"
-                    onUploadComplete={(key: string) => {
-                      setPreviewUploadKey(key)
-                      toast.success('Preview video uploaded!')
-                      load()
-                    }}
-                    onUploadError={(err: any) => toast.error(`Preview upload failed: ${err}`)}
-                  />
-
-                  {/* Existing preview indicator */}
-                  {editEp?.preview_video_url && !previewUploadKey && (
-                    <Paper variant="outlined" sx={{ p: 1.5, borderRadius: '10px', display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                      <CheckCircle sx={{ color: 'success.main', fontSize: 16 }} />
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography variant="caption" fontWeight={700} color="success.main">Current preview video set</Typography>
-                      </Box>
+                  {/* Combined Upload State UI */}
+                  {(submitting || uploadProgress > 0) && (
+                    <Paper sx={{ p: 2, borderRadius: '16px', border: '1px solid', borderColor: 'primary.light', bgcolor: 'primary.lighter' }}>
+                      <Stack spacing={1}>
+                        <Stack direction="row" justifyContent="space-between">
+                          <Typography variant="caption" fontWeight={800} color="primary.main">
+                            Uploading to Server...
+                          </Typography>
+                          <Typography variant="caption" fontWeight={800}>{uploadProgress}%</Typography>
+                        </Stack>
+                        <LinearProgress variant="determinate" value={uploadProgress} sx={{ height: 8, borderRadius: 4 }} />
+                      </Stack>
                     </Paper>
                   )}
 
-                  {/* Full Video Upload */}
-                  <MultipartUploadPanel
-                    videoId={videoId!}
-                    episodeId={editEp?.episode_id}
-                    fileType="full"
-                    compact
-                    disabled={!editEp}
-                    disabledHint="Click 'Create Episode' below to enable upload"
-                    onUploadComplete={(key: string) => {
-                      setFullUploadKey(key)
-                      toast.success('Full video uploaded! HLS processing queued.')
-                      load()
-                    }}
-                    onUploadError={(err: any) => toast.error(`Full video upload failed: ${err}`)}
-                  />
-
-                  {/* Existing full video indicator */}
-                  {editEp?.full_video_url && !fullUploadKey && (
-                    <Paper variant="outlined" sx={{ p: 1.5, borderRadius: '10px', display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                      <CheckCircle sx={{ color: 'primary.main', fontSize: 16 }} />
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography variant="caption" fontWeight={700} color="primary">Current full episode set</Typography>
-                      </Box>
+                  {/* Processing Status Polling UI */}
+                  {(processingStatus.status !== 'idle' && processingStatus.status !== 'READY') && (
+                    <Paper sx={{ p: 2, borderRadius: '16px', border: '1px solid', borderColor: 'success.light', bgcolor: 'success.lighter' }}>
+                      <Stack spacing={1}>
+                        <Stack direction="row" justifyContent="space-between">
+                          <Typography variant="caption" fontWeight={800} color="success.main">
+                            {processingStatus.status === 'FAILED' ? '❌ Processing Failed' : `⚙️ Processing: ${processingStatus.status}...`}
+                          </Typography>
+                          <Typography variant="caption" fontWeight={800}>{processingStatus.progress}%</Typography>
+                        </Stack>
+                        <LinearProgress 
+                          variant="determinate" 
+                          value={processingStatus.progress} 
+                          color={processingStatus.status === 'FAILED' ? 'error' : 'success'} 
+                          sx={{ height: 6, borderRadius: 3 }} 
+                        />
+                        {processingStatus.error && (
+                          <Typography variant="caption" color="error.main">{processingStatus.error}</Typography>
+                        )}
+                      </Stack>
                     </Paper>
                   )}
 
-                  {!editEp && (
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1, fontStyle: 'italic' }}>
-                      💡 Fill details and click <strong>Create Episode</strong> to start uploading videos.
-                    </Typography>
+                  {/* Success UI */}
+                  {processingStatus.isReady && (
+                    <Alert icon={<CheckCircle fontSize="inherit" />} severity="success" sx={{ borderRadius: '12px' }}>
+                      Episode is ready for playback!
+                    </Alert>
+                  )}
+
+                  {/* File Selection Controls (only shown when not actively uploading/processing) */}
+                  {!submitting && !processingStatus.isPolling && (
+                    <>
+                      {/* Preview Picker */}
+                      <Box>
+                        <Typography variant="caption" fontWeight={800} sx={{ mb: 1, display: 'block' }}>Preview Video</Typography>
+                        <Button
+                          component="label"
+                          fullWidth
+                          variant="outlined"
+                          startIcon={<VideoFile />}
+                          sx={{ py: 1.5, borderRadius: '12px', borderStyle: 'dashed' }}
+                        >
+                          {previewFile ? previewFile.name : (editEp?.preview_video_url ? 'Change Preview' : 'Select Preview Video')}
+                          <input type="file" hidden accept="video/*" onChange={e => setPreviewFile(e.target.files?.[0] || null)} />
+                        </Button>
+                      </Box>
+
+                      {/* Full Video Picker */}
+                      <Box>
+                        <Typography variant="caption" fontWeight={800} sx={{ mb: 1, display: 'block' }}>Full Video</Typography>
+                        <Button
+                          component="label"
+                          fullWidth
+                          variant="outlined"
+                          startIcon={<CloudUpload />}
+                          sx={{ py: 1.5, borderRadius: '12px', borderStyle: 'dashed' }}
+                        >
+                          {fullFile ? fullFile.name : (editEp?.full_video_url ? 'Change Full Video' : 'Select Full Video')}
+                          <input type="file" hidden accept="video/*" onChange={e => setFullFile(e.target.files?.[0] || null)} />
+                        </Button>
+                      </Box>
+                    </>
+                  )}
+
+                  {editEp && !previewFile && !fullFile && !submitting && !processingStatus.isPolling && (
+                     <Alert severity="info" variant="outlined" sx={{ borderRadius: '12px' }}>
+                        Leave files empty to keep existing videos.
+                     </Alert>
                   )}
                 </Stack>
               </Grid>
             </Grid>
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 3, gap: 1 }}>
-            <Button onClick={() => !submitting && setDialogOpen(false)} disabled={submitting} sx={{ fontWeight: 700 }}>
+            <Button onClick={handleCloseDialog} disabled={submitting} sx={{ fontWeight: 700 }}>
               Cancel
             </Button>
             <Button
@@ -447,14 +496,15 @@ export default function EpisodesPage() {
       {/* ─── Video Player Dialog ──────────────────────────────────────── */}
       <Dialog
         open={videoPlayerOpen}
-        onClose={() => { setVideoPlayerOpen(false); setCurrentVideoUrl('') }}
+        onClose={() => setVideoPlayerOpen(false)}
+        TransitionProps={{ onExited: () => setCurrentVideoUrl('') }}
         maxWidth={currentVideoType === 'preview' ? 'xs' : 'md'}
         fullWidth
         PaperProps={{ sx: { bgcolor: 'black', borderRadius: '16px', overflow: 'hidden' } }}
       >
         <DialogTitle component="div" sx={{ color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2 }}>
           <Typography variant="subtitle1" fontWeight={700}>{currentVideoTitle}</Typography>
-          <IconButton size="small" onClick={() => { setVideoPlayerOpen(false); setCurrentVideoUrl('') }} sx={{ color: 'white' }}>
+          <IconButton size="small" onClick={() => setVideoPlayerOpen(false)} sx={{ color: 'white' }}>
             <Close />
           </IconButton>
         </DialogTitle>
@@ -468,16 +518,19 @@ export default function EpisodesPage() {
           maxHeight: '80vh',
         }}>
           {(() => {
-            if (!videoPlayerOpen || !currentVideoUrl) return (
+            if (!currentVideoUrl) return (
               <Typography sx={{ color: 'white' }}>Video not available</Typography>
             );
 
             console.log('📽️ Playing Dashboard Video URL:', currentVideoUrl);
             return (
               <HLSPlayer
-                key={currentVideoUrl}
+                key={currentVideoUrl + currentEpisodeId}
                 url={currentVideoUrl}
+                episodeId={currentEpisodeId || undefined}
+                type={currentVideoType}
                 autoPlay
+                objectFit={currentVideoType === 'preview' ? 'cover' : 'contain'}
               />
             );
           })()}

@@ -22,16 +22,18 @@ export const episodeApi = {
     const sourceUrl = type === 'preview' ? ep.preview_video_url : ep.full_video_url;
     if (!sourceUrl) return '';
 
-    // Extract filename to preserve extension (.m3u8 or .mp4)
-    // The backend uses this to find the file or resolve HLS segments
-    const fileName = sourceUrl.split('/').pop() || (type === 'full' ? 'index.m3u8' : 'preview.mp4');
+    // Extract filename without query parameters to preserve extension (.m3u8 or .mp4)
+    const cleanUrl = sourceUrl.split('?')[0];
+    const fileName = cleanUrl.split('/').pop() || (sourceUrl.includes('.m3u8') ? 'master.m3u8' : 'video.mp4');
+    
     const urlParams = new URLSearchParams();
     if (token && token !== 'null' && token !== 'undefined') {
       urlParams.set('token', token);
     }
     const queryString = urlParams.toString() ? `?${urlParams.toString()}` : '';
     
-    return `${baseUrl}/episodes/${ep.episode_id}/stream/binary/${fileName}${queryString}`;
+    // Pattern: /api/episodes/:video_id/:episode_id/stream-binary/:type/:filename?token=...
+    return `${baseUrl}/episodes/${ep.video_id}/${ep.episode_id}/stream-binary/${type}/${fileName}${queryString}`;
   },
 
   checkAccess: (episode_id: number) =>
@@ -58,4 +60,7 @@ export const episodeApi = {
 
   saveProgress: (episode_id: number, watch_duration: number, completed: boolean) =>
     api.post(`/episodes/${episode_id}/watch`, { watch_duration, completed }).then(r => r.data),
+
+  getProcessingQueue: () =>
+    api.get<{ data: any[]; count: number }>('/episodes/monitoring/processing-queue').then(r => r.data),
 }

@@ -271,6 +271,8 @@ export default function VideoDetailPage() {
                                      <Chip label={ep.has_access ? 'Free' : 'Locked'} size="small" sx={{ height: 16, fontSize: '0.6rem', fontWeight: 900, borderRadius: '4px' }} color={ep.has_access ? 'success' : 'default'} />
                                   </Stack>
                                }
+                               primaryTypographyProps={{ component: 'div' }}
+                               secondaryTypographyProps={{ component: 'div' }}
                             />
                          </ListItem>
                       ))}

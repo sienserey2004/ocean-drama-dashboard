@@ -233,7 +233,8 @@ const SeriesPlayerPage: React.FC = () => {
           >
             {(currentEpisode.full_video_url || currentEpisode.preview_video_url) ? (
               <HLSPlayer
-                url={currentEpisode.has_access && currentEpisode.full_video_url ? currentEpisode.full_video_url : currentEpisode.preview_video_url}
+                episodeId={currentEpisode.episode_id}
+                type={currentEpisode.has_access && currentEpisode.full_video_url ? "full" : "preview"}
                 startTime={initialTime}
                 onEnded={() => {
                   const nextIdx =

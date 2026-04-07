@@ -41,12 +41,24 @@ import {
   UploadFile,
   VideoFile,
   Image as ImageIcon,
+  Hd,
 } from "@mui/icons-material";
 import {
   useMultipartUpload,
   type UploadProgress,
   type FileType,
 } from "@/app/utils/useMultipartUpload";
+
+// ─── Quality options ──────────────────────────────────────────────────────────
+
+type QualityName = '360p' | '480p' | '720p' | '1080p';
+
+const QUALITY_OPTIONS: { label: string; value: QualityName; color: string }[] = [
+  { label: '360p', value: '360p', color: '#64748b' },
+  { label: '480p', value: '480p', color: '#6366f1' },
+  { label: '720p', value: '720p', color: '#10b981' },
+  { label: '1080p', value: '1080p', color: '#f59e0b' },
+];
 
 // ─── Helper: format bytes ────────────────────────────────────────────────────
 
@@ -128,6 +140,18 @@ export default function MultipartUploadPanel({
   const [file, setFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Quality selection state — default all selected
+  const [selectedQualities, setSelectedQualities] = useState<QualityName[]>(['360p', '480p', '720p', '1080p']);
+
+  const isVideoType = fileType === 'preview' || fileType === 'full';
+
+  const toggleQuality = (q: QualityName) => {
+    setSelectedQualities(prev =>
+      prev.includes(q)
+        ? prev.length > 1 ? prev.filter(x => x !== q) : prev  // keep at least 1
+        : [...prev, q]
+    );
+  };
 
   const config = FILE_TYPE_CONFIG[fileType];
   const isUploading =
@@ -161,7 +185,12 @@ export default function MultipartUploadPanel({
   const handleStartUpload = async () => {
     if (!file) return;
     try {
-      await startUpload(file, { videoId, episodeId, fileType });
+      await startUpload(file, {
+        videoId,
+        episodeId,
+        fileType,
+        qualities: isVideoType ? selectedQualities : undefined,
+      });
     } catch (err: any) {
       if (err.name !== "AbortError") {
         console.error("Upload failed:", err);
@@ -330,6 +359,58 @@ export default function MultipartUploadPanel({
                 </Stack>
               )}
             </Box>
+
+            {/* ─── Quality Selector (video types only) ──────────────── */}
+            {isVideoType && (
+              <Box
+                sx={{
+                  mt: 2,
+                  p: 1.5,
+                  borderRadius: '14px',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  bgcolor: 'action.hover',
+                }}
+              >
+                <Stack direction="row" alignItems="center" spacing={1} mb={1}>
+                  <Hd sx={{ fontSize: 18, color: config.color }} />
+                  <Typography variant="caption" fontWeight={800} color="text.secondary">
+                    Output Qualities
+                  </Typography>
+                  <Typography variant="caption" color="text.disabled" sx={{ ml: 'auto' }}>
+                    {selectedQualities.length} selected
+                  </Typography>
+                </Stack>
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                  {QUALITY_OPTIONS.map(q => {
+                    const active = selectedQualities.includes(q.value);
+                    return (
+                      <Chip
+                        key={q.value}
+                        label={q.label}
+                        size="small"
+                        onClick={() => toggleQuality(q.value)}
+                        sx={{
+                          fontWeight: 800,
+                          fontSize: '0.7rem',
+                          cursor: 'pointer',
+                          transition: 'all 0.18s ease',
+                          bgcolor: active ? `${q.color}20` : 'transparent',
+                          color: active ? q.color : 'text.disabled',
+                          border: '1px solid',
+                          borderColor: active ? q.color : 'divider',
+                          '&:hover': {
+                            bgcolor: `${q.color}18`,
+                            borderColor: q.color,
+                            color: q.color,
+                          },
+                        }}
+                      />
+                    );
+                  })}
+                </Stack>
+              </Box>
+            )}
 
             {/* Start button */}
             {file && (
