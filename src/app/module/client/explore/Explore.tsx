@@ -63,7 +63,7 @@ export default function Explore() {
                     className="w-full h-full rounded-xl object-cover"
                   />
                 ) : (
-                  user?.name.charAt(0).toUpperCase()
+                  user?.name?.charAt(0).toUpperCase() || "U"
                 )}
               </div>
               <div className="w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-[#08090C] absolute -bottom-0.5 -right-0.5 shadow-sm"></div>

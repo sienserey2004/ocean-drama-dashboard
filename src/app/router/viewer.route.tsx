@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { Navigate, RouteObject, Outlet } from 'react-router-dom'
+import { Navigate, RouteObject, Outlet, useLocation } from 'react-router-dom'
 import CircularProgress from '@mui/material/CircularProgress'
 import Box from '@mui/material/Box'
 import { useAuthStore } from '@/app/stores/authStore'
@@ -28,7 +28,8 @@ const Loader = () => (
  */
 function RootHomeLayout() {
   const { role } = useAuthStore()
-  if (role === 'viewer') return <Navigate to="/viewer" replace />
+  const location = useLocation()
+  if (role === 'viewer' && location.pathname === '/') return <Navigate to="/viewer" replace />
   return (
     <Suspense fallback={<Loader />}>
       <Outlet />
