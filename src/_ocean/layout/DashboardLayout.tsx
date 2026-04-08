@@ -187,13 +187,7 @@ export default function DashboardLayout() {
     navigate("/login");
   };
 
-  const canAccess = (item: NavItem) => {
-    if (item.adminOnly) return isAdmin;
-    if (item.creatorOrAdmin) return isAdmin || isCreator;
-    return true;
-  };
-
-  const SidebarContent = () => (
+  const SidebarContent = (
     <Box
       sx={{
         height: "100%",
@@ -265,7 +259,11 @@ export default function DashboardLayout() {
         }}
       >
         {NAV_GROUPS.map((group) => {
-          const visibleItems = group.items.filter(canAccess);
+          const visibleItems = group.items.filter((item) => {
+            if (item.adminOnly) return isAdmin;
+            if (item.creatorOrAdmin) return isAdmin || isCreator;
+            return true;
+          });
           if (visibleItems.length === 0) return null;
 
           return (
@@ -294,7 +292,10 @@ export default function DashboardLayout() {
                   return (
                     <ListItem key={item.path} disablePadding sx={{ mb: 1 }}>
                       <ListItemButton
-                        onClick={() => navigate(item.path)}
+                        onClick={() => {
+                          navigate(item.path);
+                          if (mobileOpen) setMobileOpen(false);
+                        }}
                         selected={active}
                         sx={{
                           borderRadius: "16px",
@@ -333,7 +334,7 @@ export default function DashboardLayout() {
                             primary={item.label}
                             primaryTypographyProps={{
                               fontSize: "0.9rem",
-                              fontWeight: active ? 800 : 600,
+                              fontWeight: active ? 800 : 800,
                               letterSpacing: "-0.2px",
                               color: active ? "white" : "inherit",
                             }}
@@ -482,7 +483,7 @@ export default function DashboardLayout() {
             },
           }}
         >
-          <SidebarContent />
+          {SidebarContent}
         </Drawer>
         <Drawer
           variant="permanent"
@@ -499,7 +500,7 @@ export default function DashboardLayout() {
             },
           }}
         >
-          <SidebarContent />
+          {SidebarContent}
         </Drawer>
       </Box>
 

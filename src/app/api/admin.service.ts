@@ -46,6 +46,9 @@ export const analyticsApi = {
 
   topVideos: (params?: { sort?: string; limit?: number }) =>
     api.get<{ data: TopVideo[] }>('/admin/analytics/videos', { params }).then(r => r.data),
+
+  insights: (params?: { from?: string; to?: string }) =>
+    api.get<any>('/admin/analytics/insights', { params }).then(r => r.data),
 }
 
 // ─── SESSION ──────────────────────────────────────────────────────────────────
