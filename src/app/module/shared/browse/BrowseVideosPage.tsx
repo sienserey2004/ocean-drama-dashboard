@@ -239,7 +239,19 @@ function VideoCard({ video }: { video: Video }) {
           }}>
             <Stack direction="row" spacing={1} sx={{ width: '100%', justifyContent: 'space-between', alignItems: 'center' }}>
                <Chip label="Play Now" size="small" sx={{ bgcolor: 'white', color: 'black', fontWeight: 800, height: 24 }} />
-               <IconButton size="small" sx={{ color: 'white' }}><BookmarkBorder fontSize="small" /></IconButton>
+               <Box 
+                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                 sx={{ 
+                   color: 'white', 
+                   display: 'inline-flex', 
+                   p: 0.5, 
+                   borderRadius: '50%',
+                   cursor: 'pointer',
+                   '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' } 
+                 }}
+               >
+                 <BookmarkBorder fontSize="small" />
+               </Box>
             </Stack>
           </Box>
 

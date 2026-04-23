@@ -47,8 +47,12 @@ const SeriesPlayerPage: React.FC = () => {
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [initialTime, setInitialTime] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
 
   const saveProgressTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const currentTimeRef = useRef(0);
+  const durationRef = useRef(0);
 
   useEffect(() => {
     const initPage = async () => {
@@ -86,12 +90,23 @@ const SeriesPlayerPage: React.FC = () => {
         if (activeEp) {
           console.log("Selected episode:", activeEp);
           setCurrentEpisode(activeEp);
+          
+          // Reset refs for new episode
+          currentTimeRef.current = 0;
+          durationRef.current = 0;
+
           // Fetch watch progress
-          const progress = await historyApi
-            .getProgress(activeEp.episode_id)
-            .catch(() => ({ currentTime: 0 }));
-          setInitialTime(progress.currentTime);
-          console.log("Initial playback time:", progress.currentTime);
+          try {
+            const streamData = await episodeApi.getStreamUrl(activeEp.episode_id);
+            if (streamData.resume_at) {
+              setInitialTime(streamData.resume_at);
+              setCurrentTime(streamData.resume_at);
+              currentTimeRef.current = streamData.resume_at;
+              console.log("Resuming from:", streamData.resume_at);
+            }
+          } catch (e) {
+            console.log("No previous progress found or failed to fetch stream data");
+          }
           // Fetch comments
           const cData = await commentApi
             .listByEpisode(activeEp.episode_id)
@@ -114,16 +129,30 @@ const SeriesPlayerPage: React.FC = () => {
     if (currentEpisode && isPlaying) {
       saveProgressTimer.current = setInterval(() => {
         saveProgress();
-      }, 30000); // Save every 30 seconds
+      }, 15000); // Save every 15 seconds for better accuracy
     }
     return () => {
       if (saveProgressTimer.current) clearInterval(saveProgressTimer.current);
+      // Final save on unmount or episode change
+      saveProgress();
     };
   }, [currentEpisode, isPlaying]);
 
   const saveProgress = async () => {
-    if (currentEpisode) {
-      // Logic for saving progress...
+    const time = currentTimeRef.current;
+    const dur = durationRef.current;
+    if (currentEpisode && time > 0) {
+      try {
+        // Consider completed if watched more than 95%
+        const isCompleted = dur > 0 && (time / dur) > 0.95;
+        await episodeApi.saveProgress(
+          currentEpisode.episode_id, 
+          Math.floor(time), 
+          isCompleted
+        );
+      } catch (err) {
+        console.error("Failed to save watch progress", err);
+      }
     }
   };
 
@@ -236,7 +265,18 @@ const SeriesPlayerPage: React.FC = () => {
                 episodeId={currentEpisode.episode_id}
                 type={currentEpisode.has_access && currentEpisode.full_video_url ? "full" : "preview"}
                 startTime={initialTime}
-                onEnded={() => {
+                onTimeUpdate={(t) => {
+                  setCurrentTime(t);
+                  currentTimeRef.current = t;
+                }}
+                onDurationChange={(d) => {
+                  setDuration(d);
+                  durationRef.current = d;
+                }}
+                onEnded={async () => {
+                  // Mark as completed explicitly on end
+                  await episodeApi.saveProgress(currentEpisode.episode_id, Math.floor(durationRef.current), true);
+                  
                   const nextIdx =
                     episodes.findIndex(
                       (e) => e.episode_id === currentEpisode.episode_id,

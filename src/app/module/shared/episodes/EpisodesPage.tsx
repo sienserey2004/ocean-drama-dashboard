@@ -361,14 +361,14 @@ export default function EpisodesPage() {
                   />
 
                   <Stack direction="row" spacing={2}>
-                    <TextField
+                    {/* <TextField
                       label="Price"
                       type="number"
                       {...register('price')}
                       sx={{ flex: 1 }}
                       InputProps={{ inputProps: { min: 0, step: 0.01 } }}
                       disabled={isFree}
-                    />
+                    /> */}
                     <Paper sx={{ flex: 1, p: 1.5, borderRadius: '12px', border: '1px solid', borderColor: isFree ? 'success.light' : 'divider', display: 'flex', alignItems: 'center' }}>
                       <FormControlLabel
                         control={<Switch checked={isFree} onChange={e => setIsFree(e.target.checked)} color="success" size="small" />}

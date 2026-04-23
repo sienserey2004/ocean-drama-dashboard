@@ -120,6 +120,8 @@ export default function MyVideosPage() {
       const fd = new window.FormData()
       fd.append('title', data.title)
       fd.append('description', data.description)
+      fd.append('price', data.price.toString())
+      fd.append('is_free', data.is_free.toString())
       fd.append('category_ids', data.category_ids.join(','))
       fd.append('tag_ids', data.tag_ids.join(','))
       if (file) fd.append('thumbnail', file)

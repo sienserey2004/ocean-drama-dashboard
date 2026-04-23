@@ -9,6 +9,8 @@ import {
   Chip,
   IconButton,
   Tooltip,
+  useTheme,
+  alpha
 } from "@mui/material";
 import {
   Refresh,
@@ -19,7 +21,6 @@ import {
   Error as ErrorIcon,
 } from "@mui/icons-material";
 import { episodeApi } from "@/app/api/episode.service";
-import toast from "react-hot-toast";
 
 interface ProcessingItem {
   episode_id: number;
@@ -35,6 +36,10 @@ const ProcessingQueue: React.FC = () => {
   const [items, setItems] = useState<ProcessingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
+  const azure = "#0EA5E9";
 
   const fetchQueue = useCallback(async () => {
     try {
@@ -58,37 +63,18 @@ const ProcessingQueue: React.FC = () => {
     switch (status.toUpperCase()) {
       case "PENDING":
       case "QUEUED":
-        return "warning";
+        return "#F59E0B";
       case "TRANSCODING":
       case "PROCESSING":
-        return "primary";
+        return azure;
       case "COMPLETED":
       case "READY":
-        return "success";
+        return "#10B981";
       case "FAILED":
       case "ERROR":
-        return "error";
+        return "#EF4444";
       default:
-        return "info";
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status.toUpperCase()) {
-      case "PENDING":
-      case "QUEUED":
-        return <CloudUpload sx={{ fontSize: 16 }} />;
-      case "TRANSCODING":
-      case "PROCESSING":
-        return <Settings sx={{ fontSize: 16 }} className="animate-spin" />;
-      case "COMPLETED":
-      case "READY":
-        return <CheckCircle sx={{ fontSize: 16 }} />;
-      case "FAILED":
-      case "ERROR":
-        return <ErrorIcon sx={{ fontSize: 16 }} />;
-      default:
-        return <Dns sx={{ fontSize: 16 }} />;
+        return azure;
     }
   };
 
@@ -96,9 +82,10 @@ const ProcessingQueue: React.FC = () => {
     <Paper
       elevation={0}
       sx={{
-        p: 3,
-        borderRadius: "24px",
-        bgcolor: "background.paper",
+        p: 4,
+        borderRadius: "28px",
+        bgcolor: isDark ? alpha("#FFFFFF", 0.02) : alpha("#FFFFFF", 0.4),
+        backdropFilter: "blur(12px)",
         border: "1px solid",
         borderColor: "divider",
         height: "100%",
@@ -110,18 +97,18 @@ const ProcessingQueue: React.FC = () => {
         direction="row"
         alignItems="center"
         justifyContent="space-between"
-        sx={{ mb: 3 }}
+        sx={{ mb: 4 }}
       >
         <Box>
-          <Typography variant="h6" sx={{ fontWeight: 800 }}>
-            Processing Queue
+          <Typography variant="h6" sx={{ fontWeight: 900 }}>
+            Pipeline status
           </Typography>
-          <Typography variant="caption" color="text.secondary">
-            Last updated: {lastUpdated.toLocaleTimeString()}
+          <Typography variant="caption" color="text.secondary" fontWeight={600}>
+            Active Operations • {lastUpdated.toLocaleTimeString()}
           </Typography>
         </Box>
         <Tooltip title="Refresh">
-          <IconButton onClick={() => { setLoading(true); fetchQueue(); }} size="small">
+          <IconButton onClick={() => { setLoading(true); fetchQueue(); }} sx={{ bgcolor: alpha(azure, 0.1), color: azure }}>
             <Refresh fontSize="small" className={loading ? "animate-spin" : ""} />
           </IconButton>
         </Tooltip>
@@ -133,15 +120,15 @@ const ProcessingQueue: React.FC = () => {
             sx={{
               py: 8,
               textAlign: "center",
-              bgcolor: "action.hover",
-              borderRadius: "16px",
+              bgcolor: isDark ? alpha("#FFFFFF", 0.02) : alpha("#000000", 0.02),
+              borderRadius: "20px",
               border: "1px dashed",
               borderColor: "divider",
             }}
           >
-            <Dns sx={{ fontSize: 40, color: "text.disabled", mb: 1, opacity: 0.5 }} />
-            <Typography variant="body2" color="text.secondary" fontWeight={600}>
-              No items in queue
+            <Dns sx={{ fontSize: 48, color: "text.disabled", mb: 2, opacity: 0.3 }} />
+            <Typography variant="body2" color="text.secondary" fontWeight={800}>
+               No active processing tasks detected
             </Typography>
           </Box>
         ) : (
@@ -149,108 +136,62 @@ const ProcessingQueue: React.FC = () => {
             <Box
               key={`${item.episode_id}-${item.status}`}
               sx={{
-                p: 2.5,
-                borderRadius: "20px",
-                bgcolor: "action.hover",
+                p: 3,
+                borderRadius: "24px",
+                bgcolor: isDark ? alpha("#FFFFFF", 0.03) : "white",
                 border: "1px solid",
                 borderColor: "divider",
                 transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
                 "&:hover": {
-                  borderColor: "primary.main",
-                  bgcolor: "background.paper",
-                  boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
-                  transform: "translateY(-2px)",
+                  boxShadow: `0 12px 30px -10px ${alpha(getStatusColor(item.status), 0.2)}`,
+                  transform: "translateX(4px)",
                 },
               }}
             >
-              <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
+              <Stack direction="row" spacing={2.5} sx={{ mb: 2.5 }}>
                 <Avatar
                   src={item.thumbnail_url}
                   variant="rounded"
                   sx={{ 
-                    width: 60, 
-                    height: 60, 
-                    borderRadius: "12px",
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                    border: "1px solid",
-                    borderColor: "divider",
+                    width: 56, 
+                    height: 56, 
+                    borderRadius: "14px",
+                    border: "2px solid",
+                    borderColor: alpha(getStatusColor(item.status), 0.2),
                   }}
                 >
                   <Dns />
                 </Avatar>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Typography variant="caption" sx={{ fontWeight: 800, color: "primary.main", textTransform: "uppercase", letterSpacing: "1px", mb: 0.5, display: "block" }}>
-                    Video Content
+                  <Typography variant="caption" sx={{ fontWeight: 900, color: getStatusColor(item.status), textTransform: "uppercase", letterSpacing: "1px", mb: 0.5, display: "block" }}>
+                    {item.status}
                   </Typography>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 800, fontSize: "1rem" }} noWrap>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 900, fontSize: "0.95rem" }} noWrap>
                     {item.video_title}
                   </Typography>
-                  <Typography variant="caption" color="text.secondary" fontWeight={600} noWrap display="block">
+                  <Typography variant="caption" color="text.secondary" fontWeight={700} noWrap display="block">
                     {item.episode_title}
                   </Typography>
                 </Box>
-                <Chip
-                  label={item.status}
-                  size="small"
-                  color={getStatusColor(item.status) as any}
-                  sx={{
-                    fontWeight: 800,
-                    fontSize: "0.65rem",
-                    borderRadius: "8px",
-                    height: 24,
-                  }}
-                />
-              </Stack>
-
-              <Stack spacing={2}>
-                {/* Upload Status (Always 100% if it is in the processing queue) */}
-                <Box>
-                  <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.5 }}>
-                    <Typography variant="caption" sx={{ fontWeight: 700, color: "text.secondary" }}>
-                      Uploading to Server...
-                    </Typography>
-                    <Typography variant="caption" sx={{ fontWeight: 800 }}>
-                      100%
-                    </Typography>
-                  </Stack>
-                  <LinearProgress
-                    variant="determinate"
-                    value={100}
-                    color="success"
-                    sx={{
-                      height: 4,
-                      borderRadius: 2,
-                      bgcolor: "divider",
-                      opacity: 0.8,
-                    }}
-                  />
-                </Box>
-
-                {/* Processing Status */}
-                <Box>
-                  <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.5 }}>
-                    <Stack direction="row" spacing={0.5} alignItems="center">
-                      <Typography variant="caption" sx={{ fontWeight: 700, color: "text.primary" }}>
-                        ⚙️ Processing: {item.status}...
-                      </Typography>
-                    </Stack>
-                    <Typography variant="caption" sx={{ fontWeight: 800, color: item.status === 'FAILED' ? 'error.main' : 'primary.main' }}>
+                <Box sx={{ textAlign: 'right' }}>
+                   <Typography variant="h6" sx={{ fontWeight: 900, color: getStatusColor(item.status) }}>
                       {item.progress}%
-                    </Typography>
-                  </Stack>
-                  <LinearProgress
-                    variant="determinate"
-                    value={item.progress}
-                    color={getStatusColor(item.status) as any}
-                    sx={{
-                      height: 8,
-                      borderRadius: 4,
-                      bgcolor: "divider",
-                      "& .MuiLinearProgress-bar": { borderRadius: 4 },
-                    }}
-                  />
+                   </Typography>
                 </Box>
               </Stack>
+
+              <Box>
+                <Box sx={{ width: '100%', height: 10, bgcolor: isDark ? alpha("#FFFFFF", 0.05) : alpha("#000000", 0.05), borderRadius: 5 }}>
+                   <Box sx={{ 
+                     width: `${item.progress}%`, 
+                     height: '100%', 
+                     bgcolor: getStatusColor(item.status), 
+                     borderRadius: 5, 
+                     boxShadow: `0 0 12px ${alpha(getStatusColor(item.status), 0.5)}`,
+                     transition: 'width 0.5s ease'
+                   }} />
+                </Box>
+              </Box>
             </Box>
           ))
         )}

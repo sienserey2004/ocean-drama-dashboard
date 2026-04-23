@@ -29,6 +29,7 @@ interface HLSPlayerProps {
   episodeId?: number;
   type?: "full" | "preview";
   onTimeUpdate?: (currentTime: number) => void;
+  onDurationChange?: (duration: number) => void;
   onEnded?: () => void;
   startTime?: number;
   autoPlay?: boolean;
@@ -51,6 +52,7 @@ const HLSPlayer: React.FC<HLSPlayerProps> = ({
   episodeId,
   type = "full",
   onTimeUpdate,
+  onDurationChange,
   onEnded,
   startTime: initialStartTime = 0,
   autoPlay = true,
@@ -314,6 +316,7 @@ const HLSPlayer: React.FC<HLSPlayerProps> = ({
   const handleLoadedMetadata = () => {
     if (videoRef.current) {
       setDuration(videoRef.current.duration);
+      onDurationChange?.(videoRef.current.duration);
     }
   };
 

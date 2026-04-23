@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Box,
     Container,
@@ -38,10 +38,39 @@ import {
     PlayCircleOutline,
     AccountCircle
 } from '@mui/icons-material';
+import { userApi } from '@/app/api/user.service';
+import { useAuthStore } from '@/app/stores/authStore';
 
 const ProfileScreen: React.FC = () => {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+    const { user, isAuthenticated, refreshUser } = useAuthStore();
+    
+    const [watchHistory, setWatchHistory] = useState<any[]>([]);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (isAuthenticated) {
+            fetchHistory();
+        }
+    }, [isAuthenticated]);
+
+    const fetchHistory = async () => {
+        setLoading(true);
+        try {
+            // Refresh user stats as well
+            refreshUser();
+            
+            const res = await userApi.getWatchHistory({ limit: 10 });
+            if (res && res.data) {
+                setWatchHistory(res.data);
+            }
+        } catch (err) {
+            console.error("Failed to fetch history:", err);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     // Dummy click handlers
     const handleNavClick = (tab: string) => console.log(`Navigate to ${tab}`);
@@ -105,6 +134,7 @@ const ProfileScreen: React.FC = () => {
                                     }
                                 >
                                     <Avatar
+                                        src={user?.profile_image || ""}
                                         sx={{
                                             width: isMobile ? 80 : 120,
                                             height: isMobile ? 80 : 120,
@@ -114,11 +144,11 @@ const ProfileScreen: React.FC = () => {
                                         }}
                                         className="text-white text-4xl font-black"
                                     >
-                                        DS
+                                        {user?.name?.charAt(0) || <Person />}
                                     </Avatar>
                                 </Badge>
-                                <Typography className="mt-5 text-2xl font-black tracking-tight">Dara Sok</Typography>
-                                <Typography className="text-[#A1A1AA] text-sm font-medium mb-5">@darasok · Premium Member</Typography>
+                                <Typography className="mt-5 text-2xl font-black tracking-tight">{user?.name || "Guest User"}</Typography>
+                                <Typography className="text-[#A1A1AA] text-sm font-medium mb-5">@{user?.name?.toLowerCase().replace(/\s/g, '') || "guest"} · {user?.role === 'viewer' ? 'Member' : 'VIP Member'}</Typography>
 
                                 <Button
                                     variant="outlined"
@@ -131,10 +161,10 @@ const ProfileScreen: React.FC = () => {
                                 {/* Desktop Stats (Vertical layout in side box) */}
                                 <Box className="w-full grid grid-cols-2 gap-3">
                                     {[
-                                        { label: 'Watched', value: '42' },
-                                        { label: 'Library', value: '15' },
-                                        { label: 'Favorites', value: '128' },
-                                        { label: 'Points', value: '2.4k' },
+                                        { label: 'Watched', value: user?.stats?.watch_history_count || '0' },
+                                        { label: 'Library', value: user?.stats?.purchases_count || '0' },
+                                        { label: 'Favorites', value: user?.stats?.favorites_count || '0' },
+                                        { label: 'Following', value: user?.stats?.following_count || '0' },
                                     ].map((stat, idx) => (
                                         <Box key={idx} className="p-4 bg-[#1A1A22]/80 rounded-2xl border border-[#2A2A35] hover:border-[#FF2D2D]/30 transition-all cursor-pointer">
                                             <Typography className="text-xl font-black text-white">{stat.value}</Typography>
@@ -189,10 +219,10 @@ const ProfileScreen: React.FC = () => {
                             {isMobile ? (
                                 <Box className="mx-6 p-1 bg-[#1A1A22]/80 rounded-2xl border border-[#2A2A35] shadow-lg flex mb-8">
                                     {[
-                                        { label: 'Watched', value: '42' },
-                                        { label: 'Library', value: '15' },
-                                        { label: 'Favorites', value: '128' },
-                                        { label: 'Points', value: '2.4k' },
+                                        { label: 'Watched', value: user?.stats?.watch_history_count || '0' },
+                                        { label: 'Library', value: user?.stats?.purchases_count || '0' },
+                                        { label: 'Favorites', value: user?.stats?.favorites_count || '0' },
+                                        { label: 'Following', value: user?.stats?.following_count || '0' },
                                     ].map((stat, idx) => (
                                         <Box key={idx} className="flex-1 flex flex-col items-center py-3 cursor-pointer relative" onClick={() => handleStatClick(stat.label)}>
                                             <Typography className="text-xl font-black text-white">{stat.value}</Typography>
@@ -213,7 +243,7 @@ const ProfileScreen: React.FC = () => {
 
                             {/* Quick Actions Grid */}
                             <Box className={`${isMobile ? 'px-6' : ''} mb-10`}>
-                                <Typography className="text-[#A1A1AA] text-[11px] font-black uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+                                <Typography component="div" className="text-[#A1A1AA] text-[11px] font-black uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
                                     <Box className="w-1.5 h-3 bg-[#FF2D2D] rounded-full"></Box> Quick Actions
                                 </Typography>
                                 <Grid container spacing={isMobile ? 2 : 3}>
@@ -245,40 +275,54 @@ const ProfileScreen: React.FC = () => {
                                     <Typography className="text-white text-lg font-black italic uppercase tracking-tighter">Recently Watched</Typography>
                                     <Typography className="text-[#FF2D2D] text-xs font-bold cursor-pointer hover:underline items-center flex gap-1">View All <ChevronRight sx={{ fontSize: 14 }} /></Typography>
                                 </Box>
-                                <Stack direction="row" spacing={3} className="overflow-x-auto pb-6 no-scrollbar">
-                                    {[
-                                        { title: 'The Silent Sea', progress: 85, img: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=400&h=600&fit=crop' },
-                                        { title: 'Kingdom', progress: 30, img: 'https://images.unsplash.com/photo-1626814026160-2237a95fc5a0?w=400&h=600&fit=crop' },
-                                        { title: 'Alchemy of Souls', progress: 100, img: 'https://images.unsplash.com/photo-1598899134739-24c46f58b8c0?w=400&h=600&fit=crop' },
-                                        { title: 'Squid Game', progress: 10, img: 'https://images.unsplash.com/photo-1485846234645-a62644f84728?w=400&h=600&fit=crop' },
-                                        { title: 'Vincenzo', progress: 50, img: 'https://images.unsplash.com/photo-1440404653325-ab127d49abc1?w=400&h=600&fit=crop' },
-                                    ].map((item, idx) => (
-                                        <Box key={idx} className="flex-shrink-0 w-[160px] group cursor-pointer">
-                                            <Box className="relative w-[160px] h-[240px] rounded-2xl overflow-hidden border border-[#2A2A35] group-hover:border-[#FF2D2D] group-hover:scale-[1.02] transition-all duration-300 shadow-xl group-hover:shadow-[0_0_20px_rgba(255,45,45,0.2)]">
-                                                <Box component="img" src={item.img} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity" />
-                                                <Box className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black to-transparent" />
-                                                <Box className="absolute bottom-3 left-3 right-3">
-                                                    <LinearProgress
-                                                        variant="determinate"
-                                                        value={item.progress}
-                                                        sx={{
-                                                            height: 4,
-                                                            borderRadius: 99,
-                                                            bgcolor: 'rgba(255,255,255,0.2)',
-                                                            '& .MuiLinearProgress-bar': { bgcolor: '#FF2D2D' }
-                                                        }}
-                                                    />
-                                                </Box>
-                                                <Box className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 backdrop-blur-[2px]">
-                                                    <Box className="bg-[#FF2D2D] p-3 rounded-full shadow-[0_0_20px_rgba(255,45,45,0.8)]">
-                                                        <PlayCircleOutline sx={{ color: 'white', fontSize: 32 }} />
+                                
+                                {loading && watchHistory.length === 0 ? (
+                                    <Box className="flex justify-center p-10">
+                                        <LinearProgress sx={{ width: '100%', bgcolor: 'rgba(255,255,255,0.05)', '& .MuiLinearProgress-bar': { bgcolor: '#FF2D2D' } }} />
+                                    </Box>
+                                ) : watchHistory.length === 0 ? (
+                                    <Box className="bg-[#1A1A22]/50 border border-dashed border-[#2A2A35] rounded-3xl p-10 flex flex-col items-center justify-center text-center opacity-50">
+                                        <History sx={{ fontSize: 40, mb: 2, color: '#A1A1AA' }} />
+                                        <Typography className="text-sm font-bold">No watch history yet</Typography>
+                                        <Typography className="text-[10px]">Your recently watched dramas will appear here</Typography>
+                                    </Box>
+                                ) : (
+                                    <Stack direction="row" spacing={3} className="overflow-x-auto pb-6 no-scrollbar">
+                                        {watchHistory.map((item, idx) => (
+                                            <Box key={idx} className="flex-shrink-0 w-[160px] group cursor-pointer">
+                                                <Box className="relative w-[160px] h-[240px] rounded-2xl overflow-hidden border border-[#2A2A35] group-hover:border-[#FF2D2D] group-hover:scale-[1.02] transition-all duration-300 shadow-xl group-hover:shadow-[0_0_20px_rgba(255,45,45,0.2)]">
+                                                    <Box component="img" src={item.thumbnail_url} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity" />
+                                                    <Box className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black to-transparent" />
+                                                    
+                                                    {/* Progress Indicator */}
+                                                    <Box className="absolute bottom-3 left-3 right-3">
+                                                        <Box className="flex justify-between items-center mb-1">
+                                                            <Typography sx={{ fontSize: '8px', fontWeight: 900, color: 'white', opacity: 0.8 }}>EP {item.episode_number}</Typography>
+                                                            {item.completed && <CheckCircle sx={{ fontSize: 10, color: '#22C55E' }} />}
+                                                        </Box>
+                                                        <LinearProgress
+                                                            variant="determinate"
+                                                            value={item.completed ? 100 : Math.min(100, item.watch_duration)}
+                                                            sx={{
+                                                                height: 4,
+                                                                borderRadius: 99,
+                                                                bgcolor: 'rgba(255,255,255,0.2)',
+                                                                '& .MuiLinearProgress-bar': { bgcolor: '#FF2D2D' }
+                                                            }}
+                                                        />
+                                                    </Box>
+
+                                                    <Box className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 backdrop-blur-[2px]">
+                                                        <Box className="bg-[#FF2D2D] p-3 rounded-full shadow-[0_0_20px_rgba(255,45,45,0.8)]">
+                                                            <PlayCircleOutline sx={{ color: 'white', fontSize: 32 }} />
+                                                        </Box>
                                                     </Box>
                                                 </Box>
+                                                <Typography className="text-[11px] font-black text-white mt-3 group-hover:text-[#FF2D2D] truncate tracking-tight uppercase italic">{item.video_title}</Typography>
                                             </Box>
-                                            <Typography className="text-[11px] font-black text-white mt-3 group-hover:text-[#FF2D2D] truncate tracking-tight uppercase italic">{item.title}</Typography>
-                                        </Box>
-                                    ))}
-                                </Stack>
+                                        ))}
+                                    </Stack>
+                                )}
                             </Box>
 
                             {/* Lists / Settings Section */}
@@ -286,8 +330,8 @@ const ProfileScreen: React.FC = () => {
                                 <Typography className="text-[#A1A1AA] text-[11px] font-black uppercase tracking-[0.2em] mb-4">Account Settings</Typography>
                                 <Grid container spacing={2}>
                                     {[
-                                        { icon: <Star />, label: 'Active Subscription', value: 'Unlimited Monthly Pass', color: '#FF2D2D' },
-                                        { icon: <ShoppingBag />, label: 'My Purchases', value: '15 items in library' },
+                                        { icon: <Star />, label: 'Active Subscription', value: user?.role === 'viewer' ? 'Basic Member' : 'Unlimited Monthly Pass', color: '#FF2D2D' },
+                                        { icon: <ShoppingBag />, label: 'My Purchases', value: `${user?.stats?.purchases_count || 0} items in library` },
                                         { icon: <NotificationsNone />, label: 'Account Notifications', value: 'Enabled' },
                                     ].map((item, idx) => (
                                         <Grid item xs={12} key={idx}>

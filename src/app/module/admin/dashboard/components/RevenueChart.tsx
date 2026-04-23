@@ -1,7 +1,5 @@
 import React from "react";
 import {
-  Card,
-  CardContent,
   Box,
   CircularProgress,
   Typography,
@@ -18,28 +16,21 @@ interface RevenueChartProps {
 
 const RevenueChart: React.FC<RevenueChartProps> = ({ data, loading }) => {
   const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
+  const azure = "#0EA5E9";
 
   if (loading) {
     return (
-      <Card
-        elevation={0}
+      <Box
         sx={{
-          borderRadius: "16px",
-          border: "1px solid",
-          borderColor: "divider",
+          height: 350,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
         }}
       >
-        <Box
-          sx={{
-            height: 350,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <CircularProgress size={32} />
-        </Box>
-      </Card>
+        <CircularProgress size={40} thickness={5} sx={{ color: azure }} />
+      </Box>
     );
   }
 
@@ -47,102 +38,79 @@ const RevenueChart: React.FC<RevenueChartProps> = ({ data, loading }) => {
   const revenues = data.map((d) => d.revenue);
 
   return (
-    <Card
-      elevation={0}
-      sx={{
-        borderRadius: "16px",
-        border: "1px solid",
-        borderColor: "divider",
-        bgcolor: "background.paper",
-      }}
-    >
-      <CardContent sx={{ p: 3 }}>
-        <Box sx={{ height: 350, width: "100%" }}>
-          {data.length > 0 ? (
-            <LineChart
-              xAxis={[
-                {
-                  data: months,
-                  scaleType: "band",
-                  disableTicks: true,
-                  stroke: alpha(theme.palette.divider, 0.5),
-                },
-              ]}
-              yAxis={[
-                {
-                  disableTicks: true,
-                  stroke: alpha(theme.palette.divider, 0.5),
-                  valueFormatter: (value) => `$${value}`,
-                },
-              ]}
-              series={[
-                {
-                  data: revenues,
-                  label: "Revenue ($)",
-                  color: theme.palette.primary.main,
-                  area: true,
-                  showMark: true,
-                },
-              ]}
-              height={300}
-              margin={{ left: 60, right: 30, top: 20, bottom: 40 }}
-              sx={{
-                ".MuiLineElement-root": {
-                  strokeWidth: 3,
-                },
-                ".MuiAreaElement-root": {
-                  fill: `url(#colorRevenue-${theme.palette.mode})`,
-                  fillOpacity: 0.15,
-                },
-                ".MuiChartsAxis-label": {
-                  fill: theme.palette.text.secondary,
-                  fontWeight: 600,
-                },
-                ".MuiChartsAxis-tickLabel": {
-                  fill: theme.palette.text.secondary,
-                  fontWeight: 600,
-                  fontSize: 12,
-                },
-              }}
-            >
-              <defs>
-                <linearGradient
-                  id={`colorRevenue-${theme.palette.mode}`}
-                  x1="0"
-                  y1="0"
-                  x2="0"
-                  y2="1"
-                >
-                  <stop
-                    offset="5%"
-                    stopColor={theme.palette.primary.main}
-                    stopOpacity={0.3}
-                  />
-                  <stop
-                    offset="95%"
-                    stopColor={theme.palette.primary.main}
-                    stopOpacity={0}
-                  />
-                </linearGradient>
-              </defs>
-            </LineChart>
-          ) : (
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                height: "100%",
-              }}
-            >
-              <Typography color="text.secondary" variant="body2">
-                No data recorded for this period
-              </Typography>
-            </Box>
-          )}
+    <Box sx={{ height: 350, width: "100%" }}>
+      {data.length > 0 ? (
+        <LineChart
+          xAxis={[
+            {
+              data: months,
+              scaleType: "band",
+              disableTicks: true,
+              stroke: alpha(theme.palette.divider, 0.5),
+            },
+          ]}
+          yAxis={[
+            {
+              disableTicks: true,
+              stroke: alpha(theme.palette.divider, 0.5),
+              valueFormatter: (value) => `$${value}`,
+            },
+          ]}
+          series={[
+            {
+              data: revenues,
+              label: "Revenue Status ($)",
+              color: azure,
+              area: true,
+              showMark: true,
+            },
+          ]}
+          height={300}
+          margin={{ left: 60, right: 30, top: 20, bottom: 40 }}
+          sx={{
+            ".MuiLineElement-root": {
+              strokeWidth: 4,
+            },
+            ".MuiAreaElement-root": {
+              fill: `url(#revenueGradient-${isDark ? 'dark' : 'light'})`,
+              fillOpacity: 0.2,
+            },
+            ".MuiChartsAxis-tickLabel": {
+              fill: theme.palette.text.secondary,
+              fontWeight: 700,
+              fontSize: 11,
+            },
+            ".MuiChartsAxis-line": {
+              stroke: alpha(theme.palette.divider, 0.2)
+            }
+          }}
+        >
+          <defs>
+            <linearGradient id={`revenueGradient-${isDark ? 'dark' : 'light'}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor={azure} stopOpacity={0.6} />
+              <stop offset="95%" stopColor={azure} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+        </LineChart>
+      ) : (
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            height: "100%",
+            bgcolor: isDark ? alpha("#FFFFFF", 0.02) : alpha("#000000", 0.02),
+            borderRadius: '20px',
+            border: '1px dashed',
+            borderColor: 'divider'
+          }}
+        >
+          <Typography color="text.secondary" variant="body2" fontWeight={700}>
+             Metric synchronization pending
+          </Typography>
         </Box>
-      </CardContent>
-    </Card>
+      )}
+    </Box>
   );
 };
 

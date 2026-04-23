@@ -22,25 +22,31 @@ api.interceptors.response.use(
     const status = error.response?.status
 
     if (status === 401) {
-      const refresh = localStorage.getItem('refresh_token')
+      // Use the store instance to get current state
+      const { refreshToken, setTokens, clearAuth } = (await import('@/app/stores/authStore')).useAuthStore.getState()
+      const refresh = refreshToken || localStorage.getItem('refresh_token')
+
       if (refresh) {
         try {
           const { data } = await axios.post(
             `${import.meta.env.VITE_API_URL || 'http://localhost:4000/api'}/auth/refresh-token`,
             { refresh_token: refresh }
           )
-          localStorage.setItem('access_token', data.access_token)
-          localStorage.setItem('refresh_token', data.refresh_token)
+          
+          // Use store's setTokens to keep store and localStorage in sync
+          setTokens(data.access_token, data.refresh_token)
+
           if (error.config && error.config.headers) {
             error.config.headers.Authorization = `Bearer ${data.access_token}`
             return api.request(error.config)
           }
-        } catch {
-          localStorage.clear()
+        } catch (refreshError) {
+          console.error('Token refresh failed:', refreshError)
+          clearAuth()
           window.location.href = '/login'
         }
       } else {
-        localStorage.clear()
+        clearAuth()
         window.location.href = '/login'
       }
     }

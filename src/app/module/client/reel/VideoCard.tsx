@@ -19,6 +19,7 @@ import SendIcon from "@mui/icons-material/Send";
 import { Drawer, TextField, CircularProgress } from "@mui/material";
 import { engagementApi } from "@/app/api/engagement.service";
 import { commentApi, Comment } from "@/app/api/comment.service";
+import { episodeApi } from "@/app/api/episode.service";
 import { useAuthStore } from "@/app/stores/authStore";
 import toast from "react-hot-toast";
 import HLSPlayer from "../library/components/HLSPlayer";
@@ -40,6 +41,8 @@ interface VideoCardProps {
   muted: boolean;
   /** Global volume 0–1 from parent */
   volume: number;
+  /** Callback for play/pause state */
+  onTogglePlay?: (playing: boolean) => void;
 }
 
 const InteractionButton = (props: IconButtonProps) => (
@@ -82,10 +85,18 @@ const VideoCard: React.FC<VideoCardProps> = ({
   active,
   muted,
   volume,
+  onTogglePlay,
 }) => {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuthStore();
   const [isPlaying, setIsPlaying] = useState(true);
+
+  // Notify parent of initial state
+  useEffect(() => {
+    if (active && onTogglePlay) {
+      onTogglePlay(isPlaying);
+    }
+  }, [active, isPlaying]);
 
   // Engagement states
   const [liked, setLiked] = useState(false);
@@ -266,7 +277,9 @@ const VideoCard: React.FC<VideoCardProps> = ({
   };
 
   const togglePlay = () => {
-    setIsPlaying(!isPlaying);
+    const nextPlaying = !isPlaying;
+    setIsPlaying(nextPlaying);
+    if (onTogglePlay) onTogglePlay(nextPlaying);
   };
 
   return (
@@ -302,7 +315,19 @@ const VideoCard: React.FC<VideoCardProps> = ({
         hideControls={true}
         objectFit="cover"
         autoPlay={active}
-        onEnded={() => setIsPlaying(false)}
+        onEnded={() => {
+          setIsPlaying(false);
+          if (onTogglePlay) onTogglePlay(false);
+          if (isAuthenticated && episodeId) {
+            episodeApi.saveProgress(episodeId, 0, true).catch(console.error);
+          }
+        }}
+        onTimeUpdate={(time) => {
+          // Save progress every 10 seconds or so
+          if (isAuthenticated && episodeId && Math.floor(time) % 10 === 0 && Math.floor(time) > 0) {
+            episodeApi.saveProgress(episodeId, Math.floor(time), false).catch(console.error);
+          }
+        }}
       />
 
       {!isPlaying && (

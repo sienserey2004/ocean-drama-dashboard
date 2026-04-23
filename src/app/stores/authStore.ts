@@ -104,8 +104,9 @@ export const useAuthStore = create<AuthState>()(
           const provider = new GoogleAuthProvider()
           const result = await signInWithPopup(auth, provider)
           const idToken = await result.user.getIdToken()
+          const refreshToken = result.user.refreshToken
           
-          const res = await authApi.loginGoogle(idToken)
+          const res = await authApi.loginGoogle(idToken, refreshToken)
           
           if (res.user.status === 'deleted') {
             set({ isLoading: false })

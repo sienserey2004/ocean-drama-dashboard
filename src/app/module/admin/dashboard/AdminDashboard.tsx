@@ -16,6 +16,8 @@ import {
   Tooltip,
   CircularProgress,
   useTheme,
+  alpha,
+  Chip
 } from "@mui/material";
 import {
   People,
@@ -23,9 +25,11 @@ import {
   ShoppingCart,
   AttachMoney,
   Refresh,
-  TrendingDown,
   TrendingUp,
   FilterList,
+  Radar,
+  AutoGraph,
+  Sensors
 } from "@mui/icons-material";
 import toast from "react-hot-toast";
 import { adminAnalyticsApi } from "@/app/api/adminAnalytics.service";
@@ -47,6 +51,7 @@ export default function AdminDashboard() {
 
   const theme = useTheme();
   const isDark = theme.palette.mode === "dark";
+  const azure = "#0EA5E9";
 
   // Filters
   const [filters, setFilters] = useState({
@@ -93,26 +98,40 @@ export default function AdminDashboard() {
 
   return (
     <Box>
-      {/* Header & Main Filters */}
+      {/* Platform Header Section */}
       <Box
         sx={{
           mb: 6,
           display: "flex",
           flexDirection: { xs: "column", md: "row" },
           justifyContent: "space-between",
-          alignItems: { md: "flex-start" },
+          alignItems: { md: "center" },
           gap: 3,
         }}
       >
         <Box>
+          <Stack direction="row" spacing={2} alignItems="center" mb={1}>
+             <Chip 
+               icon={<Radar sx={{ fontSize: '14px !important' }} />} 
+               label="Operational" 
+               size="small" 
+               sx={{ 
+                 bgcolor: alpha(azure, 0.1), 
+                 color: azure, 
+                 fontWeight: 900, 
+                 borderRadius: '8px',
+                 px: 0.5
+               }} 
+             />
+             <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px' }}>
+                System ID: OD-HUB-01
+             </Typography>
+          </Stack>
           <Typography
             variant="h3"
-            sx={{ fontWeight: 800, mb: 1, letterSpacing: "-1px" }}
+            sx={{ fontWeight: 900, letterSpacing: "-2px", color: 'text.primary' }}
           >
-            System Analytics
-          </Typography>
-          <Typography color="text.secondary" variant="body1">
-            Real-time insights and monitoring for the platform
+            Control Center
           </Typography>
         </Box>
 
@@ -122,68 +141,58 @@ export default function AdminDashboard() {
             p: 1.5,
             display: "flex",
             gap: 2,
-            flexWrap: "wrap",
             alignItems: "center",
-            bgcolor: "background.paper",
+            bgcolor: isDark ? alpha("#FFFFFF", 0.05) : alpha("#FFFFFF", 0.8),
+            backdropFilter: 'blur(10px)',
             borderRadius: "16px",
             border: "1px solid",
             borderColor: "divider",
           }}
         >
-          <Stack direction="row" spacing={1.5}>
+          <Stack direction="row" spacing={2}>
             <TextField
               size="small"
-              label="Starting"
+              label="Sync Date From"
               type="date"
               InputLabelProps={{ shrink: true }}
               value={filters.from}
               onChange={(e) => handleFilterChange("from", e.target.value)}
-              sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+              sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px", fontSize: '0.8rem' }, width: 160 }}
             />
             <TextField
               size="small"
-              label="Ending"
+              label="Sync Date To"
               type="date"
               InputLabelProps={{ shrink: true }}
               value={filters.to}
               onChange={(e) => handleFilterChange("to", e.target.value)}
-              sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+              sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px", fontSize: '0.8rem' }, width: 160 }}
             />
           </Stack>
-          <Divider
-            orientation="vertical"
-            flexItem
-            sx={{ display: { xs: "none", md: "block" }, my: 0.5 }}
-          />
-          <Tooltip title="Force Refresh">
-            <IconButton
-              sx={{ bgcolor: "action.hover", borderRadius: "10px" }}
-              onClick={loadAllData}
-              disabled={loading}
-              color="primary"
-            >
-              <Refresh
-                className={loading ? "animate-spin" : ""}
-                sx={{ fontSize: 20 }}
-              />
-            </IconButton>
-          </Tooltip>
+          <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+          <IconButton
+            sx={{ bgcolor: azure, color: "white", borderRadius: "10px", "&:hover": { bgcolor: alpha(azure, 0.8) } }}
+            onClick={loadAllData}
+            disabled={loading}
+          >
+            <Refresh className={loading ? "animate-spin" : ""} sx={{ fontSize: 20 }} />
+          </IconButton>
         </Paper>
       </Box>
 
-      {/* Stats Cards */}
+      {/* KPI Overlays */}
       <Grid container spacing={3} sx={{ mb: 6 }}>
         <Grid item xs={12} sm={6} md={3}>
           <OverviewCard
-            title="Registered Users"
+            title="Entity Count (Users)"
             value={(overview?.total_users ?? 0).toLocaleString()}
             icon={<People />}
-            color={isDark ? "primary" : "primary"}
+            color="primary"
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <OverviewCard
-            title="Video Content"
+            title="Media Volume"
             value={(overview?.total_videos ?? 0).toLocaleString()}
             icon={<Slideshow />}
             color="info"
@@ -191,7 +200,7 @@ export default function AdminDashboard() {
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <OverviewCard
-            title="Total Sales"
+            title="Transaction Yield"
             value={(overview?.total_purchases ?? 0).toLocaleString()}
             icon={<ShoppingCart />}
             color="success"
@@ -199,7 +208,7 @@ export default function AdminDashboard() {
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <OverviewCard
-            title="Est. Revenue"
+            title="Equity Value"
             value={formattedRevenue(overview?.total_revenue)}
             icon={<AttachMoney />}
             color="secondary"
@@ -207,101 +216,122 @@ export default function AdminDashboard() {
         </Grid>
       </Grid>
 
-      {/* Detailed Analytics Row */}
+      {/* Primary Intelligence Section */}
       <Grid container spacing={4}>
-        {/* Revenue Chart Section */}
         <Grid item xs={12} lg={8}>
-          <Box
+          <Paper
+            elevation={0}
             sx={{
-              mb: 3,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
+              p: 4,
+              borderRadius: "28px",
+              bgcolor: isDark ? alpha("#FFFFFF", 0.02) : alpha("#FFFFFF", 0.4),
+              border: "1px solid",
+              borderColor: "divider",
+              height: '100%'
             }}
           >
-            <Typography variant="h5" sx={{ fontWeight: 700 }}>
-              Revenue Growth
-            </Typography>
-            <FormControl size="small" sx={{ width: 140 }}>
-              <Select
-                value={filters.revenuePeriod}
-                onChange={(e) =>
-                  handleFilterChange("revenuePeriod", e.target.value)
-                }
-                sx={{ borderRadius: "12px", bgcolor: "background.paper" }}
-              >
-                <MenuItem value="year">Past Year</MenuItem>
-                <MenuItem value="month">This Month</MenuItem>
-                <MenuItem value="week">This Week</MenuItem>
-              </Select>
-            </FormControl>
-          </Box>
-          <RevenueChart data={revenue} loading={loading} />
+            <Box sx={{ mb: 4, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <Box>
+                 <Typography variant="h6" sx={{ fontWeight: 900, mb: 0.5 }}>Revenue Performance</Typography>
+                 <Typography variant="caption" color="text.secondary" fontWeight={600}>Financial Time-series Analysis</Typography>
+              </Box>
+              <FormControl size="small" sx={{ width: 150 }}>
+                <Select
+                  value={filters.revenuePeriod}
+                  onChange={(e) => handleFilterChange("revenuePeriod", e.target.value)}
+                  sx={{ borderRadius: "12px", bgcolor: isDark ? alpha("#FFFFFF", 0.05) : "white", fontSize: '0.8rem', fontWeight: 700 }}
+                >
+                  <MenuItem value="year">Annual View</MenuItem>
+                  <MenuItem value="month">Monthly View</MenuItem>
+                  <MenuItem value="week">Weekly View</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+            <RevenueChart data={revenue} loading={loading} />
+          </Paper>
         </Grid>
 
-        {/* Top Videos Table Section */}
         <Grid item xs={12} lg={4}>
-          <Box
+          <Paper
+            elevation={0}
             sx={{
-              mb: 3,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
+              p: 4,
+              borderRadius: "28px",
+              bgcolor: isDark ? alpha("#FFFFFF", 0.02) : alpha("#FFFFFF", 0.4),
+              border: "1px solid",
+              borderColor: "divider",
+              height: '100%'
             }}
           >
-            <Typography variant="h5" sx={{ fontWeight: 700 }}>
-              Best Performance
-            </Typography>
-            <IconButton
-              sx={{ bgcolor: "action.hover", borderRadius: "10px" }}
-              onClick={() =>
-                handleFilterChange(
-                  "videoSort",
-                  filters.videoSort === "views" ? "revenue" : "views",
-                )
-              }
-            >
-              <FilterList sx={{ fontSize: 20 }} />
-            </IconButton>
-          </Box>
-          <TopVideosTable data={topVideos} loading={loading} />
+            <Box sx={{ mb: 4, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <Box>
+                <Typography variant="h6" sx={{ fontWeight: 900, mb: 0.5 }}>Top Assets</Typography>
+                <Typography variant="caption" color="text.secondary" fontWeight={600}>Engagement Ranking</Typography>
+              </Box>
+              <IconButton
+                sx={{ bgcolor: "action.hover", borderRadius: "10px" }}
+                onClick={() => handleFilterChange("videoSort", filters.videoSort === "views" ? "revenue" : "views")}
+              >
+                <FilterList sx={{ fontSize: 20 }} />
+              </IconButton>
+            </Box>
+            <TopVideosTable data={topVideos} loading={loading} />
+          </Paper>
         </Grid>
       </Grid>
 
-      {/* Processing & System Rows */}
+      {/* System Operations Area */}
       <Box sx={{ mt: 6 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700, mb: 3 }}>
-          Media Operations
+        <Typography variant="h5" sx={{ fontWeight: 900, mb: 3, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Sensors sx={{ color: azure }} /> Operational Pipeline
         </Typography>
         <Grid container spacing={4}>
-          <Grid item xs={12} lg={6}>
+          <Grid item xs={12} lg={7}>
             <ProcessingQueue />
           </Grid>
-          <Grid item xs={12} lg={6}>
-            {/* Future placeholder for other system maintenance or logging tasks */}
-            <Box
+          <Grid item xs={12} lg={5}>
+            <Paper
+              elevation={0}
               sx={{
                 p: 4,
-                bgcolor: "background.paper",
-                borderRadius: "24px",
+                borderRadius: "28px",
+                bgcolor: isDark ? alpha("#FFFFFF", 0.02) : alpha("#FFFFFF", 0.4),
                 border: "1px solid",
                 borderColor: "divider",
                 height: "100%",
                 display: "flex",
                 flexDirection: "column",
-                justifyContent: "center",
-                alignItems: "center",
-                textAlign: "center",
-                opacity: 0.8,
+                position: 'relative',
+                overflow: 'hidden'
               }}
             >
-              <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
-                Resource Usage
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Storage and bandwidth metrics will appear here in the next update.
-              </Typography>
-            </Box>
+              <Box sx={{ zIndex: 1 }}>
+                 <Typography variant="h6" sx={{ fontWeight: 900, mb: 1 }}>Resource Allocation</Typography>
+                 <Typography variant="body2" color="text.secondary" sx={{ mb: 4, fontWeight: 500 }}>
+                    Global system resource monitoring and distribution.
+                 </Typography>
+                 
+                 <Stack spacing={3}>
+                    {[
+                      { label: 'Cloud Storage', val: 74, color: azure },
+                      { label: 'Compute Power', val: 32, color: '#F59E0B' },
+                      { label: 'Bandwidth', val: 58, color: '#10B981' }
+                    ].map(res => (
+                      <Box key={res.label}>
+                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                            <Typography variant="caption" fontWeight={800}>{res.label}</Typography>
+                            <Typography variant="caption" fontWeight={900} color={res.color}>{res.val}%</Typography>
+                         </Box>
+                         <Box sx={{ width: '100%', height: 6, bgcolor: alpha(res.color, 0.1), borderRadius: 3 }}>
+                            <Box sx={{ width: `${res.val}%`, height: '100%', bgcolor: res.color, borderRadius: 3, boxShadow: `0 0 10px ${res.color}` }} />
+                         </Box>
+                      </Box>
+                    ))}
+                 </Stack>
+              </Box>
+              
+              <AutoGraph sx={{ position: 'absolute', bottom: -20, right: -20, fontSize: 160, color: alpha(azure, 0.05) }} />
+            </Paper>
           </Grid>
         </Grid>
       </Box>

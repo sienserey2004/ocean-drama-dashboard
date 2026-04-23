@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import {
   Box,
@@ -24,10 +24,11 @@ import {
   useTheme,
   alpha,
   Chip,
+  GlobalStyles,
 } from "@mui/material";
 import {
   Menu as MenuIcon,
-  Dashboard,
+  Dashboard as DashboardIcon,
   VideoLibrary,
   PlayCircle,
   People,
@@ -36,31 +37,24 @@ import {
   Category,
   BarChart,
   Notifications,
-  AccountCircle,
   Logout,
   AttachMoney,
   Person,
-  ExpandLess,
-  ExpandMore,
-  Lock,
-  DarkMode,
-  LightMode,
-  OndemandVideo,
-  Search,
   ChevronLeft,
   ChevronRight,
-  Settings,
-  HelpOutline,
-  Shield,
-  Star,
-  WorkspacePremium,
+  Search,
+  AutoGraph,
+  Security,
+  DarkMode,
+  LightMode,
+  ManageHistory
 } from "@mui/icons-material";
 import { useAppStore } from "@/app/stores/appStore";
 import { useAuthStore } from "@/app/stores/authStore";
 import toast from "react-hot-toast";
 
-const DRAWER_WIDTH = 280;
-const COLLAPSED_DRAWER_WIDTH = 88;
+const EXPANDED_WIDTH = 280;
+const COLLAPSED_WIDTH = 72;
 
 interface NavItem {
   label: string;
@@ -68,6 +62,7 @@ interface NavItem {
   path: string;
   adminOnly?: boolean;
   creatorOrAdmin?: boolean;
+  badge?: string;
 }
 
 interface NavGroup {
@@ -77,37 +72,55 @@ interface NavGroup {
 
 const NAV_GROUPS: NavGroup[] = [
   {
-    title: "Insights",
+    title: "Analytics & Monitoring",
     items: [
       {
-        label: "Admin Metrics",
-        icon: <Dashboard />,
+        label: "Platform Overview",
+        icon: <DashboardIcon />,
         path: "/dashboard/admin/stats",
         adminOnly: true,
+        badge: "Live"
       },
       {
-        label: "Platform Stats",
+        label: "Content Performance",
         icon: <BarChart />,
         path: "/dashboard/analytics",
       },
     ],
   },
   {
-    title: "Enterprise Content",
+    title: "Content Governance",
     items: [
       {
-        label: "Media Library",
-        icon: <OndemandVideo />,
-        path: "/dashboard/browse",
+        label: "Drama Review Queue",
+        icon: <RateReview />,
+        path: "/dashboard/admin/review",
+        adminOnly: true,
       },
       {
-        label: "Asset Manager",
+        label: "Category Manager",
+        icon: <Category />,
+        path: "/dashboard/admin/categories",
+        adminOnly: true,
+      },
+      {
+        label: "Global Library",
+        icon: <PlayCircle />,
+        path: "/dashboard/browse",
+      },
+    ],
+  },
+  {
+    title: "My Creative Studio",
+    items: [
+      {
+        label: "My Video Assets",
         icon: <VideoLibrary />,
         path: "/dashboard/videos",
         creatorOrAdmin: true,
       },
       {
-        label: "Revenue Yield",
+        label: "Earnings & Revenue",
         icon: <AttachMoney />,
         path: "/dashboard/earnings",
         creatorOrAdmin: true,
@@ -115,44 +128,38 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    title: "Governance",
+    title: "Users & Security",
     items: [
       {
-        label: "Review Queue",
-        icon: <RateReview />,
-        path: "/dashboard/admin/review",
-        adminOnly: true,
-      },
-      {
-        label: "Member Directory",
+        label: "User Accounts",
         icon: <People />,
         path: "/dashboard/admin/users",
         adminOnly: true,
       },
       {
-        label: "Safety Reports",
-        icon: <Report />,
+        label: "Reported Issues",
+        icon: <Security />,
         path: "/dashboard/admin/reports",
         adminOnly: true,
       },
       {
-        label: "Taxonomy Lab",
-        icon: <Category />,
-        path: "/dashboard/admin/categories",
+        label: "Audit Logs",
+        icon: <ManageHistory />,
+        path: "/dashboard/admin/users", // Reusing user path for logs if no separate log path exists
         adminOnly: true,
       },
     ],
   },
   {
-    title: "Personal",
+    title: "Personal Space",
     items: [
       {
-        label: "Account Profile",
+        label: "Account Settings",
         icon: <Person />,
         path: "/dashboard/profile",
       },
       {
-        label: "Outreach Hub",
+        label: "Push Center",
         icon: <Notifications />,
         path: "/dashboard/admin/notifications",
         adminOnly: true,
@@ -164,15 +171,6 @@ const NAV_GROUPS: NavGroup[] = [
 export default function DashboardLayout() {
   const { user, isAdmin, isCreator, logout } = useAuthStore();
   const { themeMode, toggleTheme } = useAppStore();
-
-  // Use custom colors for the SaaS Dashboard style
-  const sPrimary = "#3B82F6";
-  const sBg = themeMode === "light" ? "#F8FAFC" : "#0F172A";
-  const sSurface = themeMode === "light" ? "#FFFFFF" : "#111827";
-  const sBorder = themeMode === "light" ? "#E2E8F0" : "#1E293B";
-  const sText = themeMode === "light" ? "#0F172A" : "#F9FAFB";
-  const sSecondary = themeMode === "light" ? "#64748B" : "#9CA3AF";
-
   const theme = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
@@ -181,20 +179,27 @@ export default function DashboardLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
+  const isDark = themeMode === "dark";
+
+  // Premium Colors
+  const azure = "#0EA5E9";
+  const sidebarBg = "#020617"; // bg-slate-950
+
   const handleLogout = async () => {
     await logout();
-    toast.success("System sessions cleared");
+    toast.success("System session terminated");
     navigate("/login");
   };
 
-  const SidebarContent = (
+  const SidebarContent = useMemo(() => (
     <Box
       sx={{
         height: "100%",
         display: "flex",
         flexDirection: "column",
-        bgcolor: sSurface,
-        position: "relative",
+        bgcolor: sidebarBg,
+        color: "#F1F5F9",
+        overflow: "hidden"
       }}
     >
       {/* Brand Logo Section */}
@@ -205,59 +210,37 @@ export default function DashboardLayout() {
           display: "flex",
           alignItems: "center",
           justifyContent: collapsed ? "center" : "flex-start",
+          mb: 2
         }}
       >
         <Stack direction="row" spacing={1.5} alignItems="center">
           <Avatar
+            variant="rounded"
             sx={{
-              bgcolor: sPrimary,
-              width: 42,
-              height: 42,
-              borderRadius: "14px",
-              boxShadow: `0 8px 16px -4px ${alpha(sPrimary, 0.4)}`,
+              bgcolor: azure,
+              width: 40,
+              height: 40,
+              borderRadius: "12px",
+              boxShadow: `0 0 20px ${alpha(azure, 0.4)}`,
             }}
           >
-            <PlayCircle sx={{ fontSize: 28, color: "white" }} />
+            <PlayCircle sx={{ fontSize: 24, color: "white" }} />
           </Avatar>
           {!collapsed && (
             <Box>
-              <Typography
-                variant="h6"
-                sx={{
-                  fontWeight: 900,
-                  lineHeight: 1,
-                  letterSpacing: "-1.5px",
-                  color: sText,
-                }}
-              >
-                OceanDrama
+              <Typography variant="h6" sx={{ fontWeight: 900, lineHeight: 1, letterSpacing: "-1px", color: "white" }}>
+                OCEAN DRAMA APP
               </Typography>
-              <Typography
-                variant="caption"
-                sx={{
-                  color: sPrimary,
-                  fontWeight: 800,
-                  fontSize: "0.65rem",
-                  textTransform: "uppercase",
-                  letterSpacing: "1px",
-                }}
-              >
-                SaaS Dashboard
+              <Typography variant="caption" sx={{ color: azure, fontWeight: 800, fontSize: "0.6rem", textTransform: "uppercase", letterSpacing: "1px" }}>
+                Monitoring System
               </Typography>
             </Box>
           )}
         </Stack>
       </Box>
 
-      {/* Navigation Ecosystem */}
-      <Box
-        sx={{
-          flex: 1,
-          px: 2,
-          overflowY: "auto",
-          "&::-webkit-scrollbar": { width: 0 },
-        }}
-      >
+      {/* Categorized Navigation */}
+      <Box sx={{ flex: 1, px: 2, overflowY: "auto", "&::-webkit-scrollbar": { width: 0 } }}>
         {NAV_GROUPS.map((group) => {
           const visibleItems = group.items.filter((item) => {
             if (item.adminOnly) return isAdmin;
@@ -267,88 +250,57 @@ export default function DashboardLayout() {
           if (visibleItems.length === 0) return null;
 
           return (
-            <Box key={group.title} sx={{ mb: 4 }}>
+            <Box key={group.title} sx={{ mb: 3 }}>
               {!collapsed && (
-                <Typography
-                  variant="caption"
-                  sx={{
-                    px: 2.5,
-                    mb: 1.5,
-                    display: "block",
-                    color: sSecondary,
-                    opacity: 0.6,
-                    fontWeight: 800,
-                    textTransform: "uppercase",
-                    letterSpacing: "2px",
-                    fontSize: "0.6rem",
-                  }}
-                >
+                <Typography variant="caption" sx={{ px: 2, mb: 1, display: "block", color: "#94A3B8", opacity: 0.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: "1.5px", fontSize: "0.55rem" }}>
                   {group.title}
                 </Typography>
               )}
               <List disablePadding>
                 {visibleItems.map((item) => {
-                  const active = location.pathname.startsWith(item.path);
+                  const active = location.pathname === item.path;
                   return (
-                    <ListItem key={item.path} disablePadding sx={{ mb: 1 }}>
+                    <ListItem key={item.label} disablePadding sx={{ mb: 0.5 }}>
                       <ListItemButton
                         onClick={() => {
                           navigate(item.path);
                           if (mobileOpen) setMobileOpen(false);
                         }}
-                        selected={active}
                         sx={{
-                          borderRadius: "16px",
-                          py: 1.4,
-                          px: collapsed ? 2 : 2.5,
+                          borderRadius: "12px",
+                          minHeight: 48,
+                          px: collapsed ? 0 : 2,
                           justifyContent: collapsed ? "center" : "flex-start",
-                          mx: 1,
-                          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                          position: "relative",
-                          overflow: "hidden",
-                          "&.Mui-selected": {
-                            bgcolor: sPrimary,
-                            color: "white",
-                            boxShadow: `0 12px 20px -8px ${alpha(sPrimary, 0.5)}`,
-                            "&:hover": { bgcolor: sPrimary },
-                            "& .MuiListItemIcon-root": { color: "white" },
-                          },
+                          bgcolor: active ? "white" : "transparent",
+                          color: active ? "#020617" : "#94A3B8",
                           "&:hover": {
-                            bgcolor: alpha(sPrimary, 0.08),
-                            transform: "translateX(6px)",
-                            "& .MuiListItemIcon-root": { color: sPrimary },
+                            bgcolor: active ? "white" : alpha("#FFFFFF", 0.05),
+                            color: active ? "#020617" : "white",
                           },
+                          transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
                         }}
                       >
-                        <ListItemIcon
-                          sx={{
-                            minWidth: collapsed ? 0 : 36,
-                            color: active ? "white" : sSecondary,
-                            transition: "color 0.2s",
-                          }}
-                        >
+                        <ListItemIcon sx={{ minWidth: collapsed ? 0 : 38, color: "inherit" }}>
                           {item.icon}
                         </ListItemIcon>
                         {!collapsed && (
                           <ListItemText
                             primary={item.label}
-                            primaryTypographyProps={{
-                              fontSize: "0.9rem",
-                              fontWeight: active ? 800 : 800,
-                              letterSpacing: "-0.2px",
-                              color: active ? "white" : "inherit",
-                            }}
+                            primaryTypographyProps={{ fontSize: "0.85rem", fontWeight: active ? 800 : 600 }}
                           />
                         )}
-                        {active && !collapsed && (
-                          <Box
-                            sx={{
-                              width: 4,
-                              height: 20,
-                              bgcolor: "rgba(255,255,255,0.5)",
-                              borderRadius: 2,
-                              ml: "auto",
-                            }}
+                        {item.badge && !collapsed && (
+                          <Chip 
+                            label={item.badge} 
+                            size="small" 
+                            sx={{ 
+                              height: 18, 
+                              fontSize: "0.6rem", 
+                              fontWeight: 900, 
+                              bgcolor: active ? azure : alpha(azure, 0.2), 
+                              color: active ? "white" : azure, 
+                              border: "none" 
+                            }} 
                           />
                         )}
                       </ListItemButton>
@@ -361,127 +313,49 @@ export default function DashboardLayout() {
         })}
       </Box>
 
-      {/* User Context Footer */}
-      <Box
-        sx={{
-          p: 2,
-          borderTop: "1px solid",
-          borderColor: sBorder,
-          bgcolor: alpha(sBg, 0.5),
-        }}
-      >
-        {!collapsed ? (
-          <Paper
-            elevation={0}
-            sx={{
-              p: 1.5,
-              bgcolor: alpha(sPrimary, 0.05),
-              borderRadius: "20px",
-              display: "flex",
-              alignItems: "center",
-              gap: 1.5,
-              border: "1px solid",
-              borderColor: alpha(sPrimary, 0.1),
-            }}
-          >
-            <Avatar
-              src={user?.profile_image || ""}
-              sx={{
-                width: 44,
-                height: 44,
-                borderRadius: "14px",
-                bgcolor: sPrimary,
-                fontWeight: 800,
-                border: "2px solid white",
-              }}
-            >
-              {user?.name?.charAt(0).toUpperCase()}
-            </Avatar>
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-              <Typography
-                variant="subtitle2"
-                noWrap
-                fontWeight={800}
-                sx={{ letterSpacing: "-0.5px", color: sText }}
-              >
-                {user?.name}
-              </Typography>
-              <Chip
-                label={user?.role}
-                size="small"
-                variant="outlined"
-                sx={{
-                  height: 16,
-                  fontSize: "0.6rem",
-                  fontWeight: 900,
-                  textTransform: "uppercase",
-                  borderColor: alpha(sPrimary, 0.5),
-                  color: sPrimary,
-                  px: 0,
-                }}
-              />
-            </Box>
-            <IconButton
-              size="small"
-              onClick={handleLogout}
-              sx={{
-                color: "error.main",
-                bgcolor: alpha(theme.palette.error.main, 0.1),
-              }}
-            >
-              <Logout fontSize="small" />
-            </IconButton>
-          </Paper>
-        ) : (
-          <Stack spacing={2} alignItems="center">
-            <Avatar
-              src={user?.profile_image || ""}
-              sx={{
-                width: 44,
-                height: 44,
-                borderRadius: "14px",
-                border: "1px solid",
-                borderColor: sBorder,
-              }}
-            >
-              {user?.name?.charAt(0).toUpperCase()}
-            </Avatar>
-            <IconButton
-              onClick={handleLogout}
-              color="error"
-              sx={{ bgcolor: alpha(theme.palette.error.main, 0.1) }}
-            >
-              <Logout fontSize="small" />
-            </IconButton>
-          </Stack>
+      {/* Coverage Stats Footer */}
+      <Box sx={{ p: 2, borderTop: "1px solid", borderColor: "rgba(255,255,255,0.05)" }}>
+        {!collapsed && (
+           <Box sx={{ p: 1.5, borderRadius: "16px", bgcolor: alpha("#FFFFFF", 0.03), mb: 2 }}>
+             <Typography variant="caption" sx={{ color: "#94A3B8", display: "block", mb: 0.5, opacity: 0.7 }}>Coverage Stats</Typography>
+             <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+                <AutoGraph sx={{ fontSize: 16, color: azure }} />
+                <Typography variant="body2" sx={{ fontWeight: 800, color: "white" }}>100% Operational</Typography>
+             </Box>
+           </Box>
         )}
+        <ListItemButton
+          onClick={handleLogout}
+          sx={{ borderRadius: "12px", color: "#EF4444", "&:hover": { bgcolor: alpha("#EF4444", 0.1) } }}
+        >
+          <ListItemIcon sx={{ color: "inherit", minWidth: collapsed ? 0 : 38 }}>
+            <Logout sx={{ fontSize: 20 }} />
+          </ListItemIcon>
+          {!collapsed && <ListItemText primary="Terminate Session" primaryTypographyProps={{ fontSize: "0.85rem", fontWeight: 700 }} />}
+        </ListItemButton>
       </Box>
     </Box>
-  );
+  ), [collapsed, location.pathname, isAdmin, isCreator, mobileOpen, user]);
 
   return (
-    <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: sBg }}>
-      {/* Structural Navigation */}
-      <Box
-        component="nav"
-        sx={{
-          width: { md: collapsed ? COLLAPSED_DRAWER_WIDTH : DRAWER_WIDTH },
-          flexShrink: { md: 0 },
-          transition: "width 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
-        }}
-      >
+    <Box sx={{ display: "flex", minHeight: "100vh", position: "relative", overflow: "hidden" }}>
+      <GlobalStyles styles={{
+        body: {
+          background: isDark 
+            ? `radial-gradient(circle at center top, rgba(14,165,233,0.15) 0%, transparent 50%), linear-gradient(to bottom, #0F172A, #020617)`
+            : `radial-gradient(circle at center top, rgba(14,165,233,0.14) 0%, transparent 40%), linear-gradient(to bottom, #F8FAFC, #EEF6FF)`,
+          backgroundAttachment: 'fixed',
+          fontFamily: "'Roboto', 'Segoe UI', sans-serif !important"
+        }
+      }} />
+
+      {/* Sidebar Interface */}
+      <Box component="nav" sx={{ width: { md: collapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH }, flexShrink: { md: 0 }, transition: "width 0.3s cubic-bezier(0.4, 0, 0.2, 1)", willChange: "width" }}>
         <Drawer
           variant="temporary"
           open={mobileOpen}
           onClose={() => setMobileOpen(false)}
-          sx={{
-            display: { xs: "block", md: "none" },
-            "& .MuiDrawer-paper": {
-              width: DRAWER_WIDTH,
-              border: "none",
-              boxShadow: 24,
-            },
-          }}
+          sx={{ display: { xs: "block", md: "none" }, "& .MuiDrawer-paper": { width: EXPANDED_WIDTH, border: "none" } }}
         >
           {SidebarContent}
         </Drawer>
@@ -490,13 +364,12 @@ export default function DashboardLayout() {
           sx={{
             display: { xs: "none", md: "block" },
             "& .MuiDrawer-paper": {
-              width: collapsed ? COLLAPSED_DRAWER_WIDTH : DRAWER_WIDTH,
-              boxSizing: "border-box",
+              width: collapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH,
               border: "none",
-              borderRight: "1px solid",
-              borderColor: sBorder,
-              transition: "width 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
-              overflowX: "hidden",
+              borderRight: `1px solid ${isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"}`,
+              transition: "width 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+              overflow: "hidden",
+              willChange: "width"
             },
           }}
         >
@@ -504,366 +377,141 @@ export default function DashboardLayout() {
         </Drawer>
       </Box>
 
-      {/* Primary Workflow Surface */}
-      <Box
-        sx={{
-          flexGrow: 1,
-          display: "flex",
-          flexDirection: "column",
-          minWidth: 0,
-          position: "relative",
-        }}
-      >
-        {/* Superior Glassmorphic Toolbar */}
+      {/* Main Content Area (Glassmorphic Window) */}
+      {/* Main Content Area (Glassmorphic Window) */}
+      <Box sx={{ flexGrow: 1, display: "flex", flexDirection: "column", minWidth: 0, height: "100vh", overflowY: "auto" }}>
         <AppBar
           position="sticky"
           elevation={0}
           sx={{
-            bgcolor: alpha(sSurface, 0.8),
-            backdropFilter: "blur(16px) saturate(180%)",
-            borderBottom: "1px solid",
-            borderColor: sBorder,
-            color: sText,
-            height: 80,
+            top: 0,
             zIndex: 1100,
-            justifyContent: "center",
+            bgcolor: isDark ? alpha("#0F172A", 0.9) : alpha("#F8FAFC", 0.9),
+            backdropFilter: "blur(12px)",
+            color: isDark ? "white" : "#0F172A",
+            px: { xs: 2, md: 6 },
+            py: 1,
+            borderBottom: "1px solid",
+            borderColor: "divider",
+            mb: 3
           }}
         >
-          <Toolbar sx={{ px: { xs: 2, md: 6 }, gap: 3 }}>
+          <Toolbar sx={{ px: "0 !important", gap: 2 }}>
             <IconButton
-              sx={{ display: { md: "none" }, color: sText }}
+              sx={{ display: { md: "none" }, color: "inherit" }}
               onClick={() => setMobileOpen(true)}
             >
               <MenuIcon />
             </IconButton>
 
             <IconButton
-              sx={{
-                display: { xs: "none", md: "inline-flex" },
-                bgcolor: "action.hover",
-                borderRadius: "12px",
-                color: sText,
-              }}
               onClick={() => setCollapsed(!collapsed)}
+              sx={{
+                display: { xs: "none", md: "flex" },
+                bgcolor: isDark ? alpha("#FFFFFF", 0.05) : alpha("#0F172A", 0.05),
+                borderRadius: "12px",
+                color: "inherit"
+              }}
             >
               {collapsed ? <ChevronRight /> : <ChevronLeft />}
             </IconButton>
 
-            {/* Omni-search Interface */}
             <Paper
               elevation={0}
               sx={{
-                p: "4px 16px",
+                flexGrow: 1,
+                maxWidth: 400,
                 display: "flex",
                 alignItems: "center",
-                width: { xs: "100%", sm: 300, md: 450 },
-                bgcolor: alpha(sSecondary, 0.08),
-                borderRadius: "16px",
+                px: 2,
+                py: 0.5,
+                borderRadius: "12px",
+                bgcolor: isDark ? alpha("#FFFFFF", 0.05) : alpha("#FFFFFF", 0.8),
+                backdropFilter: "blur(10px)",
                 border: "1px solid",
-                borderColor: sBorder,
-                transition: "all 0.3s",
-                "&:focus-within": {
-                  bgcolor: sSurface,
-                  boxShadow: "0 8px 32px -4px rgba(0,0,0,0.08)",
-                  borderColor: sPrimary,
-                  width: { md: 500 },
-                },
+                borderColor: isDark ? alpha("#FFFFFF", 0.1) : "rgba(0,0,0,0.05)"
               }}
             >
-              <Search sx={{ color: sSecondary, fontSize: 20, mr: 1 }} />
-              <InputBase
-                placeholder="Locate resources, metrics or logs..."
-                sx={{
-                  ml: 1,
-                  flex: 1,
-                  fontSize: "0.9rem",
-                  fontWeight: 600,
-                  color: sText,
-                }}
-              />
-              <Box
-                sx={{
-                  display: { xs: "none", md: "block" },
-                  bgcolor: "action.hover",
-                  px: 1,
-                  py: 0.2,
-                  borderRadius: "4px",
-                  border: "1px solid",
-                  borderColor: sBorder,
-                }}
-              >
-                <Typography
-                  sx={{
-                    fontSize: "0.7rem",
-                    fontWeight: 800,
-                    color: sSecondary,
-                  }}
-                >
-                  ⌘ K
-                </Typography>
-              </Box>
+              <Search sx={{ color: "text.secondary", fontSize: 20, mr: 1 }} />
+              <InputBase placeholder="System Search..." sx={{ flex: 1, fontSize: "0.85rem", fontWeight: 500 }} />
             </Paper>
 
             <Box sx={{ flexGrow: 1 }} />
 
-            {/* Utility Arsenal */}
-            <Stack direction="row" spacing={1.5} alignItems="center">
-              <Box sx={{ display: { xs: "none", sm: "flex" }, gap: 1 }}>
-                <Tooltip title="Documentation">
-                  <IconButton
-                    size="small"
-                    sx={{ color: sSecondary, bgcolor: "action.hover" }}
-                  >
-                    <HelpOutline fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="Access Control">
-                  <IconButton
-                    size="small"
-                    sx={{ color: sSecondary, bgcolor: "action.hover" }}
-                  >
-                    <Shield fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              </Box>
-
-              <Divider
-                orientation="vertical"
-                flexItem
-                sx={{
-                  mx: 1,
-                  height: 28,
-                  alignSelf: "center",
-                  borderColor: sBorder,
-                }}
-              />
-
-              <Tooltip
-                title={
-                  themeMode === "light"
-                    ? "Enable Night Mode"
-                    : "Restore Daylight"
-                }
-              >
-                <IconButton
-                  onClick={toggleTheme}
-                  sx={{
-                    bgcolor:
-                      themeMode === "dark"
-                        ? alpha("#facc15", 0.1)
-                        : alpha("#6366f1", 0.1),
-                    color: themeMode === "dark" ? "#facc15" : "#6366f1",
-                    borderRadius: "12px",
-                  }}
-                >
-                  {themeMode === "dark" ? (
-                    <LightMode fontSize="small" />
-                  ) : (
-                    <DarkMode fontSize="small" />
-                  )}
-                </IconButton>
-              </Tooltip>
-
-              <IconButton
-                sx={{
-                  bgcolor: alpha(theme.palette.error.main, 0.05),
-                  color: "error.main",
-                  borderRadius: "12px",
-                }}
-              >
-                <Badge
-                  badgeContent={3}
-                  color="error"
-                  sx={{
-                    "& .MuiBadge-badge": {
-                      fontWeight: 900,
-                      fontSize: "0.65rem",
-                    },
-                  }}
-                >
-                  <Notifications fontSize="small" />
-                </Badge>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <IconButton onClick={toggleTheme} sx={{ color: azure }}>
+                {isDark ? <LightMode /> : <DarkMode />}
               </IconButton>
-
-              <Box sx={{ position: "relative", ml: 1 }}>
-                <IconButton
-                  id="profile-menu-button"
-                  aria-controls={Boolean(anchorEl) ? "profile-menu" : undefined}
-                  aria-haspopup="true"
-                  aria-expanded={Boolean(anchorEl) ? "true" : undefined}
-                  onClick={(e) => setAnchorEl(e.currentTarget)}
-                  sx={{
-                    p: 0,
-                    border: "2px solid",
-                    borderColor: sPrimary,
-                    boxShadow: "0 0 0 2px white",
-                  }}
-                >
-                  <Avatar
-                    sx={{
-                      width: 38,
-                      height: 38,
-                      bgcolor: sPrimary,
-                      fontWeight: 900,
-                      fontSize: "0.9rem",
-                      borderRadius: "12px",
-                    }}
-                    src={user?.profile_image || ""}
-                  >
-                    {user?.name?.charAt(0).toUpperCase()}
-                  </Avatar>
+              
+              <Badge badgeContent={4} color="error" overlap="circular">
+                <IconButton sx={{ color: "text.secondary" }}>
+                  <Notifications />
                 </IconButton>
-              </Box>
-            </Stack>
+              </Badge>
 
-            <Menu
-              id="profile-menu"
-              anchorEl={anchorEl}
-              open={Boolean(anchorEl)}
-              onClose={() => setAnchorEl(null)}
-              MenuListProps={{
-                "aria-labelledby": "profile-menu-button",
-              }}
-              PaperProps={{
-                elevation: 0,
-                sx: {
-                  mt: 2.5,
-                  borderRadius: "24px",
-                  minWidth: 260,
-                  p: 1.5,
-                  bgcolor: sSurface,
-                  boxShadow: "0 20px 50px -12px rgba(0,0,0,0.15)",
-                  border: "1px solid",
-                  borderColor: sBorder,
-                },
-              }}
-              transformOrigin={{ horizontal: "right", vertical: "top" }}
-              anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
-            >
-              <Box sx={{ p: 2, display: "flex", alignItems: "center", gap: 2 }}>
-                <Avatar
-                  sx={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: "16px",
-                    bgcolor: sPrimary,
-                    fontWeight: 900,
-                  }}
-                  src={user?.profile_image || ""}
-                />
-                <Box sx={{ overflow: "hidden" }}>
-                  <Typography
-                    variant="subtitle1"
-                    fontWeight={900}
-                    noWrap
-                    sx={{ letterSpacing: "-0.5px", color: sText }}
-                  >
-                    {user?.name}
-                  </Typography>
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    noWrap
-                    sx={{ display: "block" }}
-                  >
-                    {user?.email}
-                  </Typography>
-                </Box>
-              </Box>
-              <Box sx={{ px: 2, pb: 2 }}>
-                <Chip
-                  icon={
-                    <WorkspacePremium sx={{ fontSize: "14px !important" }} />
-                  }
-                  label={user?.role?.toUpperCase()}
-                  size="small"
-                  sx={{
-                    fontWeight: 900,
-                    borderRadius: "8px",
-                    bgcolor: alpha(sPrimary, 0.1),
-                    color: sPrimary,
-                    border: "none",
-                    height: 24,
-                    fontSize: "0.65rem",
-                  }}
-                />
-              </Box>
-              <Divider sx={{ mx: 1, my: 1, borderColor: sBorder }} />
-              <MenuItem
-                onClick={() => {
-                  navigate("/dashboard/profile");
-                  setAnchorEl(null);
-                }}
-                sx={{ borderRadius: "12px", py: 1.5 }}
-              >
-                <ListItemIcon>
-                  <AccountCircle fontSize="small" sx={{ color: sPrimary }} />
-                </ListItemIcon>
-                <ListItemText
-                  primary="Personal Portfolio"
-                  primaryTypographyProps={{ fontWeight: 700, color: sText }}
-                />
-              </MenuItem>
-              <MenuItem
-                onClick={() => setAnchorEl(null)}
-                sx={{ borderRadius: "12px", py: 1.5 }}
-              >
-                <ListItemIcon>
-                  <Settings fontSize="small" sx={{ color: sSecondary }} />
-                </ListItemIcon>
-                <ListItemText
-                  primary="System Configuration"
-                  primaryTypographyProps={{ fontWeight: 700, color: sText }}
-                />
-              </MenuItem>
-              <Divider sx={{ mx: 1, my: 1, borderColor: sBorder }} />
-              <MenuItem
-                onClick={handleLogout}
-                sx={{
-                  borderRadius: "12px",
-                  py: 1.5,
-                  color: "error.main",
-                  "&:hover": { bgcolor: alpha(theme.palette.error.main, 0.05) },
-                }}
-              >
-                <ListItemIcon>
-                  <Logout fontSize="small" color="error" />
-                </ListItemIcon>
-                <ListItemText
-                  primary="Terminate Session"
-                  primaryTypographyProps={{ fontWeight: 800 }}
-                />
-              </MenuItem>
-            </Menu>
+              <Divider orientation="vertical" flexItem sx={{ mx: 1, height: 24, alignSelf: "center" }} />
+
+              <Stack direction="row" spacing={1.5} alignItems="center" sx={{ cursor: "pointer" }} onClick={(e) => setAnchorEl(e.currentTarget)}>
+                 <Avatar 
+                    src={user?.profile_image || ""} 
+                    sx={{ width: 36, height: 36, borderRadius: "10px", border: `2px solid ${azure}` }} 
+                 />
+                 <Box sx={{ display: { xs: "none", sm: "block" } }}>
+                    <Typography variant="body2" fontWeight={800}>{user?.name}</Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ textTransform: "uppercase", fontSize: "0.6rem", fontWeight: 900 }}>{user?.role}</Typography>
+                 </Box>
+              </Stack>
+            </Stack>
           </Toolbar>
         </AppBar>
 
-        {/* Holistic Content Viewport */}
         <Box
           component="main"
           sx={{
-            flex: 1,
-            p: { xs: 2.5, md: 6 },
-            overflow: "auto",
-            display: "flex",
-            flexDirection: "column",
-            scrollBehavior: "smooth",
+            flexGrow: 1,
+            borderRadius: "32px",
+            bgcolor: isDark ? alpha("#0F172A", 0.75) : alpha("#FFFFFF", 0.75),
+            backdropFilter: "blur(8px) saturate(140%)", // Reduced from 20px to fix severe GPU rendering lag
+            willChange: "width, margin, padding",
+            border: "1px solid",
+            borderColor: isDark ? alpha("#FFFFFF", 0.1) : alpha("#0EA5E9", 0.1),
+            mx: { xs: 1, md: 3 },
+            mb: { xs: 1, md: 3 },
+            p: { xs: 2, md: 4 },
+            boxShadow: isDark ? "0 20px 60px -15px rgba(0,0,0,0.4)" : "0 20px 60px -15px rgba(14,165,233,0.1)", // Optimized shadow
+            transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
           }}
         >
-          <Box sx={{ maxWidth: "1400px", width: "100%", mx: "auto", flex: 1 }}>
-            <Outlet />
-          </Box>
-
-          <Box sx={{ py: 6, opacity: 0.5, textAlign: "center" }}>
-            <Typography
-              variant="caption"
-              sx={{ fontWeight: 700, color: sSecondary }}
-            >
-              OceanDrama Enterprise API Version 4.2.0-STABLE • © 2026 Virtual
-              Nexus Systems
-            </Typography>
-          </Box>
+          <Outlet />
         </Box>
+
+        <Menu
+          anchorEl={anchorEl}
+          open={Boolean(anchorEl)}
+          onClose={() => setAnchorEl(null)}
+          PaperProps={{
+            elevation: 0,
+            sx: {
+              mt: 1.5,
+              borderRadius: "16px",
+              minWidth: 200,
+              bgcolor: isDark ? "#1E293B" : "white",
+              border: "1px solid",
+              borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)",
+              boxShadow: "0 20px 40px -10px rgba(0,0,0,0.2)"
+            }
+          }}
+        >
+          <MenuItem onClick={() => { navigate("/dashboard/profile"); setAnchorEl(null); }}>
+             <ListItemIcon><Person fontSize="small" /></ListItemIcon>
+             Profile
+          </MenuItem>
+          <Divider />
+          <MenuItem onClick={handleLogout} sx={{ color: "error.main" }}>
+             <ListItemIcon><Logout fontSize="small" color="error" /></ListItemIcon>
+             Logout
+          </MenuItem>
+        </Menu>
       </Box>
     </Box>
   );

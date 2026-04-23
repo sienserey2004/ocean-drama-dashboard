@@ -35,7 +35,14 @@ body {
   .glass-card {
     background: rgba(26, 26, 34, 0.6);
     backdrop-filter: blur(12px);
-    border: 1px solid rgba(42, 42, 53, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
 }
 

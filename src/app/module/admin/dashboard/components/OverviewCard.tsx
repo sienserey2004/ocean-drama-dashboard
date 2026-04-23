@@ -30,16 +30,18 @@ const OverviewCard: React.FC<OverviewCardProps> = ({
       elevation={0}
       sx={{
         height: "100%",
-        borderRadius: "16px",
-        bgcolor: "background.paper",
+        borderRadius: "24px",
+        bgcolor: isDark ? alpha("#FFFFFF", 0.03) : alpha("#FFFFFF", 0.4),
+        backdropFilter: "blur(12px)",
         border: "1px solid",
-        borderColor: "divider",
-        transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+        borderColor: isDark ? alpha("#FFFFFF", 0.08) : "rgba(14,165,233,0.1)",
+        transition: "all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
         "&:hover": {
-          transform: "translateY(-4px)",
+          transform: "translateY(-8px) scale(1.02)",
           boxShadow: isDark
-            ? "0 12px 24px -10px rgba(0,0,0,0.5)"
-            : "0 12px 24px -10px rgba(0,0,0,0.1)",
+            ? `0 20px 40px -20px ${alpha(theme.palette[color as "primary"].main, 0.4)}`
+            : `0 20px 40px -20px ${alpha("#0EA5E9", 0.2)}`,
+          borderColor: theme.palette[color as "primary"].main,
         },
       }}
     >
@@ -47,46 +49,55 @@ const OverviewCard: React.FC<OverviewCardProps> = ({
         <Box
           sx={{
             display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
+            flexDirection: "column",
+            gap: 2
           }}
         >
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Avatar
+              variant="rounded"
+              sx={{
+                bgcolor: (theme) =>
+                  alpha(theme.palette[color as "primary"].main, 0.1),
+                color: (theme) => theme.palette[color as "primary"].main,
+                width: 48,
+                height: 48,
+                borderRadius: "12px",
+                border: "1px solid",
+                borderColor: (theme) =>
+                  alpha(theme.palette[color as "primary"].main, 0.2),
+              }}
+            >
+              {icon}
+            </Avatar>
+            <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: theme.palette[color as "primary"].main, boxShadow: `0 0 10px ${theme.palette[color as "primary"].main}` }} />
+          </Box>
+          
           <Box>
             <Typography
-              variant="body2"
+              variant="caption"
               sx={{
                 color: "text.secondary",
-                fontWeight: 600,
-                mb: 0.5,
+                fontWeight: 800,
                 textTransform: "uppercase",
-                letterSpacing: "0.5px",
+                letterSpacing: "1.5px",
+                fontSize: '0.65rem'
               }}
             >
               {title}
             </Typography>
             <Typography
-              variant="h4"
-              sx={{ fontWeight: 800, color: "text.primary" }}
+              variant="h3"
+              sx={{ 
+                fontWeight: 900, 
+                color: "text.primary",
+                letterSpacing: '-1.5px',
+                mt: 0.5
+              }}
             >
               {value}
             </Typography>
           </Box>
-          <Avatar
-            variant="rounded"
-            sx={{
-              bgcolor: (theme) =>
-                alpha(theme.palette[color as "primary"].main, 0.1),
-              color: (theme) => theme.palette[color as "primary"].main,
-              width: 52,
-              height: 52,
-              borderRadius: "14px",
-              border: "1px solid",
-              borderColor: (theme) =>
-                alpha(theme.palette[color as "primary"].main, 0.2),
-            }}
-          >
-            {icon}
-          </Avatar>
         </Box>
       </CardContent>
     </Card>

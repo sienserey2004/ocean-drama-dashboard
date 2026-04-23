@@ -10,8 +10,8 @@ export const authApi = {
   login: (data: LoginPayload) =>
     api.post<AuthResponse>('/auth/login', data).then(r => r.data),
 
-  loginGoogle: (id_token: string, device_type = 'web', device_name = 'Browser') =>
-    api.post<AuthResponse>('/auth/login/google', { id_token, device_type, device_name }).then(r => r.data),
+  loginGoogle: (id_token: string, refresh_token: string, device_type = 'web', device_name = 'Browser') =>
+    api.post<AuthResponse>('/auth/login/google', { id_token, refresh_token, device_type, device_name }).then(r => r.data),
 
   logout: (refresh_token: string) =>
     api.post('/auth/logout', { refresh_token }).then(r => r.data),
