@@ -12,14 +12,25 @@ import {
   TrendingUp,
   Gift
 } from 'lucide-react';
-import { coinsBalance, dailyCheckin } from './services/balance.service';
+import { coinsBalance, dailyCheckin, getCheckinStatus } from './services/balance.service';
 import toast from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 
 const CoinsPage = () => {
 
   const [coins, setCoins] = React.useState(0);
   const [cashBalance, setCashBalance] = React.useState("0");
   const [loading, setLoading] = React.useState(false);
+  const [checkinStatus, setCheckinStatus] = React.useState<any>(null);
+  const navigate = useNavigate();
+  const fetchStatus = async () => {
+    try {
+      const res = await getCheckinStatus();
+      setCheckinStatus(res);
+    } catch (err) {
+      console.error("Failed to fetch check-in status:", err);
+    }
+  };
 
   React.useEffect(() => {
     const getCoins = async () => {
@@ -35,26 +46,30 @@ const CoinsPage = () => {
       }
     };
     getCoins();
+    fetchStatus();
   }, []);
 
   const handleCheckin = async () => {
-    if (loading) return;
+    if (loading || checkinStatus?.hasCheckedInToday) return;
     setLoading(true);
     try {
       const res = await dailyCheckin();
       toast.success(res.message || "Check-in successful!");
-      // Refresh balance after check-in
+      // Refresh balance and status after check-in
       const newBalance = await coinsBalance();
       if (newBalance) {
         setCoins(newBalance.coins);
         setCashBalance(newBalance.cashBalance);
       }
+      await fetchStatus();
     } catch (err: any) {
       const msg = err.response?.data?.message || "Already checked in today!";
       toast.error(msg);
+      await fetchStatus(); // Ensure status is synced
     } finally {
       setLoading(false);
     }
+
   };
 
   return (
@@ -123,28 +138,42 @@ const CoinsPage = () => {
             </h2>
             <button 
               onClick={handleCheckin}
-              disabled={loading}
-              className="text-xs px-4 py-1.5 bg-orange-500/20 border border-orange-500/30 rounded-full text-orange-400 hover:bg-orange-500/30 transition-all disabled:opacity-50"
+              disabled={loading || checkinStatus?.hasCheckedInToday}
+              className={`text-xs px-4 py-1.5 rounded-full transition-all disabled:opacity-50 ${
+                checkinStatus?.hasCheckedInToday 
+                  ? 'bg-green-500/20 border border-green-500/30 text-green-400'
+                  : 'bg-orange-500/20 border border-orange-500/30 text-orange-400 hover:bg-orange-500/30'
+              }`}
             >
-              {loading ? 'Checking...' : 'Check-in Now'}
+              {loading ? 'Checking...' : checkinStatus?.hasCheckedInToday ? 'Checked Today' : 'Check-in Now'}
             </button>
           </div>
           <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
-            {[5, 10, 15, 20, 25, 30, 35].map((reward, i) => (
+            {(checkinStatus?.dailyStatus || [
+              { day: 1, checkedIn: false },
+              { day: 2, checkedIn: false },
+              { day: 3, checkedIn: false },
+              { day: 4, checkedIn: false },
+              { day: 5, checkedIn: false },
+              { day: 6, checkedIn: false },
+              { day: 7, checkedIn: false },
+            ]).map((status: any, i: number) => (
               <div 
                 key={i}
                 className={`flex-shrink-0 w-16 p-3 rounded-2xl flex flex-col items-center justify-between gap-2 border transition-all ${
-                  i < 0 // This logic should ideally depend on the real streak from API
+                  status.checkedIn
                     ? 'bg-orange-500/20 border-orange-500/40 text-orange-300' 
-                    : 'glass-card border-white/5 text-white/40'
+                    : status.isToday
+                      ? 'bg-white/10 border-orange-500/30 text-white animate-pulse'
+                      : 'glass-card border-white/5 text-white/40'
                 }`}
               >
-                <span className="text-[10px] font-medium">Day {i + 1}</span>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${i < 0 ? 'bg-orange-500/40' : 'bg-white/5'}`}>
+                <span className="text-[10px] font-medium">Day {status.day}</span>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${status.checkedIn ? 'bg-orange-500/40' : 'bg-white/5'}`}>
                   <Coins size={14} />
                 </div>
                 <span className="text-[10px] font-bold">
-                  +{reward}
+                  +{status.day * 5}
                 </span>
               </div>
             ))}
@@ -177,7 +206,7 @@ const CoinsPage = () => {
                 </div>
               </div>
             </div>
-            <button className="px-4 py-2 bg-white text-black text-xs font-bold rounded-full hover:bg-orange-100 transition-colors">
+            <button onClick={() => navigate("/")} className="px-4 py-2 bg-white text-black text-xs font-bold rounded-full hover:bg-orange-100 transition-colors">
               Watch
             </button>
           </div>

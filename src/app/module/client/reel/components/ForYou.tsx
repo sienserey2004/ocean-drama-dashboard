@@ -3,19 +3,12 @@ import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Stack from "@mui/material/Stack";
 import CircularProgress from "@mui/material/CircularProgress";
-import IconButton from "@mui/material/IconButton";
-import Slider from "@mui/material/Slider";
-import Tooltip from "@mui/material/Tooltip";
-import VolumeUpIcon from "@mui/icons-material/VolumeUp";
-import VolumeOffIcon from "@mui/icons-material/VolumeOff";
-import VolumeDownIcon from "@mui/icons-material/VolumeDown";
-import VideoCard from "../VideoCard";
+import CoinProgressDisplay from "./CoinProgressDisplay";
 import { videoApi, FeedPreviewItem } from "@/app/api/video.service";
 import { userApi } from "@/app/api/user.service";
 import { coinApi } from "@/app/api/coin.service";
 import { coinsBalance } from "../../Coins/services/balance.service";
-import { useAuthStore } from "@/app/stores/authStore";
-import CurrencyExchangeIcon from '@mui/icons-material/CurrencyExchange';
+import { useAuthStore } from "../../../../stores/authStore";
 
 interface ForYouProps {
   muted: boolean;
@@ -250,183 +243,24 @@ const ForYou: React.FC<ForYouProps> = ({ muted, volume }) => {
   }
 
   return (
-    <Box sx={{ height: "100%", width: "100%", position: "relative", overflow: "hidden" }}>
-      {/* Coin Progress Display - Fixed Floating over scroll content */}
-      {isAuthenticated && (
-        <Box
-          onMouseDown={handleTouchStart}
-          onMouseMove={handleTouchMove}
-          onMouseUp={handleTouchEnd}
-          onMouseLeave={handleTouchEnd}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          sx={{
-            position: "absolute",
-            top: pos.y,
-            left: pos.x,
-            zIndex: 2000,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: 1,
-            cursor: isDragging ? "grabbing" : "grab",
-            userSelect: "none",
-            touchAction: "none",
-            transition: isDragging ? "none" : "all 0.15s ease-out",
-            transform: isDragging ? "scale(1.1)" : "scale(1)",
-          }}
-        >
-          <Box
-            sx={{
-              position: "relative",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 54,
-              height: 54,
-              borderRadius: "50%",
-              bgcolor: "rgba(20, 20, 26, 0.6)",
-              backdropFilter: "blur(12px)",
-              border: "1px solid rgba(255, 255, 255, 0.1)",
-              boxShadow: "0 4px 15px rgba(0,0,0,0.3)",
-              transition: "transform 0.3s ease",
-              "&:hover": { transform: "scale(1.05)" },
-            }}
-          >
-            <CircularProgress
-              variant="determinate"
-              value={(watchSeconds / 10) * 100}
-              size={50}
-              thickness={4}
-              sx={{
-                color: "#FFD700",
-                position: "absolute",
-                filter: "drop-shadow(0 0 5px rgba(255, 215, 0, 0.5))",
-                transition: "all 0.3s ease",
-              }}
-            />
-            <CircularProgress
-              variant="determinate"
-              value={100}
-              size={50}
-              thickness={4}
-              sx={{
-                color: "rgba(255, 255, 255, 0.05)",
-              }}
-            />
-            <CurrencyExchangeIcon 
-              sx={{ 
-                color: "#FFD700", 
-                fontSize: 28, 
-                zIndex: 1,
-                filter: "drop-shadow(0 0 8px rgba(255, 215, 0, 0.4))"
-              }} 
-            />
-          </Box>
-
-          {/* Current Balance Running */}
-          {totalCoins !== null && (
-            <Box
-              sx={{
-                bgcolor: "rgba(20, 20, 26, 0.6)",
-                backdropFilter: "blur(12px)",
-                px: 2,
-                py: 0.5,
-                borderRadius: "12px",
-                border: "1px solid rgba(255, 255, 255, 0.1)",
-                display: "flex",
-                alignItems: "center",
-                gap: 0.5,
-                boxShadow: "0 4px 15px rgba(0,0,0,0.2)",
-              }}
-            >
-              <Typography
-                sx={{
-                  color: "white",
-                  fontSize: 14,
-                  fontWeight: 900,
-                  letterSpacing: "0.5px",
-                }}
-              >
-                {totalCoins.toLocaleString()}
-              </Typography>
-              <Typography
-                sx={{
-                  color: "#FFD700",
-                  fontSize: 10,
-                  fontWeight: 700,
-                  textTransform: "uppercase",
-                }}
-              >
-                Coins
-              </Typography>
-            </Box>
-          )}
-          
-          {/* Floating Earned Text */}
-          {showEarnedEffect && (
-            <Typography
-              sx={{
-                color: "#FFD700",
-                fontWeight: 900,
-                fontSize: 16,
-                textShadow: "0 0 10px rgba(255, 215, 0, 0.8)",
-                animation: "floatUp 1.5s ease-out forwards",
-                "@keyframes floatUp": {
-                  "0%": { transform: "translateY(0)", opacity: 0 },
-                  "20%": { transform: "translateY(-10px)", opacity: 1 },
-                  "80%": { transform: "translateY(-20px)", opacity: 0.8 },
-                  "100%": { transform: "translateY(-30px)", opacity: 0 },
-                },
-              }}
-            >
-              +10
-            </Typography>
-          )}
-        </Box>
-      )}
-
-      {/* Scrollable Video Content */}
-      <Box
-        ref={containerRef}
-        onScroll={handleScroll}
-        sx={{
-          height: "100%",
-          width: "100%",
-          bgcolor: "#08090C",
-          overflowY: "scroll",
-          scrollSnapType: "y mandatory",
-          position: "relative",
-          "&::-webkit-scrollbar": { display: "none" },
-          msOverflowStyle: "none",
-          scrollbarWidth: "none",
-        }}
-      >
-        {feedItems.map((item, index) => (
-          <VideoCard
-            key={item.episodeId}
-            episodeId={item.episodeId}
-            video={item.video}
-            videoUrl={item.previewVideoUrl ?? ""}
-            username={item.video.creator?.name ?? "Unknown"}
-            description={item.video.title ?? "No title"}
-            likes={String(item.video.like_count ?? 0)}
-            comments={String(item.video.comment_count ?? 0)}
-            favorites={String(item.video.save_count ?? 0)}
-            shares={String(item.video.share_count ?? 0)}
-            music={item.video.title ?? "Original Sound"}
-            profilePic={item.video.thumbnailUrl ?? ""}
-            active={index === activeIndex}
-            muted={muted}
-            volume={volume}
-            onTogglePlay={(playing) => {
-              if (index === activeIndex) setIsPlaying(playing);
-            }}
-          />
-        ))}
-      </Box>
-    </Box>
+    <CoinProgressDisplay
+      isAuthenticated={isAuthenticated}
+      pos={pos}
+      isDragging={isDragging}
+      handleTouchStart={handleTouchStart}
+      handleTouchMove={handleTouchMove}
+      handleTouchEnd={handleTouchEnd}
+      watchSeconds={watchSeconds}
+      totalCoins={totalCoins}
+      showEarnedEffect={showEarnedEffect}
+      feedItems={feedItems}
+      activeIndex={activeIndex}
+      containerRef={containerRef}
+      handleScroll={handleScroll}
+      muted={muted}
+      volume={volume}
+      setIsPlaying={setIsPlaying}
+    />
   );
 };
 

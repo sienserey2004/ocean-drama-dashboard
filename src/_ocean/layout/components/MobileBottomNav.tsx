@@ -19,6 +19,7 @@ interface MobileBottomNavProps {
   isAuthenticated: boolean;
   location: Location;
   navigate: NavigateFunction;
+  items?: { label: string; icon: React.ReactNode; path: string }[];
 }
 
 const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
@@ -26,23 +27,9 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   isAuthenticated,
   location,
   navigate,
+  items,
 }) => {
-  const getActiveValue = () => {
-    const path = location.pathname;
-    if (path.startsWith("/explore")) return 1;
-    if (path.startsWith("/coins")) return 2;
-    if (path.startsWith("/library")) return 3;
-    if (path.startsWith("/profile-screen")) return 4;
-    return 0; // Home
-  };
-
-  const [activeIndex, setActiveIndex] = React.useState(getActiveValue());
-
-  React.useEffect(() => {
-    setActiveIndex(getActiveValue());
-  }, [location.pathname]);
-
-  const navItems = [
+  const defaultItems = [
     { label: "Home", icon: <HomeIcon sx={{ fontSize: 24 }} />, path: "/" },
     { label: "Explore", icon: <TravelExploreIcon sx={{ fontSize: 24 }} />, path: "/explore" },
     { label: "Coins", icon: <SavingsIcon sx={{ fontSize: 24 }} />, path: "/coins" },
@@ -67,6 +54,20 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       path: "/profile-screen" 
     },
   ];
+
+  const currentItems = items || defaultItems;
+
+  const getActiveValue = () => {
+    const path = location.pathname;
+    const index = currentItems.findIndex(item => path === item.path || (item.path !== '/' && path.startsWith(item.path)));
+    return index === -1 ? 0 : index;
+  };
+
+  const [activeIndex, setActiveIndex] = React.useState(getActiveValue());
+
+  React.useEffect(() => {
+    setActiveIndex(getActiveValue());
+  }, [location.pathname, items]);
 
   const handleNav = (index: number, path: string) => {
     if (path === "/profile-screen" && !isAuthenticated) {
@@ -128,7 +129,7 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             }}
           />
 
-          {navItems.map((item, index) => {
+          {currentItems.map((item, index) => {
             const isActive = activeIndex === index;
             return (
               <Box

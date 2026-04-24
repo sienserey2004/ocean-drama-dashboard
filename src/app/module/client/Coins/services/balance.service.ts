@@ -19,4 +19,14 @@ export const dailyCheckin = async () => {
     throw error;
   }
 };
+
+export const getCheckinStatus = async () => {
+  try {
+    const { data } = await api.get("/coins/checkin/status");
+    return data;
+  } catch (error) {
+    console.error("Error fetching check-in status:", error);
+    throw error;
+  }
+};
 

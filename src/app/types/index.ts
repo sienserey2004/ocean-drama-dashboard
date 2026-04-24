@@ -351,6 +351,26 @@ export interface PaginationParams {
   limit?: number
 }
 
+// ─── Subscription ────────────────────────────────────────────────────────────
+
+export interface Benefit {
+  benefitId: number
+  planId: number
+  benefitKey: string
+  benefitValue: string
+}
+
+export interface SubscriptionPlan {
+  planId: number
+  name: string
+  price: string
+  currency: string
+  durationDays: number
+  isActive: boolean
+  createdAt: string
+  benefits: Benefit[]
+}
+
 // ─── API Error ───────────────────────────────────────────────────────────────
 
 export interface ApiError {

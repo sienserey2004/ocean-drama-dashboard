@@ -16,6 +16,8 @@ const ViewerLayout      = lazy(() => import('@/_ocean/layout/ViewerLayout'))
 const ClientProfilePage = lazy(() => import('../module/client/profile/ClientProfilePage'))
 const ViewerSeriesDetail = lazy(() => import('../module/client/library/components/SeriesDetail'))
 const SeriesPlayerPage = lazy(() => import('../module/client/library/components/SeriesPlayerPage'))
+const AppStudioDashboard = lazy(() => import('../module/client/app-studio/module/dasboard/Dashboard'))
+const SubscriptionPlan = lazy(() => import('../module/client/app-studio/module/subscription-plan/SubscriptionPlan'))
 
 const Loader = () => (
   <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
@@ -61,6 +63,7 @@ export const viewerRoutes: RouteObject[] = [
           { path: 'explore', element: <Explore /> },
           { path: 'profile-screen', element: <ProfileScreen /> },
           { path: 'coins', element: <CoinsPage /> },
+          { path: 'subscription-plan', element: <SubscriptionPlan /> },
         ],
       },
     ],

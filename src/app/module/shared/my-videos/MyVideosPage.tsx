@@ -42,7 +42,7 @@ const STATUS_CONFIG: Record<string, { color: 'warning' | 'success' | 'error' | '
 }
 
 export default function MyVideosPage() {
-  const { isAdmin } = useAuthStore()
+  const { isAdmin, user } = useAuthStore()
   const navigate = useNavigate()
   const [videos, setVideos] = useState<VideoRess[]>([])
   const [total, setTotal] = useState(0)
@@ -79,13 +79,13 @@ export default function MyVideosPage() {
       const params = { page, limit: LIMIT, ...(statusFilter && { status: statusFilter }) }
       const res = isAdmin
         ? await adminVideoApi.list(params)
-        : await videoApi.list({ ...params, creator_id: -1 })
+        : await videoApi.list({ ...params, creator_id: user?.user_id || -1 })
         console.log(" res data video", res.data)
       setVideos(res.data as any)
       setTotal(res.total)
     } catch { }
     setLoading(false)
-  }, [isAdmin, page, statusFilter])
+  }, [isAdmin, page, statusFilter, user?.user_id])
 
   useEffect(() => { load() }, [load])
   useEffect(() => {

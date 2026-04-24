@@ -51,6 +51,7 @@ import {
 } from "@mui/icons-material";
 import { useAppStore } from "@/app/stores/appStore";
 import { useAuthStore } from "@/app/stores/authStore";
+import MobileBottomNav from "./components/MobileBottomNav";
 import toast from "react-hot-toast";
 
 const EXPANDED_WIDTH = 280;
@@ -169,11 +170,21 @@ const NAV_GROUPS: NavGroup[] = [
 ];
 
 export default function DashboardLayout() {
-  const { user, isAdmin, isCreator, logout } = useAuthStore();
+  const { user, isAdmin, isCreator, logout, isAuthenticated } = useAuthStore();
+  const isViewer = user?.role === 'viewer';
   const { themeMode, toggleTheme } = useAppStore();
   const theme = useTheme();
-  const navigate = useNavigate();
   const location = useLocation();
+  const navigate = useNavigate();
+
+  const viewerDashboardNavItems = [
+    { label: "App Studio", icon: <AutoGraph />, path: "/dashboard/app-studio" },
+    { label: "My Uploads", icon: <VideoLibrary />, path: "/dashboard/videos" },
+    { label: "Revenue", icon: <AttachMoney />, path: "/dashboard/earnings" },
+    { label: "Profile", icon: <Person />, path: "/dashboard/profile" },
+
+    { label: "Home", icon: <PlayCircle />, path: "/" },
+  ];
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -244,7 +255,7 @@ export default function DashboardLayout() {
         {NAV_GROUPS.map((group) => {
           const visibleItems = group.items.filter((item) => {
             if (item.adminOnly) return isAdmin;
-            if (item.creatorOrAdmin) return isAdmin || isCreator;
+            if (item.creatorOrAdmin) return isAdmin || isCreator || user?.role === 'viewer';
             return true;
           });
           if (visibleItems.length === 0) return null;
@@ -350,140 +361,155 @@ export default function DashboardLayout() {
       }} />
 
       {/* Sidebar Interface */}
-      <Box component="nav" sx={{ width: { md: collapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH }, flexShrink: { md: 0 }, transition: "width 0.3s cubic-bezier(0.4, 0, 0.2, 1)", willChange: "width" }}>
-        <Drawer
-          variant="temporary"
-          open={mobileOpen}
-          onClose={() => setMobileOpen(false)}
-          sx={{ display: { xs: "block", md: "none" }, "& .MuiDrawer-paper": { width: EXPANDED_WIDTH, border: "none" } }}
-        >
-          {SidebarContent}
-        </Drawer>
-        <Drawer
-          variant="permanent"
-          sx={{
-            display: { xs: "none", md: "block" },
-            "& .MuiDrawer-paper": {
-              width: collapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH,
-              border: "none",
-              borderRight: `1px solid ${isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"}`,
-              transition: "width 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-              overflow: "hidden",
-              willChange: "width"
-            },
-          }}
-        >
-          {SidebarContent}
-        </Drawer>
-      </Box>
+      {!isViewer && (
+        <Box component="nav" sx={{ width: { md: collapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH }, flexShrink: { md: 0 }, transition: "width 0.3s cubic-bezier(0.4, 0, 0.2, 1)", willChange: "width" }}>
+          <Drawer
+            variant="temporary"
+            open={mobileOpen}
+            onClose={() => setMobileOpen(false)}
+            sx={{ display: { xs: "block", md: "none" }, "& .MuiDrawer-paper": { width: EXPANDED_WIDTH, border: "none" } }}
+          >
+            {SidebarContent}
+          </Drawer>
+          <Drawer
+            variant="permanent"
+            sx={{
+              display: { xs: "none", md: "block" },
+              "& .MuiDrawer-paper": {
+                width: collapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH,
+                border: "none",
+                borderRight: `1px solid ${isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"}`,
+                transition: "width 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                overflow: "hidden",
+                willChange: "width"
+              },
+            }}
+          >
+            {SidebarContent}
+          </Drawer>
+        </Box>
+      )}
 
       {/* Main Content Area (Glassmorphic Window) */}
       {/* Main Content Area (Glassmorphic Window) */}
       <Box sx={{ flexGrow: 1, display: "flex", flexDirection: "column", minWidth: 0, height: "100vh", overflowY: "auto" }}>
-        <AppBar
-          position="sticky"
-          elevation={0}
-          sx={{
-            top: 0,
-            zIndex: 1100,
-            bgcolor: isDark ? alpha("#0F172A", 0.9) : alpha("#F8FAFC", 0.9),
-            backdropFilter: "blur(12px)",
-            color: isDark ? "white" : "#0F172A",
-            px: { xs: 2, md: 6 },
-            py: 1,
-            borderBottom: "1px solid",
-            borderColor: "divider",
-            mb: 3
-          }}
-        >
-          <Toolbar sx={{ px: "0 !important", gap: 2 }}>
-            <IconButton
-              sx={{ display: { md: "none" }, color: "inherit" }}
-              onClick={() => setMobileOpen(true)}
-            >
-              <MenuIcon />
-            </IconButton>
-
-            <IconButton
-              onClick={() => setCollapsed(!collapsed)}
-              sx={{
-                display: { xs: "none", md: "flex" },
-                bgcolor: isDark ? alpha("#FFFFFF", 0.05) : alpha("#0F172A", 0.05),
-                borderRadius: "12px",
-                color: "inherit"
-              }}
-            >
-              {collapsed ? <ChevronRight /> : <ChevronLeft />}
-            </IconButton>
-
-            <Paper
-              elevation={0}
-              sx={{
-                flexGrow: 1,
-                maxWidth: 400,
-                display: "flex",
-                alignItems: "center",
-                px: 2,
-                py: 0.5,
-                borderRadius: "12px",
-                bgcolor: isDark ? alpha("#FFFFFF", 0.05) : alpha("#FFFFFF", 0.8),
-                backdropFilter: "blur(10px)",
-                border: "1px solid",
-                borderColor: isDark ? alpha("#FFFFFF", 0.1) : "rgba(0,0,0,0.05)"
-              }}
-            >
-              <Search sx={{ color: "text.secondary", fontSize: 20, mr: 1 }} />
-              <InputBase placeholder="System Search..." sx={{ flex: 1, fontSize: "0.85rem", fontWeight: 500 }} />
-            </Paper>
-
-            <Box sx={{ flexGrow: 1 }} />
-
-            <Stack direction="row" spacing={1} alignItems="center">
-              <IconButton onClick={toggleTheme} sx={{ color: azure }}>
-                {isDark ? <LightMode /> : <DarkMode />}
+        {!isViewer && (
+          <AppBar
+            position="sticky"
+            elevation={0}
+            sx={{
+              top: 0,
+              zIndex: 1100,
+              bgcolor: isDark ? alpha("#0F172A", 0.9) : alpha("#F8FAFC", 0.9),
+              backdropFilter: "blur(12px)",
+              color: isDark ? "white" : "#0F172A",
+              px: { xs: 2, md: 6 },
+              py: 1,
+              borderBottom: "1px solid",
+              borderColor: "divider",
+              mb: 3
+            }}
+          >
+            <Toolbar sx={{ px: "0 !important", gap: 2 }}>
+              <IconButton
+                sx={{ display: { md: "none" }, color: "inherit" }}
+                onClick={() => setMobileOpen(true)}
+              >
+                <MenuIcon />
               </IconButton>
-              
-              <Badge badgeContent={4} color="error" overlap="circular">
-                <IconButton sx={{ color: "text.secondary" }}>
-                  <Notifications />
+
+              <IconButton
+                onClick={() => setCollapsed(!collapsed)}
+                sx={{
+                  display: { xs: "none", md: "flex" },
+                  bgcolor: isDark ? alpha("#FFFFFF", 0.05) : alpha("#0F172A", 0.05),
+                  borderRadius: "12px",
+                  color: "inherit"
+                }}
+              >
+                {collapsed ? <ChevronRight /> : <ChevronLeft />}
+              </IconButton>
+
+              <Paper
+                elevation={0}
+                sx={{
+                  flexGrow: 1,
+                  maxWidth: 400,
+                  display: "flex",
+                  alignItems: "center",
+                  px: 2,
+                  py: 0.5,
+                  borderRadius: "12px",
+                  bgcolor: isDark ? alpha("#FFFFFF", 0.05) : alpha("#FFFFFF", 0.8),
+                  backdropFilter: "blur(10px)",
+                  border: "1px solid",
+                  borderColor: isDark ? alpha("#FFFFFF", 0.1) : "rgba(0,0,0,0.05)"
+                }}
+              >
+                <Search sx={{ color: "text.secondary", fontSize: 20, mr: 1 }} />
+                <InputBase placeholder="System Search..." sx={{ flex: 1, fontSize: "0.85rem", fontWeight: 500 }} />
+              </Paper>
+
+              <Box sx={{ flexGrow: 1 }} />
+
+              <Stack direction="row" spacing={1} alignItems="center">
+                <IconButton onClick={toggleTheme} sx={{ color: azure }}>
+                  {isDark ? <LightMode /> : <DarkMode />}
                 </IconButton>
-              </Badge>
+                
+                <Badge badgeContent={4} color="error" overlap="circular">
+                  <IconButton sx={{ color: "text.secondary" }}>
+                    <Notifications />
+                  </IconButton>
+                </Badge>
 
-              <Divider orientation="vertical" flexItem sx={{ mx: 1, height: 24, alignSelf: "center" }} />
+                <Divider orientation="vertical" flexItem sx={{ mx: 1, height: 24, alignSelf: "center" }} />
 
-              <Stack direction="row" spacing={1.5} alignItems="center" sx={{ cursor: "pointer" }} onClick={(e) => setAnchorEl(e.currentTarget)}>
-                 <Avatar 
-                    src={user?.profile_image || ""} 
-                    sx={{ width: 36, height: 36, borderRadius: "10px", border: `2px solid ${azure}` }} 
-                 />
-                 <Box sx={{ display: { xs: "none", sm: "block" } }}>
-                    <Typography variant="body2" fontWeight={800}>{user?.name}</Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ textTransform: "uppercase", fontSize: "0.6rem", fontWeight: 900 }}>{user?.role}</Typography>
-                 </Box>
+                <Stack direction="row" spacing={1.5} alignItems="center" sx={{ cursor: "pointer" }} onClick={(e) => setAnchorEl(e.currentTarget)}>
+                   <Avatar 
+                      src={user?.profile_image || ""} 
+                      sx={{ width: 36, height: 36, borderRadius: "10px", border: `2px solid ${azure}` }} 
+                   />
+                   <Box sx={{ display: { xs: "none", sm: "block" } }}>
+                      <Typography variant="body2" fontWeight={800}>{user?.name}</Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ textTransform: "uppercase", fontSize: "0.6rem", fontWeight: 900 }}>{user?.role}</Typography>
+                   </Box>
+                </Stack>
               </Stack>
-            </Stack>
-          </Toolbar>
-        </AppBar>
+            </Toolbar>
+          </AppBar>
+        )}
 
         <Box
           component="main"
           sx={{
             flexGrow: 1,
-            borderRadius: "32px",
-            bgcolor: isDark ? alpha("#0F172A", 0.75) : alpha("#FFFFFF", 0.75),
-            backdropFilter: "blur(8px) saturate(140%)", // Reduced from 20px to fix severe GPU rendering lag
+            borderRadius: isViewer ? 0 : "32px",
+            bgcolor: isViewer ? "transparent" : (isDark ? alpha("#0F172A", 0.75) : alpha("#FFFFFF", 0.75)),
+            backdropFilter: isViewer ? "none" : "blur(8px) saturate(140%)",
             willChange: "width, margin, padding",
-            border: "1px solid",
+            border: isViewer ? "none" : "1px solid",
             borderColor: isDark ? alpha("#FFFFFF", 0.1) : alpha("#0EA5E9", 0.1),
-            mx: { xs: 1, md: 3 },
-            mb: { xs: 1, md: 3 },
-            p: { xs: 2, md: 4 },
-            boxShadow: isDark ? "0 20px 60px -15px rgba(0,0,0,0.4)" : "0 20px 60px -15px rgba(14,165,233,0.1)", // Optimized shadow
-            transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
+            mx: isViewer ? 0 : { xs: 1, md: 3 },
+            mb: isViewer ? 0 : { xs: 1, md: 3 },
+            p: isViewer ? 0 : { xs: 2, md: 4 },
+            boxShadow: isViewer ? "none" : (isDark ? "0 20px 60px -15px rgba(0,0,0,0.4)" : "0 20px 60px -15px rgba(14,165,233,0.1)"),
+            transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+            pb: isViewer ? 12 : 0 // Space for bottom nav
           }}
         >
           <Outlet />
         </Box>
+
+        {isViewer && (
+          <MobileBottomNav
+            user={user}
+            isAuthenticated={isAuthenticated}
+            location={location}
+            navigate={navigate}
+            items={viewerDashboardNavItems}
+          />
+        )}
 
         <Menu
           anchorEl={anchorEl}

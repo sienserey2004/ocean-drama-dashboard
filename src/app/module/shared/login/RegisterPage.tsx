@@ -38,7 +38,7 @@ export default function RegisterPage() {
     try {
       await registerUser(data.name, data.email, data.password)
       toast.success('Account created successfully!')
-      navigate('/dashboard')
+      navigate('/')
     } catch (e: any) {
       setError(e?.response?.data?.message || 'Registration failed')
     }

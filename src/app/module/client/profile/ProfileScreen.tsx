@@ -40,6 +40,7 @@ import {
 } from '@mui/icons-material';
 import { userApi } from '@/app/api/user.service';
 import { useAuthStore } from '@/app/stores/authStore';
+import { useNavigate } from 'react-router-dom';
 
 const ProfileScreen: React.FC = () => {
     const theme = useTheme();
@@ -48,7 +49,7 @@ const ProfileScreen: React.FC = () => {
     
     const [watchHistory, setWatchHistory] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
-
+    const navigate = useNavigate();
     useEffect(() => {
         if (isAuthenticated) {
             fetchHistory();
@@ -178,7 +179,7 @@ const ProfileScreen: React.FC = () => {
                             <Box className="p-4 pt-0">
                                 <Box
                                     className="bg-gradient-to-br from-[#FF2D2D] to-[#CC1F1F] rounded-3xl p-6 cursor-pointer group hover:scale-[1.03] transition-all duration-300 shadow-[0_10px_30px_rgba(255,45,45,0.3)]"
-                                    onClick={handleVipClick}
+                                    onClick={() => navigate('/subscription-plan')}
                                 >
                                     <Typography className="text-white text-xl font-black leading-tight italic mb-1 uppercase tracking-tight">Unlimited Pass</Typography>
                                     <Typography className="text-white/80 text-[10px] font-bold mb-4 uppercase tracking-widest">Early Access · No Ads · 4K</Typography>
@@ -187,7 +188,7 @@ const ProfileScreen: React.FC = () => {
                                         fullWidth
                                         className="bg-white text-[#FF2D2D] hover:bg-white/90 font-black rounded-full shadow-lg normal-case py-2"
                                     >
-                                        Go Premium
+                                        Upgrade to start business
                                     </Button>
                                 </Box>
                             </Box>

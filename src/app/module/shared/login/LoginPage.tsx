@@ -36,7 +36,7 @@ export default function LoginPage() {
       
       const role = useAuthStore.getState().role
       if (role === 'viewer') {
-        navigate('/viewer')
+        navigate('/')
       } else {
         navigate('/dashboard')
       }

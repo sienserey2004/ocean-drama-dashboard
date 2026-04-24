@@ -6,7 +6,7 @@ import { useAuthStore } from '@/app/stores/authStore'
  * Allows access if the user is an admin OR a creator.
  */
 export function CreatorGuard() {
-  const { isAdmin, isCreator } = useAuthStore()
-  if (!isAdmin && !isCreator) return <Navigate to="/dashboard" replace />
+  const { isAdmin, isCreator, role } = useAuthStore()
+  if (!isAdmin && !isCreator && role !== 'viewer') return <Navigate to="/dashboard" replace />
   return <Outlet />
 }

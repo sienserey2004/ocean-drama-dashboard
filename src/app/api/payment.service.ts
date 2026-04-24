@@ -17,8 +17,8 @@ export const paymentApi = {
     api.post<{ purchase_id: number; access_granted: boolean }>(`/episodes/${video_id}/purchase`, { payment_id }).then(r => r.data),
 
   getEarnings: (params?: { from?: string; to?: string }) =>
-    api.get<EarningsSummary>('/creator/earnings', { params }).then(r => r.data),
+    api.get<EarningsSummary>('/creator/earnings/realtime', { params }).then(r => r.data),
 
   getEarningsBreakdown: (params?: PaginationParams) =>
-    api.get<PaginatedResponse<CreatorEarning>>('/creator/earnings/breakdown', { params }).then(r => r.data),
+    api.get<PaginatedResponse<CreatorEarning>>('/creator/earnings/cpm', { params }).then(r => r.data),
 }

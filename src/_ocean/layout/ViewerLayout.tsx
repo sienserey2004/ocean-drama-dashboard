@@ -40,12 +40,14 @@ const ViewerLayout: React.FC = () => {
         <Outlet />
       </Box>
 
-      <MobileBottomNav
-        user={user}
-        isAuthenticated={isAuthenticated}
-        location={location}
-        navigate={navigate}
-      />
+      {(!location.pathname.startsWith('/app-studio') && !location.pathname.startsWith('/subscription-plan')) && (
+        <MobileBottomNav
+          user={user}
+          isAuthenticated={isAuthenticated}
+          location={location}
+          navigate={navigate}
+        />
+      )}
     </Box>
   );
 };

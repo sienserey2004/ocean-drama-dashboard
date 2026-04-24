@@ -18,6 +18,8 @@ import { episodeApi } from '@/app/api/episode.service'
 import MultipartUploadPanel from '@/app/module/admin/videos/components/MultipartUploadPanel'
 import HLSPlayer from '@/app/module/client/library/components/HLSPlayer'
 import { useProcessingStatus } from '@/app/utils/useProcessingStatus'
+import { useAuthStore } from '@/app/stores/authStore'
+import { WorkspacePremium } from '@mui/icons-material'
 
 const schema = z.object({
   episode_number: z.coerce.number().min(1),
@@ -37,6 +39,8 @@ function fmtDuration(s: number) {
 export default function EpisodesPage() {
   const { videoId } = useParams<{ videoId: string }>()
   const navigate = useNavigate()
+  const { role } = useAuthStore()
+  const isViewer = role === 'viewer'
   const [episodes, setEpisodes] = useState<Episode[]>([])
   const [totalEpisodes, setTotalEpisodes] = useState(0)
   const [videoTitle, setVideoTitle] = useState('')
@@ -453,16 +457,48 @@ export default function EpisodesPage() {
                       {/* Full Video Picker */}
                       <Box>
                         <Typography variant="caption" fontWeight={800} sx={{ mb: 1, display: 'block' }}>Full Video</Typography>
-                        <Button
-                          component="label"
-                          fullWidth
-                          variant="outlined"
-                          startIcon={<CloudUpload />}
-                          sx={{ py: 1.5, borderRadius: '12px', borderStyle: 'dashed' }}
-                        >
-                          {fullFile ? fullFile.name : (editEp?.full_video_url ? 'Change Full Video' : 'Select Full Video')}
-                          <input type="file" hidden accept="video/*" onChange={e => setFullFile(e.target.files?.[0] || null)} />
-                        </Button>
+                        {isViewer ? (
+                          <Paper 
+                            variant="outlined" 
+                            sx={{ 
+                              p: 2.5, 
+                              borderRadius: '12px', 
+                              borderStyle: 'dashed', 
+                              bgcolor: 'action.hover',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              gap: 1.5,
+                              textAlign: 'center'
+                            }}
+                          >
+                            <WorkspacePremium color="warning" sx={{ fontSize: 32 }} />
+                            <Box>
+                              <Typography variant="subtitle2" fontWeight={800}>Full Video restricted</Typography>
+                              <Typography variant="caption" color="text.secondary">Become a member to upload full videos and start earning money.</Typography>
+                            </Box>
+                            <Button 
+                              variant="contained" 
+                              size="small" 
+                              color="warning" 
+                              sx={{ fontWeight: 800, borderRadius: '8px' }}
+                              onClick={() => navigate('/subscription-plan')}
+                            >
+                              Upgrade to start business
+                            </Button>
+                          </Paper>
+                        ) : (
+                          <Button
+                            component="label"
+                            fullWidth
+                            variant="outlined"
+                            startIcon={<CloudUpload />}
+                            sx={{ py: 1.5, borderRadius: '12px', borderStyle: 'dashed' }}
+                          >
+                            {fullFile ? fullFile.name : (editEp?.full_video_url ? 'Change Full Video' : 'Select Full Video')}
+                            <input type="file" hidden accept="video/*" onChange={e => setFullFile(e.target.files?.[0] || null)} />
+                          </Button>
+                        )}
                       </Box>
                     </>
                   )}

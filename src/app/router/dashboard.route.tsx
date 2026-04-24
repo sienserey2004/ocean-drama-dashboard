@@ -15,6 +15,7 @@ const EpisodesPage     = lazy(() => import('@/app/module/shared/episodes/Episode
 const EarningsPage     = lazy(() => import('@/app/module/shared/earnings/EarningsPage'))
 const ProfilePage      = lazy(() => import('@/app/module/shared/profile/ProfilePage'))
 const CreateVideoPage  = lazy(() => import('@/app/module/shared/video/CreateVideoPage'))
+const AppStudioDashboard = lazy(() => import('@/app/module/client/app-studio/module/dasboard/Dashboard'))
 
 // Admin pages
 const AdminUsersPage      = lazy(() => import('@/app/module/admin/users/AdminUsersPage'))
@@ -47,6 +48,7 @@ export const dashboardRoutes: RouteObject[] = [
           { path: 'videos/:videoId/episodes',           element: <EpisodesPage /> },
           { path: 'earnings',                           element: <EarningsPage /> },
           { path: 'profile',                            element: <ProfilePage /> },
+          { path: 'app-studio',                         element: <AppStudioDashboard /> },
 
           // Creator + Admin
           {
