@@ -9,7 +9,7 @@ import SeriesDetail from '../module/client/library/components/SeriesDetail'
 import Explore from '../module/client/explore/Explore'
 import LibraryPage from '../module/client/library/LibraryPage'
 import ProfileScreen from '../module/client/profile/ProfileScreen'
-import CoinsPage from '../module/client/Coins/CoinsPage'
+import SearchVideo from '../module/client/search-video/SearchVideo'
 
 const TikTokLanding     = lazy(() => import('../module/client/reel/ReelMain'))
 const ViewerLayout      = lazy(() => import('@/_ocean/layout/ViewerLayout'))
@@ -62,7 +62,7 @@ export const viewerRoutes: RouteObject[] = [
           { path: 'play/:videoId/:episodeId?', element: <SeriesPlayerPage /> },
           { path: 'explore', element: <Explore /> },
           { path: 'profile-screen', element: <ProfileScreen /> },
-          { path: 'coins', element: <CoinsPage /> },
+          { path: 'search', element: <SearchVideo /> },
           { path: 'subscription-plan', element: <SubscriptionPlan /> },
         ],
       },
@@ -85,7 +85,7 @@ export const viewerRoutes: RouteObject[] = [
           { path: 'library', element: <LibraryPage /> },
           { path: 'library/:videoId', element: <SeriesDetail /> },
           { path: 'play/:videoId/:episodeId?', element: <SeriesPlayerPage /> },
-          { path: 'coins', element: <CoinsPage /> },
+          { path: 'search', element: <SearchVideo /> },
         ],
       },
     ],

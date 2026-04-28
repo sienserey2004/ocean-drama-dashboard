@@ -88,7 +88,10 @@ export const videoApi = {
   list: (params?: { page?: number; limit?: number; category?: string; sort?: string; tag?: string; creator_id?: number }) =>
     api.get<PaginatedResponse<Video>>('/videos', { params }).then(r => r.data),
 
-  search: (params: { q: string; category?: string; tag?: string; page?: number; limit?: number }) =>
+  getMyVideos: (params?: { page?: number; limit?: number; status?: string }) =>
+    api.get<PaginatedResponse<Video>>('/videos/me', { params }).then(r => r.data),
+
+  search: (params: { q?: string; category?: string; tag?: string; page?: number; limit?: number }) =>
     api.get<PaginatedResponse<Video>>('/videos/search', { params }).then(r => r.data),
 
   trending: (params?: { limit?: number; period?: string }) =>

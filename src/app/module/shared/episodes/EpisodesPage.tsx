@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   Box, Card, Typography, Button, TextField, Switch, FormControlLabel,
@@ -6,20 +6,24 @@ import {
   IconButton, Dialog, DialogTitle, DialogContent, DialogActions,
   Chip, CircularProgress, Alert, Paper,
   Stack, Avatar, Grid,
-  LinearProgress
+  LinearProgress,
+  useTheme, useMediaQuery, CardContent, CardActions
 } from '@mui/material'
-import { Add, Edit, Delete, ArrowBack, PlayArrow, FolderSpecial, Close, Visibility, UploadFile, VideoFile, CheckCircle, CloudUpload } from '@mui/icons-material'
+import { 
+  Add, Edit, Delete, ArrowBack, PlayArrow, FolderSpecial, 
+  Close, Visibility, UploadFile, VideoFile, CheckCircle, 
+  CloudUpload, WorkspacePremium, AccessTime, Lock, LockOpen 
+} from '@mui/icons-material'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import type { Episode } from '@/app/types'
 import toast from 'react-hot-toast'
 import { episodeApi } from '@/app/api/episode.service'
-import MultipartUploadPanel from '@/app/module/admin/videos/components/MultipartUploadPanel'
 import HLSPlayer from '@/app/module/client/library/components/HLSPlayer'
 import { useProcessingStatus } from '@/app/utils/useProcessingStatus'
 import { useAuthStore } from '@/app/stores/authStore'
-import { WorkspacePremium } from '@mui/icons-material'
+import { useSubscriptionStore } from '@/app/stores/subscriptionStore'
 
 const schema = z.object({
   episode_number: z.coerce.number().min(1),
@@ -40,6 +44,10 @@ export default function EpisodesPage() {
   const { videoId } = useParams<{ videoId: string }>()
   const navigate = useNavigate()
   const { role } = useAuthStore()
+  const { subscription } = useSubscriptionStore()
+  const isAdmin = role === 'admin'
+  const isPremium = subscription?.status === 'active'
+  const canUploadFull = isAdmin || isPremium
   const isViewer = role === 'viewer'
   const [episodes, setEpisodes] = useState<Episode[]>([])
   const [totalEpisodes, setTotalEpisodes] = useState(0)
@@ -59,12 +67,16 @@ export default function EpisodesPage() {
   const [fullFile, setFullFile] = useState<File | null>(null)
   const [uploadProgress, setUploadProgress] = useState(0)
   
-  const processingStatus = useProcessingStatus();
+  const processingStatus = useProcessingStatus()
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { is_free: false, duration: 60, price: 0 },
   })
+
+  // ... [Your existing logic and APIs underneath remain completely unchanged]
 
   const load = useCallback(async () => {
     if (!videoId) return
@@ -76,7 +88,6 @@ export default function EpisodesPage() {
       setVideoTitle(eps.video_title || 'Video Navigation')
       setTotalEpisodes(eps.total || eps.data.length || 0)
       setEpisodes(eps.data || [])
-      console.log("eps data", eps.data)
     } catch { }
     setLoading(false)
   }, [videoId])
@@ -113,13 +124,6 @@ export default function EpisodesPage() {
     setDialogOpen(true)
   }
 
-  /**
-   * For the new multipart upload approach, the episode metadata (title, number, etc.)
-   * is saved separately from the video files. Files are uploaded directly to MinIO
-   * via presigned URLs, and the /multipart/confirm endpoint saves the key to the DB.
-   *
-   * So onSubmit now only handles the metadata fields.
-   */
   const onSubmit = async (data: FormData) => {
     setSubmitting(true)
     setUploadProgress(0)
@@ -143,7 +147,6 @@ export default function EpisodesPage() {
         toast.success('Episode created successfully, processing started')
       }
 
-      // If we have an episode_id, start polling for status
       if (result && result.episode_id) {
         processingStatus.startPolling(result.episode_id)
       }
@@ -158,13 +161,13 @@ export default function EpisodesPage() {
   }
 
   const handleCloseDialog = () => {
-    if (submitting) return;
-    setDialogOpen(false);
-    processingStatus.stop();
-  };
+    if (submitting) return
+    setDialogOpen(false)
+    processingStatus.stop()
+  }
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Delete this episode permanently?')) return
+    if (!window.confirm('Delete this episode permanently?')) return
     try {
       await episodeApi.delete(id)
       toast.success('Episode deleted')
@@ -179,35 +182,46 @@ export default function EpisodesPage() {
   )
 
   return (
-    <Box>
-      {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, mb: 6 }}>
-        <IconButton
-          onClick={() => navigate('/dashboard/videos')}
-          sx={{ bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: '12px' }}
-        >
-          <ArrowBack fontSize="small" />
-        </IconButton>
-        <Box sx={{ flex: 1 }}>
-          <Typography variant="h3" sx={{ fontWeight: 800, letterSpacing: '-1.5px', mb: 0.5 }}>
-            {videoTitle}
-          </Typography>
-          <Typography color="text.secondary" variant="body1">
-            Manage episodes and content delivery for this series.
-          </Typography>
-        </Box>
+    <Box sx={{ px: isMobile ? 2 : 0, pb: isMobile ? 8 : 0 }}>
+      {/* Header section optimized for mobile stack */}
+      <Box sx={{ 
+        display: 'flex', 
+        flexDirection: isMobile ? 'column' : 'row', 
+        alignItems: isMobile ? 'stretch' : 'center', 
+        gap: 2, 
+        mb: isMobile ? 3 : 6 
+      }}>
+        <Stack direction="row" spacing={2} alignItems="center" sx={{ flex: 1 }}>
+          <IconButton
+            onClick={() => navigate('/dashboard/videos')}
+            sx={{ bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: '12px' }}
+          >
+            <ArrowBack fontSize="small" />
+          </IconButton>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography variant={isMobile ? "h5" : "h3"} sx={{ fontWeight: 800, letterSpacing: '-1px', mb: 0.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {videoTitle}
+            </Typography>
+            {!isMobile && (
+              <Typography color="text.secondary" variant="body1">
+                Manage episodes and content delivery for this series.
+              </Typography>
+            )}
+          </Box>
+        </Stack>
         <Button
           variant="contained"
           startIcon={<Add />}
           onClick={openCreate}
-          sx={{ borderRadius: '12px', px: 3, py: 1.2, fontWeight: 700 }}
+          fullWidth={isMobile}
+          sx={{ borderRadius: '12px', px: 3, py: isMobile ? 1.5 : 1.2, fontWeight: 700 }}
         >
           Add Episode
         </Button>
       </Box>
 
-      {/* Stats */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
+      {/* Stats section */}
+      <Grid container spacing={isMobile ? 2 : 3} sx={{ mb: 4 }}>
         <Grid item xs={12} md={4}>
           <Paper elevation={0} sx={{ p: 2.5, borderRadius: '20px', border: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 2 }}>
             <Avatar sx={{ bgcolor: 'primary.light', color: 'primary.main', borderRadius: '12px' }}><FolderSpecial /></Avatar>
@@ -220,96 +234,163 @@ export default function EpisodesPage() {
         <Grid item xs={12} md={8}>
           <Alert severity="info" sx={{ borderRadius: '16px', border: '1px solid', borderColor: 'info.light', bgcolor: 'info.lighter' }}>
             <Typography variant="body2" fontWeight={600}>🚀 Asynchronous Processing Enabled:</Typography>
-            Episodes now support direct multipart upload. The server will acknowledge receipt and process HLS in the background.
+            Episodes support direct multipart upload. The server will process HLS in the background.
           </Alert>
         </Grid>
       </Grid>
 
-      {/* Table */}
-      <Card elevation={0} sx={{ borderRadius: '24px', border: '1px solid', borderColor: 'divider' }}>
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow sx={{ bgcolor: 'action.hover' }}>
-                <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', py: 2 }}>#</TableCell>
-                <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' }}>Title</TableCell>
-                <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' }}>Runtime</TableCell>
-                <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' }}>Videos</TableCell>
-                <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' }}>Access</TableCell>
-                <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' }}>Created At</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' }}>Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {episodes.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 10 }}>
-                    <Stack spacing={2} alignItems="center">
-                      <PlayArrow sx={{ fontSize: 60, color: 'text.disabled', opacity: 0.3 }} />
-                      <Typography variant="h6" fontWeight={700}>No episodes yet</Typography>
-                      <Button variant="outlined" sx={{ borderRadius: '10px' }} onClick={openCreate}>Add First Episode</Button>
-                    </Stack>
-                  </TableCell>
-                </TableRow>
-              ) : episodes.map((ep) => (
-                <TableRow key={ep.episode_id} hover sx={{ '&:last-child td': { border: 0 } }}>
-                  <TableCell>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'primary.main' }}>
-                      {ep.episode_number.toString().padStart(2, '0')}
+      {/* Mobile list view vs Desktop table view */}
+      {episodes.length === 0 ? (
+        <Card elevation={0} sx={{ borderRadius: '24px', border: '1px solid', borderColor: 'divider' }}>
+          <Box sx={{ py: 10, textAlign: 'center' }}>
+            <Stack spacing={2} alignItems="center">
+              <PlayArrow sx={{ fontSize: 60, color: 'text.disabled', opacity: 0.3 }} />
+              <Typography variant="h6" fontWeight={700}>No episodes yet</Typography>
+              <Button variant="outlined" sx={{ borderRadius: '10px' }} onClick={openCreate}>Add First Episode</Button>
+            </Stack>
+          </Box>
+        </Card>
+      ) : isMobile ? (
+        <Stack spacing={2}>
+          {episodes.map(ep => (
+            <Card key={ep.episode_id} sx={{ borderRadius: '16px', border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
+              <CardContent sx={{ pb: 1, pt: 2, px: 2 }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                  <Box sx={{ pr: 1 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 800, color: 'primary.main' }}>
+                      EPISODE {ep.episode_number.toString().padStart(2, '0')}
                     </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2" fontWeight={700}>{ep.title}</Typography>
-                  </TableCell>
-                  <TableCell>
+                    <Typography variant="subtitle1" fontWeight={700} sx={{ mt: 0.5, lineHeight: 1.2 }}>
+                      {ep.title}
+                    </Typography>
+                  </Box>
+                  <Stack direction="row" spacing={0.5}>
+                    <IconButton size="small" onClick={() => openEdit(ep)} sx={{ bgcolor: 'action.hover' }}><Edit fontSize="small" /></IconButton>
+                    <IconButton size="small" color="error" onClick={() => handleDelete(ep.episode_id)} sx={{ bgcolor: 'error.lighter' }}><Delete fontSize="small" /></IconButton>
+                  </Stack>
+                </Stack>
+                
+                <Stack direction="row" spacing={2} sx={{ mt: 2, alignItems: 'center' }}>
+                  <Stack direction="row" spacing={0.5} alignItems="center">
+                    <AccessTime sx={{ fontSize: 16, color: 'text.secondary' }} />
                     <Typography variant="body2" color="text.secondary" fontWeight={600}>{fmtDuration(ep.duration)}</Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Stack direction="row" spacing={1}>
-                      <Chip
-                        onClick={ep.preview_video_url ? () => handlePlayVideo(ep.episode_id, ep.preview_video_url, `Preview · ${ep.title}`, 'preview') : undefined}
-                        label="Preview"
-                        size="small"
-                        icon={<Visibility sx={{ fontSize: '14px !important' }} />}
-                        color={ep.preview_video_url ? 'success' : 'default'}
-                        variant={ep.preview_video_url ? 'filled' : 'outlined'}
-                        sx={{ fontWeight: 700, cursor: ep.preview_video_url ? 'pointer' : 'default' }}
-                      />
-                      <Chip
-                        onClick={ep.full_video_url ? () => handlePlayVideo(ep.episode_id, ep.full_video_url!, `Full · ${ep.title}`, 'full') : undefined}
-                        label="Full"
-                        size="small"
-                        icon={<PlayArrow sx={{ fontSize: '14px !important' }} />}
-                        color={ep.full_video_url ? 'primary' : 'default'}
-                        variant={ep.full_video_url ? 'filled' : 'outlined'}
-                        sx={{ fontWeight: 700, cursor: ep.full_video_url ? 'pointer' : 'default' }}
-                      />
-                    </Stack>
-                  </TableCell>
-                  <TableCell>
-                    {ep.has_access ? (
-                      <Chip label="Has Access" size="small" color="success" sx={{ fontWeight: 700, borderRadius: '8px' }} />
-                    ) : (
-                      <Chip label="Locked" size="small" variant="outlined" sx={{ fontWeight: 700, borderRadius: '8px' }} />
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2" color="text.secondary" fontWeight={600}>
-                      {ep.created_at ? new Date(ep.created_at).toLocaleDateString() : 'N/A'}
-                    </Typography>
-                  </TableCell>
-                  <TableCell align="right">
-                    <Stack direction="row" spacing={1} justifyContent="flex-end">
-                      <IconButton size="small" onClick={() => openEdit(ep)} sx={{ bgcolor: 'action.hover' }}><Edit fontSize="small" /></IconButton>
-                      <IconButton size="small" color="error" onClick={() => handleDelete(ep.episode_id)} sx={{ bgcolor: 'error.lighter' }}><Delete fontSize="small" /></IconButton>
-                    </Stack>
-                  </TableCell>
+                  </Stack>
+                  <Box>
+                     {ep.has_access ? (
+                       <Chip label="Has Access" size="small" color="success" icon={<LockOpen sx={{ fontSize: '14px !important'}} />} sx={{ fontWeight: 700, borderRadius: '6px', height: 24 }} />
+                     ) : (
+                       <Chip label="Locked" size="small" variant="outlined" icon={<Lock sx={{ fontSize: '14px !important'}}/>} sx={{ fontWeight: 700, borderRadius: '6px', height: 24 }} />
+                     )}
+                  </Box>
+                </Stack>
+              </CardContent>
+              <CardActions sx={{ px: 2, pb: 2, pt: 1 }}>
+                <Stack direction="row" spacing={1} sx={{ width: '100%' }}>
+                  <Button
+                    fullWidth
+                    size="small"
+                    onClick={ep.preview_video_url ? () => handlePlayVideo(ep.episode_id, ep.preview_video_url as string, `Preview · ${ep.title}`, 'preview') : undefined}
+                    startIcon={<Visibility />}
+                    variant={ep.preview_video_url ? 'contained' : 'outlined'}
+                    color={ep.preview_video_url ? 'success' : 'inherit'}
+                    disabled={!ep.preview_video_url}
+                    sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 700, boxShadow: 'none' }}
+                  >
+                    Preview
+                  </Button>
+                  <Button
+                    fullWidth
+                    size="small"
+                    onClick={ep.full_video_url ? () => handlePlayVideo(ep.episode_id, ep.full_video_url!, `Full · ${ep.title}`, 'full') : undefined}
+                    startIcon={<PlayArrow />}
+                    variant={ep.full_video_url ? 'contained' : 'outlined'}
+                    color={ep.full_video_url ? 'primary' : 'inherit'}
+                    disabled={!ep.full_video_url}
+                    sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 700, boxShadow: 'none' }}
+                  >
+                    Watch Full
+                  </Button>
+                </Stack>
+              </CardActions>
+            </Card>
+          ))}
+        </Stack>
+      ) : (
+        <Card elevation={0} sx={{ borderRadius: '24px', border: '1px solid', borderColor: 'divider' }}>
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow sx={{ bgcolor: 'action.hover' }}>
+                  <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', py: 2 }}>#</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' }}>Title</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' }}>Runtime</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' }}>Videos</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' }}>Access</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' }}>Created At</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' }}>Actions</TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Card>
+              </TableHead>
+              <TableBody>
+                {episodes.map((ep) => (
+                  <TableRow key={ep.episode_id} hover sx={{ '&:last-child td': { border: 0 } }}>
+                    <TableCell>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'primary.main' }}>
+                        {ep.episode_number.toString().padStart(2, '0')}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" fontWeight={700}>{ep.title}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" color="text.secondary" fontWeight={600}>{fmtDuration(ep.duration)}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Stack direction="row" spacing={1}>
+                        <Chip
+                          onClick={ep.preview_video_url ? () => handlePlayVideo(ep.episode_id, ep.preview_video_url as string, `Preview · ${ep.title}`, 'preview') : undefined}
+                          label="Preview"
+                          size="small"
+                          icon={<Visibility sx={{ fontSize: '14px !important' }} />}
+                          color={ep.preview_video_url ? 'success' : 'default'}
+                          variant={ep.preview_video_url ? 'filled' : 'outlined'}
+                          sx={{ fontWeight: 700, cursor: ep.preview_video_url ? 'pointer' : 'default' }}
+                        />
+                        <Chip
+                          onClick={ep.full_video_url ? () => handlePlayVideo(ep.episode_id, ep.full_video_url!, `Full · ${ep.title}`, 'full') : undefined}
+                          label="Full"
+                          size="small"
+                          icon={<PlayArrow sx={{ fontSize: '14px !important' }} />}
+                          color={ep.full_video_url ? 'primary' : 'default'}
+                          variant={ep.full_video_url ? 'filled' : 'outlined'}
+                          sx={{ fontWeight: 700, cursor: ep.full_video_url ? 'pointer' : 'default' }}
+                        />
+                      </Stack>
+                    </TableCell>
+                    <TableCell>
+                      {ep.has_access ? (
+                        <Chip label="Has Access" size="small" color="success" sx={{ fontWeight: 700, borderRadius: '8px' }} />
+                      ) : (
+                        <Chip label="Locked" size="small" variant="outlined" sx={{ fontWeight: 700, borderRadius: '8px' }} />
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" color="text.secondary" fontWeight={600}>
+                        {ep.created_at ? new Date(ep.created_at).toLocaleDateString() : 'N/A'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Stack direction="row" spacing={1} justifyContent="flex-end">
+                        <IconButton size="small" onClick={() => openEdit(ep)} sx={{ bgcolor: 'action.hover' }}><Edit fontSize="small" /></IconButton>
+                        <IconButton size="small" color="error" onClick={() => handleDelete(ep.episode_id)} sx={{ bgcolor: 'error.lighter' }}><Delete fontSize="small" /></IconButton>
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Card>
+      )}
 
       {/* ─── Add/Edit Episode Dialog ─────────────────────────────────── */}
       <Dialog
@@ -317,7 +398,8 @@ export default function EpisodesPage() {
         onClose={handleCloseDialog}
         maxWidth="md"
         fullWidth
-        PaperProps={{ sx: { borderRadius: '24px', p: 1 } }}
+        fullScreen={isMobile}
+        PaperProps={{ sx: { borderRadius: isMobile ? 0 : '24px', p: isMobile ? 0 : 1 } }}
       >
         <DialogTitle component="div" sx={{ fontWeight: 800, fontSize: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           {editEp ? `Edit Episode ${editEp.episode_number}` : 'Add New Episode'}
@@ -325,9 +407,9 @@ export default function EpisodesPage() {
             <Close fontSize="small" />
           </IconButton>
         </DialogTitle>
-        <Box component="form" onSubmit={handleSubmit(onSubmit)}>
-          <DialogContent>
-            <Grid container spacing={3}>
+        <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ display: 'flex', flexDirection: 'column', height: isMobile ? '100%' : 'auto' }}>
+          <DialogContent sx={{ flex: 1 }}>
+            <Grid container spacing={isMobile ? 4 : 3}>
               {/* Left column: Metadata */}
               <Grid item xs={12} md={5}>
                 <Stack spacing={3}>
@@ -346,7 +428,7 @@ export default function EpisodesPage() {
                       InputProps={{ inputProps: { min: 1 } }}
                     />
                     <TextField
-                      label="Duration (sec)"
+                      label="Runtime (sec)"
                       type="number"
                       {...register('duration')}
                       error={!!errors.duration}
@@ -365,14 +447,6 @@ export default function EpisodesPage() {
                   />
 
                   <Stack direction="row" spacing={2}>
-                    {/* <TextField
-                      label="Price"
-                      type="number"
-                      {...register('price')}
-                      sx={{ flex: 1 }}
-                      InputProps={{ inputProps: { min: 0, step: 0.01 } }}
-                      disabled={isFree}
-                    /> */}
                     <Paper sx={{ flex: 1, p: 1.5, borderRadius: '12px', border: '1px solid', borderColor: isFree ? 'success.light' : 'divider', display: 'flex', alignItems: 'center' }}>
                       <FormControlLabel
                         control={<Switch checked={isFree} onChange={e => setIsFree(e.target.checked)} color="success" size="small" />}
@@ -436,7 +510,7 @@ export default function EpisodesPage() {
                     </Alert>
                   )}
 
-                  {/* File Selection Controls (only shown when not actively uploading/processing) */}
+                  {/* File Selection Controls */}
                   {!submitting && !processingStatus.isPolling && (
                     <>
                       {/* Preview Picker */}
@@ -457,7 +531,7 @@ export default function EpisodesPage() {
                       {/* Full Video Picker */}
                       <Box>
                         <Typography variant="caption" fontWeight={800} sx={{ mb: 1, display: 'block' }}>Full Video</Typography>
-                        {isViewer ? (
+                        {!canUploadFull ? (
                           <Paper 
                             variant="outlined" 
                             sx={{ 
@@ -475,7 +549,7 @@ export default function EpisodesPage() {
                             <WorkspacePremium color="warning" sx={{ fontSize: 32 }} />
                             <Box>
                               <Typography variant="subtitle2" fontWeight={800}>Full Video restricted</Typography>
-                              <Typography variant="caption" color="text.secondary">Become a member to upload full videos and start earning money.</Typography>
+                              <Typography variant="caption" color="text.secondary">Become a member to upload full videos.</Typography>
                             </Box>
                             <Button 
                               variant="contained" 
@@ -512,14 +586,15 @@ export default function EpisodesPage() {
               </Grid>
             </Grid>
           </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 3, gap: 1 }}>
-            <Button onClick={handleCloseDialog} disabled={submitting} sx={{ fontWeight: 700 }}>
+          <DialogActions sx={{ px: 3, pb: isMobile ? 4 : 3, pt: 2, gap: 1, borderTop: isMobile ? '1px solid' : 'none', borderColor: 'divider' }}>
+            <Button onClick={handleCloseDialog} disabled={submitting} sx={{ fontWeight: 700 }} fullWidth={isMobile}>
               Cancel
             </Button>
             <Button
               type="submit"
               variant="contained"
               disabled={submitting}
+              fullWidth={isMobile}
               startIcon={submitting ? <CircularProgress size={16} color="inherit" /> : <UploadFile />}
               sx={{ px: 4, borderRadius: '10px', fontWeight: 800 }}
             >
@@ -536,7 +611,7 @@ export default function EpisodesPage() {
         TransitionProps={{ onExited: () => setCurrentVideoUrl('') }}
         maxWidth={currentVideoType === 'preview' ? 'xs' : 'md'}
         fullWidth
-        PaperProps={{ sx: { bgcolor: 'black', borderRadius: '16px', overflow: 'hidden' } }}
+        PaperProps={{ sx: { bgcolor: 'black', borderRadius: '16px', overflow: 'hidden', m: isMobile ? 2 : 4 } }}
       >
         <DialogTitle component="div" sx={{ color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2 }}>
           <Typography variant="subtitle1" fontWeight={700}>{currentVideoTitle}</Typography>
@@ -558,7 +633,6 @@ export default function EpisodesPage() {
               <Typography sx={{ color: 'white' }}>Video not available</Typography>
             );
 
-            console.log('📽️ Playing Dashboard Video URL:', currentVideoUrl);
             return (
               <HLSPlayer
                 key={currentVideoUrl + currentEpisodeId}

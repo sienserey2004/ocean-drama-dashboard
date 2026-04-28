@@ -45,14 +45,18 @@ import {
   Search,
   AutoGraph,
   Security,
-  DarkMode,
-  LightMode,
-  ManageHistory
+  DarkMode, 
+  LightMode, 
+  ManageHistory,
+  WorkspacePremium
 } from "@mui/icons-material";
 import { useAppStore } from "@/app/stores/appStore";
 import { useAuthStore } from "@/app/stores/authStore";
+import { useSubscriptionStore } from "@/app/stores/subscriptionStore";
 import MobileBottomNav from "./components/MobileBottomNav";
 import toast from "react-hot-toast";
+import { Crown } from "lucide-react";
+import { useEffect } from "react";
 
 const EXPANDED_WIDTH = 280;
 const COLLAPSED_WIDTH = 72;
@@ -171,18 +175,25 @@ const NAV_GROUPS: NavGroup[] = [
 
 export default function DashboardLayout() {
   const { user, isAdmin, isCreator, logout, isAuthenticated } = useAuthStore();
+  const { subscription, fetchSubscription, hasFetched, clearSubscription } = useSubscriptionStore();
   const isViewer = user?.role === 'viewer';
   const { themeMode, toggleTheme } = useAppStore();
   const theme = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
 
+  useEffect(() => {
+    if (isAuthenticated && !hasFetched) {
+      fetchSubscription();
+    }
+  }, [isAuthenticated, hasFetched, fetchSubscription]);
+
+  // new tabs here
   const viewerDashboardNavItems = [
     { label: "App Studio", icon: <AutoGraph />, path: "/dashboard/app-studio" },
     { label: "My Uploads", icon: <VideoLibrary />, path: "/dashboard/videos" },
     { label: "Revenue", icon: <AttachMoney />, path: "/dashboard/earnings" },
     { label: "Profile", icon: <Person />, path: "/dashboard/profile" },
-
     { label: "Home", icon: <PlayCircle />, path: "/" },
   ];
 
@@ -198,6 +209,7 @@ export default function DashboardLayout() {
 
   const handleLogout = async () => {
     await logout();
+    clearSubscription();
     toast.success("System session terminated");
     navigate("/login");
   };
@@ -471,7 +483,25 @@ export default function DashboardLayout() {
                       sx={{ width: 36, height: 36, borderRadius: "10px", border: `2px solid ${azure}` }} 
                    />
                    <Box sx={{ display: { xs: "none", sm: "block" } }}>
-                      <Typography variant="body2" fontWeight={800}>{user?.name}</Typography>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                         <Typography variant="body2" fontWeight={800}>{user?.name}</Typography>
+                         {subscription?.status === 'active' && (
+                            <Chip 
+                               label="PREMIUM" 
+                               size="small" 
+                               icon={<Crown size={10} />}
+                               sx={{ 
+                                  height: 16, 
+                                  fontSize: "0.55rem", 
+                                  fontWeight: 900, 
+                                  bgcolor: "rgba(234, 179, 8, 0.1)", 
+                                  color: "#EAB308",
+                                  border: "1px solid rgba(234, 179, 8, 0.2)",
+                                  "& .MuiChip-icon": { color: "inherit" }
+                               }} 
+                            />
+                         )}
+                      </Stack>
                       <Typography variant="caption" color="text.secondary" sx={{ textTransform: "uppercase", fontSize: "0.6rem", fontWeight: 900 }}>{user?.role}</Typography>
                    </Box>
                 </Stack>

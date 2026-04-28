@@ -1,17 +1,10 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Box, Card, CardContent, Typography, Button, TextField, Select, MenuItem,
-  FormControl, InputLabel, Chip, Table, TableBody, TableCell, TableContainer,
-  TableHead, TableRow, Paper, IconButton, Dialog, DialogTitle, DialogContent,
-  DialogActions, Avatar, CircularProgress, Pagination, Tooltip, LinearProgress,
-  Stack, InputAdornment, Divider, Switch, FormControlLabel,
-  Grid
-} from '@mui/material'
-import {
-  Add, Edit, Delete, PlayArrow, CheckCircle, Cancel, Visibility,
-  Search, FilterList, FolderOutlined, Layers, Image, Close
-} from '@mui/icons-material'
+  Plus, Search, Filter, MoreVertical, Play, Edit2, Trash2,
+  CheckCircle, XCircle, Clock, Info, X, ChevronRight, Image as ImageIcon,
+  Layers, Folder
+} from 'lucide-react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -22,9 +15,8 @@ import { episodeApi } from '@/app/api/episode.service'
 import { categoryApi, tagApi } from '@/app/api/categoryTag.service'
 import type { Video, Category, Tag, VideoRess, Episode } from '@/app/types'
 import toast from 'react-hot-toast'
-import { useProcessingStatus } from '@/app/utils/useProcessingStatus'
-import { CheckCircleOutline, PendingActions, ErrorOutline, Settings } from '@mui/icons-material'
 
+// Form Schema
 const schema = z.object({
   title: z.string().min(1, 'Required'),
   description: z.string().min(1, 'Required'),
@@ -35,24 +27,32 @@ const schema = z.object({
 })
 type VideoFormData = z.infer<typeof schema>
 
-const STATUS_CONFIG: Record<string, { color: 'warning' | 'success' | 'error' | 'default', label: string }> = {
-  pending:   { color: 'warning', label: 'Pending Review' },
-  published: { color: 'success', label: 'Published' },
-  rejected:  { color: 'error',   label: 'Rejected' },
+const STATUS_CONFIG: Record<string, { color: string, bg: string, label: string, icon: any }> = {
+  pending: { color: 'text-amber-400', bg: 'bg-amber-400/10', label: 'Pending', icon: Clock },
+  published: { color: 'text-emerald-400', bg: 'bg-emerald-400/10', label: 'Published', icon: CheckCircle },
+  rejected: { color: 'text-rose-400', bg: 'bg-rose-400/10', label: 'Rejected', icon: XCircle },
 }
 
 export default function MyVideosPage() {
   const { isAdmin, user } = useAuthStore()
   const navigate = useNavigate()
+
+  // State
   const [videos, setVideos] = useState<VideoRess[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [statusFilter, setStatusFilter] = useState('')
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
-  const [dialogOpen, setDialogOpen] = useState(false)
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false)
+  const [activeVideo, setActiveVideo] = useState<VideoRess | null>(null)
   const [editVideo, setEditVideo] = useState<Video | null>(null)
-  const [rejectDialog, setRejectDialog] = useState<{ open: boolean; videoId: number | null }>({ open: false, videoId: null })
+
+  // Modal/Drawer States
+  const [isEditOpen, setIsEditOpen] = useState(false)
+  const [isRejectOpen, setIsRejectOpen] = useState(false)
+  const [isQueueOpen, setIsQueueOpen] = useState(false)
+
   const [rejectReason, setRejectReason] = useState('')
   const [categories, setCategories] = useState<Category[]>([])
   const [tags, setTags] = useState<Tag[]>([])
@@ -61,11 +61,10 @@ export default function MyVideosPage() {
   const [progress, setProgress] = useState(0)
   const [submitting, setSubmitting] = useState(false)
   const [dragging, setDragging] = useState(false)
-  const [processingDialog, setProcessingDialog] = useState<{ open: boolean; videoId: number | null; videoTitle: string }>({ open: false, videoId: null, videoTitle: '' })
+
   const [processingEpisodes, setProcessingEpisodes] = useState<Episode[]>([])
-  const [pollingEpisodes, setPollingEpisodes] = useState<Record<number, any>>({})
-  const thumbInputRef = useRef<HTMLInputElement>(null)
   const pollTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const thumbInputRef = useRef<HTMLInputElement>(null)
   const LIMIT = 10
 
   const { control, register, handleSubmit, reset, formState: { errors } } = useForm<VideoFormData>({
@@ -73,18 +72,21 @@ export default function MyVideosPage() {
     defaultValues: { price: 0, is_free: false, category_ids: [], tag_ids: [] },
   })
 
+  // Data Loading
   const load = useCallback(async () => {
     setLoading(true)
     try {
       const params = { page, limit: LIMIT, ...(statusFilter && { status: statusFilter }) }
       const res = isAdmin
         ? await adminVideoApi.list(params)
-        : await videoApi.list({ ...params, creator_id: user?.user_id || -1 })
-        console.log(" res data video", res.data)
+        : await videoApi.getMyVideos(params)
       setVideos(res.data as any)
       setTotal(res.total)
-    } catch { }
-    setLoading(false)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
   }, [isAdmin, page, statusFilter, user?.user_id])
 
   useEffect(() => { load() }, [load])
@@ -93,7 +95,9 @@ export default function MyVideosPage() {
     tagApi.list().then(r => setTags(r.data))
   }, [])
 
+  // Actions
   const openCreate = () => { navigate('/dashboard/videos/create') }
+
   const openEdit = async (vs: VideoRess) => {
     try {
       const v = await videoApi.getById(vs.video_id)
@@ -109,8 +113,11 @@ export default function MyVideosPage() {
       setPreview(v.thumbnail_url || null)
       setFile(null)
       setProgress(0)
-      setDialogOpen(true)
-    } catch { toast.error('Failed to load video details') }
+      setIsEditOpen(true)
+      setIsDrawerOpen(false) // Close mobile options if open
+    } catch {
+      toast.error('Failed to load video details')
+    }
   }
 
   const onSubmit = async (data: VideoFormData) => {
@@ -125,9 +132,10 @@ export default function MyVideosPage() {
       fd.append('category_ids', data.category_ids.join(','))
       fd.append('tag_ids', data.tag_ids.join(','))
       if (file) fd.append('thumbnail', file)
+
       await videoApi.update(editVideo.video_id, fd, (pct) => setProgress(pct))
       toast.success('Video updated successfully')
-      setDialogOpen(false)
+      setIsEditOpen(false)
       load()
     } catch {
       toast.error('Failed to update video')
@@ -144,19 +152,25 @@ export default function MyVideosPage() {
       else await videoApi.delete(id)
       toast.success('Video deleted')
       load()
+      setIsDrawerOpen(false)
     } catch { }
   }
 
   const handleApprove = async (id: number) => {
-    try { await adminVideoApi.approve(id); toast.success('Video approved'); load() } catch { }
+    try {
+      await adminVideoApi.approve(id)
+      toast.success('Video approved')
+      load()
+      setIsDrawerOpen(false)
+    } catch { }
   }
 
   const handleReject = async () => {
-    if (!rejectDialog.videoId) return
+    if (!activeVideo) return
     try {
-      await adminVideoApi.reject(rejectDialog.videoId, rejectReason)
+      await adminVideoApi.reject(activeVideo.video_id, rejectReason)
       toast.success('Video rejected')
-      setRejectDialog({ open: false, videoId: null })
+      setIsRejectOpen(false)
       setRejectReason('')
       load()
     } catch { }
@@ -168,598 +182,430 @@ export default function MyVideosPage() {
     setPreview(url)
   }
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    setDragging(false)
-    const f = e.dataTransfer.files[0]
-    if (f && f.type.startsWith('image/')) handleThumbnailFile(f)
+  // Mobile Options Drawer (Action Overlay)
+  const openOptions = (v: VideoRess) => {
+    setActiveVideo(v)
+    setIsDrawerOpen(true)
   }
 
-  const openGlobalProcessingStatus = async () => {
-    setProcessingDialog({ open: true, videoId: null, videoTitle: 'Global Processing Queue' })
-    fetchAllProcessingEpisodes()
-    
-    if (pollTimerRef.current) clearInterval(pollTimerRef.current)
-    pollTimerRef.current = setInterval(fetchAllProcessingEpisodes, 5000)
-  }
-
-  const fetchAllProcessingEpisodes = async () => {
-    try {
-      if (processingDialog.videoId) {
-        const res = await episodeApi.list(processingDialog.videoId, { limit: 50 })
-        // @ts-ignore
-        setProcessingEpisodes(res.data)
-      } else {
-        // Fetch episodes for all videos on the current page and aggregate
-        const allEpisodesPromises = videos.map(v => episodeApi.list(v.video_id, { limit: 50 }))
-        const results = await Promise.all(allEpisodesPromises)
-        // @ts-ignore
-        const allEps = results.flatMap(r => r.data).filter(ep => ep.status !== 'READY')
-        setProcessingEpisodes(allEps)
-      }
-    } catch (err) {
-      console.error('Failed to fetch processing episodes', err)
-    }
-  }
-
-  const openProcessingStatus = async (videoId: number, title: string) => {
-    setProcessingDialog({ open: true, videoId, videoTitle: title })
-    try {
-      const res = await episodeApi.list(videoId, { limit: 50 })
-      // @ts-ignore
-      setProcessingEpisodes(res.data)
-      
-      if (pollTimerRef.current) clearInterval(pollTimerRef.current)
-      pollTimerRef.current = setInterval(fetchAllProcessingEpisodes, 5000)
-    } catch (err) {
-      toast.error('Failed to load episodes')
-    }
-  }
-
-  const closeProcessingStatus = () => {
-    setProcessingDialog({ open: false, videoId: null, videoTitle: '' });
-    setProcessingEpisodes([]);
-    if (pollTimerRef.current) clearInterval(pollTimerRef.current);
-  };
-
-  useEffect(() => {
-    return () => {
-      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
-    };
-  }, []);
+  const filters = [
+    { id: '', label: 'All Series' },
+    { id: 'published', label: 'Published' },
+    { id: 'pending', label: 'Pending' },
+    { id: 'rejected', label: 'Rejected' }
+  ]
 
   return (
-    <Box>
-      {/* Header Section */}
-      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { sm: 'center' }, gap: 3, mb: 6 }}>
-        <Box>
-          <Typography variant="h3" sx={{ fontWeight: 800, letterSpacing: '-1px', mb: 1 }}>
-            Video Library
-          </Typography>
-          <Typography color="text.secondary" variant="body1">
-            {isAdmin ? 'Complete overview of all video series across the platform.' : 'Manage and track your published drama series.'}
-          </Typography>
-        </Box>
-        <Stack direction="row" spacing={2}>
-          <Button 
-            variant="outlined" 
-            startIcon={<PendingActions />} 
-            onClick={() => openGlobalProcessingStatus()}
-            sx={{ 
-              borderRadius: '12px', 
-              py: 1.5, 
-              px: 3, 
-              fontWeight: 700, 
-            }}
+    <div className="min-h-screen bg-[#08090C] text-white flex flex-col pb-20 sm:pb-0 font-sans">
+      {/* Sticky Navigation */}
+      <header className="sticky top-0 z-30 bg-[#08090C]/80 backdrop-blur-xl border-b border-white/5 px-4 py-2.5 sm:px-8 sm:py-3.5 flex justify-between items-center">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">Library</h1>
+          <p className="text-[10px] sm:text-xs text-white/40 font-bold uppercase tracking-wider">
+            {isAdmin ? 'Admin Overview' : 'My Drama Series'}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 sm:gap-4">
+          <button
+            onClick={() => setIsQueueOpen(true)}
+            className="p-2.5 sm:px-4 sm:py-2 rounded-xl bg-white/5 text-white/60 hover:bg-white/10 transition-all flex items-center gap-2"
           >
-            Processing Queue
-          </Button>
-          <Button 
-            variant="contained" 
-            startIcon={<Add />} 
+            <Clock size={18} />
+            <span className="hidden sm:inline font-bold text-sm">Queue</span>
+          </button>
+          <button
             onClick={openCreate}
-            sx={{ 
-              borderRadius: '12px', 
-              py: 1.5, 
-              px: 3, 
-              fontWeight: 700, 
-              boxShadow: '0 8px 16px -4px rgba(99, 102, 241, 0.3)' 
-            }}
+            className="bg-gradient-to-tr from-red-600 to-orange-500 text-white p-2.5 sm:px-5 sm:py-2 rounded-xl font-bold text-sm shadow-lg shadow-red-600/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
           >
-            New Series
-          </Button>
-        </Stack>
-      </Box>
+            <Plus size={20} />
+            <span className="hidden sm:inline">Initialize Series</span>
+          </button>
+        </div>
+      </header>
 
-      {/* Main Container */}
-      <Card elevation={0} sx={{ borderRadius: '24px', border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
-        {/* Table Filters/Actions Header */}
-        <Box sx={{ p: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2, bgcolor: 'action.hover' }}>
-          <Stack direction="row" spacing={2} alignItems="center">
-            <TextField
-              size="small"
-              placeholder="Search series..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Search fontSize="small" sx={{ color: 'text.secondary' }} />
-                  </InputAdornment>
-                ),
-                sx: { borderRadius: '10px', bgcolor: 'background.paper' }
-              }}
-            />
-            <FormControl size="small" sx={{ minWidth: 140 }}>
-              <Select
-                value={statusFilter}
-                onChange={e => { setStatusFilter(e.target.value); setPage(1) }}
-                displayEmpty
-                sx={{ borderRadius: '10px', bgcolor: 'background.paper' }}
-                startAdornment={<FilterList fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />}
+      {/* Stats & Filters Row */}
+      <div className="p-4 sm:p-8 space-y-6">
+        {/* Filters & Search */}
+        <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 sm:pb-0 no-scrollbar w-full sm:w-auto">
+            {filters.map(f => (
+              <button
+                key={f.id}
+                onClick={() => { setStatusFilter(f.id); setPage(1) }}
+                className={`px-5 py-1.5 rounded-full text-xs font-black whitespace-nowrap transition-all ${statusFilter === f.id
+                  ? 'bg-red-600 text-white shadow-lg shadow-red-600/30'
+                  : 'bg-white/5 text-white/40 hover:bg-white/10'
+                }`}
               >
-                <MenuItem value="">All Statuses</MenuItem>
-                <MenuItem value="published">Published</MenuItem>
-                <MenuItem value="pending">Pending</MenuItem>
-                <MenuItem value="rejected">Rejected</MenuItem>
-              </Select>
-            </FormControl>
-          </Stack>
-          <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary' }}>
-            {total} results found
-          </Typography>
-        </Box>
+                {f.label}
+              </button>
+            ))}
+          </div>
+          <div className="px-4 hidden sm:block">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20" size={16} />
+              <input
+                type="text"
+                placeholder="Search series..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2 text-sm font-bold text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 w-64 transition-all"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
 
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow sx={{ bgcolor: 'transparent' }}>
-                <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', py: 2 }}>Title & ID</TableCell>
-                {isAdmin && <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' }}>Creator</TableCell>}
-                <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' }}>Assets</TableCell>
-                <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' }}>Pricing</TableCell>
-                <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' }}>Status</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' }}>Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {loading ? (
-                <TableRow><TableCell colSpan={6} align="center" sx={{ py: 10 }}><CircularProgress size={32} /></TableCell></TableRow>
-              ) : videos.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 10 }}>
-                    <Box sx={{ textAlign: 'center' }}>
-                      <FolderOutlined sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
-                      <Typography variant="h6" fontWeight={700}>No video series found</Typography>
-                      <Typography variant="body2" color="text.secondary">Try adjusting your filters or search terms.</Typography>
-                    </Box>
-                  </TableCell>
-                </TableRow>
-              ) : videos.map((v) => (
-                <TableRow key={v.video_id} hover sx={{ '&:last-child td': { border: 0 } }}>
-                  <TableCell sx={{ py: 2.5 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      <Avatar
-                        variant="rounded"
-                        src={v.thumbnail_url}
-                        sx={{ width: 56, height: 40, borderRadius: '10px', bgcolor: 'primary.light' }}
-                      >
-                        <Layers sx={{ color: 'primary.main', fontSize: 20 }} />
-                      </Avatar>
-                      <Box>
-                        <Typography variant="subtitle2" fontWeight={700}>{v.title}</Typography>
-                        <Typography variant="caption" sx={{ color: 'text.disabled', fontFamily: 'monospace' }}>#{v.video_id}</Typography>
-                      </Box>
-                    </Box>
-                  </TableCell>
-                  {isAdmin && (
-                    <TableCell>
-                      <Chip
-                        avatar={<Avatar>{(v.creator || 'U').charAt(0).toUpperCase()}</Avatar>}
-                        label={v.creator || 'Unknown'}
-                        size="small"
-                        variant="outlined"
-                        sx={{ fontWeight: 600, borderRadius: '8px' }}
-                      />
-                    </TableCell>
-                  )}
-                  <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography variant="body2" fontWeight={700}>{v.episodes_count || 0}</Typography>
-                      <Typography variant="caption" color="text.secondary">Episodes</Typography>
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2" sx={{ fontWeight: 700, color: 'success.main' }}>
-                      ${(v.price || 0).toFixed(2)}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Chip 
-                      label={STATUS_CONFIG[v.status]?.label || v.status} 
-                      size="small" 
-                      color={STATUS_CONFIG[v.status]?.color} 
-                      sx={{ fontWeight: 700, borderRadius: '8px', textTransform: 'capitalize' }} 
-                    />
-                  </TableCell>
-                  <TableCell align="right">
-                    <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-                      <Tooltip title="Manage Content">
-                        <IconButton size="small" onClick={() => navigate(`/dashboard/videos/${v.video_id}/episodes`)} sx={{ bgcolor: 'action.hover' }}>
-                          <PlayArrow fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Processing Status">
-                        <IconButton size="small" onClick={() => openProcessingStatus(v.video_id, v.title)} sx={{ bgcolor: 'action.hover', color: 'info.main' }}>
-                          <PendingActions fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Edit Properties">
-                        <IconButton size="small" onClick={() => openEdit(v)} sx={{ bgcolor: 'action.hover' }}>
-                          <Edit fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      {isAdmin && v.status === 'pending' && (
-                        <>
-                          <Tooltip title="Approve">
-                            <IconButton size="small" color="success" onClick={() => handleApprove(v.video_id)} sx={{ bgcolor: 'success.light', color: 'success.dark', '&:hover': { bgcolor: 'success.main', color: 'white' } }}>
-                              <CheckCircle fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Reject">
-                            <IconButton size="small" color="error" onClick={() => setRejectDialog({ open: true, videoId: v.video_id })} sx={{ bgcolor: 'error.light', color: 'error.dark', '&:hover': { bgcolor: 'error.main', color: 'white' } }}>
-                              <Cancel fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </>
-                      )}
-                      <IconButton size="small" color="error" onClick={() => handleDelete(v.video_id)}>
-                        <Delete fontSize="small" />
-                      </IconButton>
-                    </Box>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-
-        {total > LIMIT && (
-          <Box sx={{ p: 4, display: 'flex', justifyContent: 'center', borderTop: '1px solid', borderColor: 'divider' }}>
-            <Pagination 
-              count={Math.ceil(total / LIMIT)} 
-              page={page} 
-              onChange={(_, p) => setPage(p)} 
-              variant="outlined" 
-              shape="rounded"
-              color="primary"
-            />
-          </Box>
+      {/* Main List */}
+      <main className="flex-1 p-4 sm:p-8 max-w-7xl mx-auto w-full">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-4">
+            <div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+            <p className="text-sm font-bold text-slate-400">Loading your library...</p>
+          </div>
+        ) : videos.length === 0 ? (
+          <div className="bg-white rounded-3xl p-12 text-center border border-slate-100 shadow-sm">
+            <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Folder className="text-slate-300" size={40} />
+            </div>
+            <h2 className="text-xl font-extrabold text-slate-900 mb-2">No Series Found</h2>
+            <p className="text-slate-500 text-sm max-w-xs mx-auto mb-8">
+              Start by creating your first drama series to reach your audience.
+            </p>
+            <button onClick={openCreate} className="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-bold shadow-lg shadow-indigo-100 hover:scale-105 transition-transform">
+              Create New Series
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+            {videos.map(v => (
+              <VideoCard
+                key={v.video_id}
+                video={v}
+                onEdit={() => openEdit(v)}
+                onManage={() => navigate(`/dashboard/videos/${v.video_id}/episodes`)}
+                onOptions={() => openOptions(v)}
+                isAdmin={isAdmin}
+              />
+            ))}
+          </div>
         )}
-      </Card>
+      </main>
 
-      {/* Edit Component Properties Dialog */}
-      <Dialog 
-        open={dialogOpen} 
-        onClose={() => setDialogOpen(false)} 
-        maxWidth="md" 
-        fullWidth
-        PaperProps={{ sx: { borderRadius: '24px', p: 1 } }}
-      >
-        <DialogTitle sx={{ fontWeight: 800, fontSize: '1.5rem' }}>
-          {editVideo ? 'Edit Series Details' : 'Initialize New Series'}
-        </DialogTitle>
-        <Box component="form" onSubmit={handleSubmit(onSubmit)}>
-          <DialogContent>
-            <Grid container spacing={4}>
-              <Grid item xs={12} md={5}>
-                {/* Thumbnail Drop Zone */}
-                <input
-                  ref={thumbInputRef}
-                  type="file"
-                  accept="image/*"
-                  hidden
-                  onChange={e => { if (e.target.files?.[0]) handleThumbnailFile(e.target.files[0]) }}
-                />
-                <Box
-                  onDragOver={e => { e.preventDefault(); setDragging(true) }}
-                  onDragLeave={() => setDragging(false)}
-                  onDrop={handleDrop}
-                  onClick={() => thumbInputRef.current?.click()}
-                  sx={{
-                    border: '2px dashed',
-                    borderColor: dragging ? 'primary.main' : file ? 'success.main' : 'divider',
-                    borderRadius: '16px',
-                    minHeight: 240,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    bgcolor: dragging ? 'primary.lighter' : 'action.hover',
-                    transition: 'all 0.2s ease',
-                    overflow: 'hidden',
-                    position: 'relative',
-                    '&:hover': { borderColor: 'primary.main', bgcolor: 'primary.lighter' },
-                  }}
+      {/* Mobile Options Overlay (Bottom Sheet) */}
+      {isDrawerOpen && activeVideo && (
+        <div className="fixed inset-0 z-[1200] p-4 pb-28 flex flex-col justify-end">
+          <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-[2px] animate-fade-in" onClick={() => setIsDrawerOpen(false)}></div>
+          <div className="relative bg-white rounded-[2.5rem] p-6 shadow-2xl animate-slide-up border border-slate-100">
+            <div className="w-12 h-1.5 bg-slate-100 rounded-full mx-auto mb-6"></div>
+
+            <div className="flex items-center gap-4 mb-8">
+              <img src={activeVideo.thumbnail_url} className="w-16 h-16 rounded-2xl object-cover" alt="" />
+              <div>
+                <h3 className="font-extrabold text-slate-900">{activeVideo.title}</h3>
+                <p className="text-xs text-slate-500 font-bold">ID: #{activeVideo.video_id}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3">
+              <button
+                onClick={() => navigate(`/dashboard/videos/${activeVideo.video_id}/episodes`)}
+                className="flex items-center gap-4 p-4 rounded-2xl bg-indigo-50 text-indigo-700 font-bold transition-all active:scale-95"
+              >
+                <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-sm">
+                  <Play size={20} fill="currentColor" />
+                </div>
+                Manage Episodes
+              </button>
+
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => openEdit(activeVideo)}
+                  className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-slate-50 text-slate-700 font-bold"
                 >
-                  {preview ? (
-                    <Box sx={{ position: 'relative', width: '100%' }}>
-                      <img
-                        src={preview}
-                        alt="Thumbnail"
-                        style={{ width: '100%', aspectRatio: '16/9', objectFit: 'cover', display: 'block' }}
-                      />
-                      <Box sx={{
-                        position: 'absolute', inset: 0,
-                        bgcolor: 'rgba(0,0,0,0.4)',
-                        opacity: 0,
-                        transition: 'opacity 0.2s',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        '&:hover': { opacity: 1 }
-                      }}>
-                        <Typography variant="body2" fontWeight={700} color="white">Click to change</Typography>
-                      </Box>
-                      <IconButton
-                        size="small"
-                        sx={{ position: 'absolute', top: 8, right: 8, bgcolor: 'background.paper', boxShadow: 2 }}
-                        onClick={e => { e.stopPropagation(); setPreview(null); setFile(null) }}
-                      >
-                        <Close fontSize="small" />
-                      </IconButton>
-                    </Box>
-                  ) : (
-                    <Stack alignItems="center" spacing={1} p={3}>
-                      <Image sx={{ fontSize: 48, color: 'text.disabled', opacity: 0.5 }} />
-                      <Typography variant="body2" fontWeight={700} color="text.secondary">
-                        Drag & drop or click to upload
-                      </Typography>
-                      <Typography variant="caption" color="text.disabled">JPG, PNG, WEBP supported</Typography>
-                    </Stack>
-                  )}
-                </Box>
+                  <Edit2 size={20} />
+                  <span className="text-xs">Edit Details</span>
+                </button>
+                <button
+                  onClick={() => handleDelete(activeVideo.video_id)}
+                  className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-rose-50 text-rose-600 font-bold"
+                >
+                  <Trash2 size={20} />
+                  <span className="text-xs">Delete</span>
+                </button>
+              </div>
 
-                {/* File info */}
-                {file && (
-                  <Paper variant="outlined" sx={{ p: 1.5, mt: 1.5, borderRadius: '10px', display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <CheckCircle sx={{ color: 'success.main', fontSize: 18 }} />
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Typography variant="caption" fontWeight={700} noWrap>{file.name}</Typography>
-                      <Typography variant="caption" display="block" color="text.secondary">
-                        {(file.size / (1024 * 1024)).toFixed(1)} MB · Will replace current thumbnail
-                      </Typography>
-                    </Box>
-                  </Paper>
-                )}
-                {!file && editVideo?.thumbnail_url && (
-                  <Paper variant="outlined" sx={{ p: 1.5, mt: 1.5, borderRadius: '10px' }}>
-                    <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                      Current thumbnail set — upload a new file to replace it
-                    </Typography>
-                  </Paper>
-                )}
+              {isAdmin && activeVideo.status === 'pending' && (
+                <div className="grid grid-cols-2 gap-3 mt-2">
+                  <button
+                    onClick={() => handleApprove(activeVideo.video_id)}
+                    className="p-4 rounded-2xl bg-emerald-500 text-white font-bold flex items-center justify-center gap-2"
+                  >
+                    <CheckCircle size={18} />
+                    Approve
+                  </button>
+                  <button
+                    onClick={() => { setIsRejectOpen(true); setIsDrawerOpen(false) }}
+                    className="p-4 rounded-2xl border-2 border-rose-100 text-rose-600 font-bold flex items-center justify-center gap-2"
+                  >
+                    <XCircle size={18} />
+                    Reject
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
-                {/* Upload progress */}
-                {submitting && progress > 0 && (
-                  <Box mt={1.5}>
-                    <Stack direction="row" justifyContent="space-between" mb={0.5}>
-                      <Typography variant="caption" fontWeight={700}>Uploading...</Typography>
-                      <Typography variant="caption" fontWeight={700}>{progress}%</Typography>
-                    </Stack>
-                    <LinearProgress variant="determinate" value={progress} sx={{ borderRadius: 2, height: 6 }} />
-                  </Box>
-                )}
-              </Grid>
+      {/* Edit Modal (Morphed) */}
+      {isEditOpen && (
+        <div className="fixed inset-0 z-80 pb-20 flex items-center justify-center p-0 sm:p-4">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md animate-fade-in" onClick={() => !submitting && setIsEditOpen(false)}></div>
+          <div className="relative bg-white w-full max-w-4xl h-full sm:h-auto max-h-[100vh] sm:max-h-[90vh] sm:rounded-[2.5rem] flex flex-col overflow-hidden shadow-2xl animate-zoom-in">
+            {/* Modal Header */}
+            <div className="p-6 sm:p-8 flex justify-between items-center border-b border-slate-100">
+              <div>
+                <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900">Edit Series</h2>
+                <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Update your drama details</p>
+              </div>
+              <button onClick={() => setIsEditOpen(false)} className="p-2 rounded-full hover:bg-slate-100 transition-all">
+                <X size={24} className="text-slate-400" />
+              </button>
+            </div>
 
-              <Grid item xs={12} md={7}>
-                <Stack spacing={3}>
-                  <TextField label="Series Title" fullWidth {...register('title')} error={!!errors.title} helperText={errors.title?.message} />
-                  <TextField label="Description" fullWidth multiline rows={4} {...register('description')} error={!!errors.description} helperText={errors.description?.message} />
-                  
-                  <Stack direction="row" spacing={2}>
-                    <TextField label="Price (USD)" type="number" {...register('price')} sx={{ flex: 1 }} />
-                    <Controller
-                      name="is_free"
-                      control={control}
-                      render={({ field }) => (
-                        <FormControl sx={{ flex: 1 }}>
-                          <InputLabel>Access Model</InputLabel>
-                          <Select label="Access Model" value={field.value ? 'free' : 'paid'} onChange={e => field.onChange(e.target.value === 'free')}>
-                            <MenuItem value="paid">Premium (Paid)</MenuItem>
-                            <MenuItem value="free">Standard (Free)</MenuItem>
-                          </Select>
-                        </FormControl>
+            {/* Modal Content */}
+            <div className="flex-1 overflow-y-auto p-6 sm:p-8">
+              <form id="edit-form" onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {/* Thumbnail Side */}
+                  <div className="space-y-4">
+                    <label className="text-xs font-extrabold text-slate-400 uppercase tracking-widest">Display Artwork</label>
+                    <div
+                      onClick={() => thumbInputRef.current?.click()}
+                      className={`relative aspect-[16/9] rounded-3xl overflow-hidden border-2 border-dashed transition-all cursor-pointer group ${preview ? 'border-transparent' : 'border-slate-200 bg-slate-50 hover:bg-slate-100 hover:border-indigo-300'
+                        }`}
+                    >
+                      {preview ? (
+                        <>
+                          <img src={preview} className="w-full h-full object-cover" alt="" />
+                          <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <p className="text-white font-bold text-sm bg-black/20 px-4 py-2 rounded-xl backdrop-blur-md">Change Cover</p>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                          <div className="p-4 bg-white rounded-2xl shadow-sm text-indigo-500">
+                            <ImageIcon size={32} />
+                          </div>
+                          <p className="text-xs font-bold text-slate-500">Tap to upload thumbnail</p>
+                        </div>
                       )}
-                    />
-                  </Stack>
-                </Stack>
-              </Grid>
-
-              <Grid item xs={12}>
-                <Divider sx={{ mb: 3 }} />
-                <Stack direction="row" spacing={3}>
-                  <Controller
-                    name="category_ids"
-                    control={control}
-                    render={({ field }) => (
-                      <FormControl fullWidth>
-                        <InputLabel>Categories</InputLabel>
-                        <Select label="Categories" multiple value={field.value || []} onChange={e => field.onChange(e.target.value)}
-                          renderValue={(sel) => (
-                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                              {(sel as number[] || []).map(id => <Chip key={id} label={categories.find(c => c.category_id === id)?.name} size="small" />)}
-                            </Box>
-                          )}>
-                          {(categories || []).map(c => <MenuItem key={c.category_id} value={c.category_id}>{c.name}</MenuItem>)}
-                        </Select>
-                      </FormControl>
-                    )}
-                  />
-                  <Controller
-                    name="tag_ids"
-                    control={control}
-                    render={({ field }) => (
-                      <FormControl fullWidth>
-                        <InputLabel>Tags</InputLabel>
-                        <Select label="Tags" multiple value={field.value || []} onChange={e => field.onChange(e.target.value)}
-                          renderValue={(sel) => (
-                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                              {(sel as number[] || []).map(id => <Chip key={id} label={tags.find(t => t.tag_id === id)?.name} size="small" />)}
-                            </Box>
-                          )}>
-                          {(tags || []).map(t => <MenuItem key={t.tag_id} value={t.tag_id}>{t.name}</MenuItem>)}
-                        </Select>
-                      </FormControl>
-                    )}
-                  />
-                </Stack>
-              </Grid>
-            </Grid>
-          </DialogContent>
-          <DialogActions sx={{ px: 4, pb: 4, gap: 1 }}>
-            <Button onClick={() => !submitting && setDialogOpen(false)} disabled={submitting} sx={{ fontWeight: 700 }}>Cancel</Button>
-            <Button
-              type="submit"
-              variant="contained"
-              disabled={submitting}
-              startIcon={submitting ? <CircularProgress size={16} color="inherit" /> : undefined}
-              sx={{ px: 4, py: 1, borderRadius: '10px', fontWeight: 800 }}
-            >
-              {submitting ? 'Saving...' : 'Update Changes'}
-            </Button>
-          </DialogActions>
-        </Box>
-      </Dialog>
-
-      {/* Reject Intent Dialog */}
-      <Dialog 
-        open={rejectDialog.open} 
-        onClose={() => setRejectDialog({ open: false, videoId: null })} 
-        maxWidth="xs" 
-        fullWidth
-        PaperProps={{ sx: { borderRadius: '24px' } }}
-      >
-        <DialogTitle sx={{ fontWeight: 800 }}>Reject Submission</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" color="text.secondary" mb={2}>
-            Please provide a detailed reason for rejecting this video series. This will be sent to the creator.
-          </Typography>
-          <TextField
-            label="Rejection Feedback"
-            fullWidth
-            multiline rows={4}
-            value={rejectReason}
-            onChange={e => setRejectReason(e.target.value)}
-          />
-        </DialogContent>
-        <DialogActions sx={{ p: 3 }}>
-          <Button onClick={() => setRejectDialog({ open: false, videoId: null })}>Cancel</Button>
-          <Button variant="contained" color="error" onClick={handleReject} disabled={!rejectReason.trim()} sx={{ borderRadius: '10px', px: 3 }}>
-            Confirm Rejection
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Episode Processing Status Dialog */}
-      <Dialog
-        open={processingDialog.open}
-        onClose={closeProcessingStatus}
-        maxWidth="sm"
-        fullWidth
-        PaperProps={{ sx: { borderRadius: '24px' } }}
-      >
-        <DialogTitle sx={{ fontWeight: 800, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Stack direction="row" spacing={1.5} alignItems="center">
-            <PendingActions color="primary" />
-            <Box>
-              <Typography variant="h6" fontWeight={800}>Processing Status</Typography>
-              <Typography variant="caption" color="text.secondary">{processingDialog.videoTitle}</Typography>
-            </Box>
-          </Stack>
-          <IconButton size="small" onClick={closeProcessingStatus}><Close /></IconButton>
-        </DialogTitle>
-        <DialogContent sx={{ p: 0 }}>
-          <Divider />
-          {processingEpisodes.length === 0 ? (
-            <Box sx={{ p: 6, textAlign: 'center' }}>
-              <Typography variant="body2" color="text.secondary">No episodes found for this series.</Typography>
-            </Box>
-          ) : (
-            <Stack divider={<Divider />}>
-              {processingEpisodes.map((ep) => {
-                // @ts-ignore - Assuming these fields exist in the live API response even if not in type
-                const status = ep.status || 'READY';
-                // @ts-ignore
-                const progress = ep.processing_progress || 100;
-                const isReady = status === 'READY';
-
-                return (
-                  <Box key={ep.episode_id} sx={{ p: 2.5, '&:hover': { bgcolor: 'action.hover' } }}>
-                    <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1.5}>
-                      <Box>
-                        <Stack direction="row" spacing={1} alignItems="center">
-                          <Typography variant="subtitle2" fontWeight={800}>
-                            Episode {ep.episode_number}: {ep.title}
-                          </Typography>
-                          {!processingDialog.videoId && (
-                            <Chip 
-                              label={videos.find(v => v.video_id === ep.video_id)?.title || 'Series'} 
-                              size="small" 
-                              variant="outlined" 
-                              sx={{ height: 18, fontSize: '0.65rem', fontWeight: 700 }} 
-                            />
-                          )}
-                        </Stack>
-                        <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
-                          {isReady ? 'All assets are ready' : `Current State: ${status}`}
-                        </Typography>
-                      </Box>
-                      <Chip
-                        size="small"
-                        icon={isReady ? <CheckCircleOutline /> : status === 'FAILED' ? <ErrorOutline /> : <CircularProgress size={12} color="inherit" />}
-                        label={status}
-                        color={isReady ? 'success' : status === 'FAILED' ? 'error' : 'primary'}
-                        variant={isReady ? 'filled' : 'outlined'}
-                        sx={{ fontWeight: 700, borderRadius: '8px' }}
+                      <input
+                        ref={thumbInputRef}
+                        type="file"
+                        className="hidden"
+                        onChange={(e) => e.target.files?.[0] && handleThumbnailFile(e.target.files[0])}
                       />
-                    </Stack>
-                    
-                    {!isReady && status !== 'FAILED' && (
-                      <Stack spacing={1.5}>
-                        {/* Preview Progress */}
-                        <Box>
-                          <Stack direction="row" justifyContent="space-between" alignItems="center" mb={0.5}>
-                            <Typography variant="caption" fontWeight={700} sx={{ opacity: 0.8 }}>Preview Asset</Typography>
-                            {/* @ts-ignore */}
-                            <Typography variant="caption" fontWeight={800}>{ep.preview_progress || progress}%</Typography>
-                          </Stack>
-                          {/* @ts-ignore */}
-                          <LinearProgress variant="determinate" value={ep.preview_progress || progress} sx={{ height: 4, borderRadius: 2 }} />
-                        </Box>
-
-                        {/* Full Video Progress */}
-                        <Box>
-                          <Stack direction="row" justifyContent="space-between" alignItems="center" mb={0.5}>
-                            <Typography variant="caption" fontWeight={700} sx={{ opacity: 0.8 }}>Full Video Asset</Typography>
-                            {/* @ts-ignore */}
-                            <Typography variant="caption" fontWeight={800}>{ep.full_progress || progress}%</Typography>
-                          </Stack>
-                          {/* @ts-ignore */}
-                          <LinearProgress variant="determinate" value={ep.full_progress || progress} color="secondary" sx={{ height: 4, borderRadius: 2 }} />
-                        </Box>
-                      </Stack>
+                    </div>
+                    {progress > 0 && (
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-[10px] font-extrabold text-slate-500 uppercase">
+                          <span>Uploading</span>
+                          <span>{progress}%</span>
+                        </div>
+                        <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-indigo-600 transition-all duration-300" style={{ width: `${progress}%` }}></div>
+                        </div>
+                      </div>
                     )}
-                  </Box>
-                );
-              })}
-            </Stack>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ p: 2, bgcolor: 'action.hover' }}>
-          <Button fullWidth variant="outlined" onClick={closeProcessingStatus} sx={{ borderRadius: '10px', fontWeight: 700 }}>
-            Dismiss
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+                  </div>
+
+                  {/* Form Side */}
+                  <div className="space-y-6">
+                    <div className="space-y-2">
+                      <label className="text-xs font-extrabold text-slate-500 uppercase ml-1">Series Title</label>
+                      <input
+                        {...register('title')}
+                        className="w-full bg-slate-50 border-none rounded-2xl p-4 font-bold text-slate-900 focus:ring-2 focus:ring-indigo-500"
+                        placeholder="Enter title..."
+                      />
+                      {errors.title && <p className="text-[10px] text-rose-500 font-bold px-1">{errors.title.message}</p>}
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs font-extrabold text-slate-500 uppercase ml-1">Description</label>
+                      <textarea
+                        {...register('description')}
+                        rows={4}
+                        className="w-full bg-slate-50 border-none rounded-2xl p-4 font-bold text-slate-900 focus:ring-2 focus:ring-indigo-500 resize-none"
+                        placeholder="What's this series about?"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Pricing & Categories */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4">
+                  <div className="bg-slate-50 p-6 rounded-3xl space-y-4">
+                    <label className="text-xs font-extrabold text-slate-500 uppercase">Pricing Model</label>
+                    <div className="flex gap-2">
+                      <Controller
+                        name="is_free"
+                        control={control}
+                        render={({ field }) => (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => field.onChange(true)}
+                              className={`flex-1 py-3 rounded-2xl font-bold transition-all ${field.value ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}
+                            >
+                              Free
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => field.onChange(false)}
+                              className={`flex-1 py-3 rounded-2xl font-bold transition-all ${!field.value ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}
+                            >
+                              Premium
+                            </button>
+                          </>
+                        )}
+                      />
+                    </div>
+                    <input
+                      type="number"
+                      {...register('price')}
+                      className="w-full bg-white/50 border-none rounded-2xl p-3 font-bold text-slate-900"
+                      placeholder="Price in USD"
+                    />
+                  </div>
+
+                  <div className="bg-slate-50 p-6 rounded-3xl space-y-4">
+                    <label className="text-xs font-extrabold text-slate-500 uppercase">Tags & Discovery</label>
+                    <div className="flex flex-wrap gap-2">
+                      {/* Simplified tag selection for UI demo */}
+                      {categories.slice(0, 4).map(c => (
+                        <button key={c.category_id} type="button" className="px-4 py-2 rounded-xl bg-white text-slate-600 text-xs font-bold shadow-sm">
+                          {c.name}
+                        </button>
+                      ))}
+                      <button type="button" className="px-4 py-2 rounded-xl border-2 border-dashed border-slate-200 text-slate-400 text-xs font-bold">
+                        + Add More
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </form>
+            </div>
+
+            {/* Modal Actions (Sticky Bottom on Mobile) */}
+            <div className="p-6 sm:p-8 bg-white border-t border-slate-100 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setIsEditOpen(false)}
+                className="flex-1 sm:flex-none px-8 py-4 rounded-2xl font-bold text-slate-500 hover:bg-slate-50 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                form="edit-form"
+                type="submit"
+                disabled={submitting}
+                className="flex-[2] sm:flex-none sm:px-12 py-4 rounded-2xl bg-indigo-600 text-white font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all disabled:opacity-50"
+              >
+                {submitting ? 'Saving Changes...' : 'Save Series'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function VideoCard({ video, onEdit, onManage, onOptions, isAdmin }: { video: VideoRess, onEdit: () => void, onManage: () => void, onOptions: () => void, isAdmin: boolean }) {
+  const statusKey = (video.status || 'pending').toLowerCase()
+  const status = STATUS_CONFIG[statusKey] || STATUS_CONFIG.pending
+  const StatusIcon = status.icon
+
+  return (
+    <div className="group relative bg-white/[0.03] backdrop-blur-md rounded-[2rem] overflow-hidden border border-white/10 hover:border-white/20 transition-all duration-300">
+      {/* Layout Morph: Mobile (Row) vs Desktop (Vertical) */}
+      <div className="flex flex-row sm:flex-col p-3 sm:p-0 gap-4 sm:gap-0 h-full">
+        {/* Thumbnail Area */}
+        <div className="relative w-24 h-24 sm:w-full sm:aspect-video rounded-2xl sm:rounded-none overflow-hidden shrink-0">
+          <img src={video.thumbnail_url} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt={video.title} />
+
+          {/* Status Badge - Floating on Desktop, Inline on Mobile (hidden below) */}
+          <div className={`hidden sm:flex absolute top-3 left-3 items-center gap-1.5 px-3 py-1 rounded-full backdrop-blur-md ${status.bg} ${status.color}`}>
+            <StatusIcon size={12} />
+            <span className="text-[10px] font-black uppercase tracking-wider">{status.label}</span>
+          </div>
+
+          {/* Desktop Hover Overlay */}
+          <div className="hidden sm:flex absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity items-center justify-center gap-3">
+            <button onClick={onManage} className="p-3 bg-white text-slate-900 rounded-full hover:scale-110 transition-transform shadow-lg">
+              <Play size={20} fill="currentColor" />
+            </button>
+            <button onClick={onEdit} className="p-3 bg-white text-slate-900 rounded-full hover:scale-110 transition-transform shadow-lg">
+              <Edit2 size={20} />
+            </button>
+          </div>
+        </div>
+
+        {/* Info Area */}
+        <div className="flex-1 flex flex-col justify-between sm:p-5">
+          <div className="space-y-1">
+            <div className="flex sm:hidden items-center gap-2 mb-1">
+              <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase ${status.bg} ${status.color}`}>
+                {status.label}
+              </span>
+              <span className="text-[10px] text-white/20 font-bold">#{video.video_id}</span>
+            </div>
+            <h3 className="text-sm sm:text-base font-black text-white/90 line-clamp-1 group-hover:text-red-500 transition-colors">
+              {video.title}
+            </h3>
+            <div className="flex items-center gap-3 text-[10px] sm:text-xs font-bold text-white/40">
+              <span className="flex items-center gap-1">
+                <Layers size={12} />
+                {video.episodes_count || 0} eps
+              </span>
+              <span className="w-1 h-1 bg-white/10 rounded-full"></span>
+              <span className="text-emerald-400">${(video.price || 0).toFixed(2)}</span>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between mt-2 sm:mt-4">
+            {isAdmin ? (
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[10px] font-black text-white/60">
+                  {(video.creator || 'U')[0]}
+                </div>
+                <span className="text-[10px] font-black text-white/40 uppercase truncate max-w-[80px]">{video.creator}</span>
+              </div>
+            ) : (
+              <div className="text-[10px] font-black text-white/20 uppercase tracking-widest">
+                Series ID #{video.video_id}
+              </div>
+            )}
+
+            {/* Action Trigger */}
+            <button
+              onClick={(e) => { e.stopPropagation(); onOptions() }}
+              className="p-2 sm:hidden text-white/20 hover:text-white"
+            >
+              <MoreVertical size={20} />
+            </button>
+            <button
+              onClick={onManage}
+              className="hidden sm:flex items-center gap-1 text-[10px] font-black text-red-500 uppercase tracking-widest hover:gap-2 transition-all"
+            >
+              Manage <ChevronRight size={14} />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }

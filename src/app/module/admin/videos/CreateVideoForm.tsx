@@ -3,9 +3,9 @@ import {
   Box, TextField, Button, Typography, Card, CardContent,
   Stack, IconButton, CircularProgress, MenuItem, Select,
   FormControl, InputLabel, Chip, OutlinedInput, Grid, Paper, Divider,
-  Avatar
+  Avatar, useTheme, useMediaQuery
 } from '@mui/material';
-import { CloudUpload, Delete, Send, Layers, FeaturedPlayList, InfoOutlined } from '@mui/icons-material';
+import { CloudUpload, Delete, Send, Layers, InfoOutlined } from '@mui/icons-material';
 
 import toast from 'react-hot-toast';
 import { categoryApi, tagApi } from '@/app/api/categoryTag.service';
@@ -13,6 +13,10 @@ import { videoApi } from '@/app/api/video.service';
 import { Category, Tag } from '@/app/types';
 
 const CreateVideoForm: React.FC = () => {
+  const theme = useTheme();
+  // Using useMediaQuery to check if the viewport is 'md' or smaller
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
@@ -25,8 +29,8 @@ const CreateVideoForm: React.FC = () => {
   const [preview, setPreview] = useState<string | null>(null);
 
   useEffect(() => {
-    categoryApi.list().then(r => setCategories(r.data || []));
-    tagApi.list().then(r => setTags(r.data || []));
+    categoryApi.list().then(r => setCategories(r.data || [])).catch(() => {});
+    tagApi.list().then(r => setTags(r.data || [])).catch(() => {});
   }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -39,6 +43,7 @@ const CreateVideoForm: React.FC = () => {
 
   const removeFile = () => {
     setThumbnail(null);
+    if (preview) URL.revokeObjectURL(preview);
     setPreview(null);
   };
 
@@ -72,29 +77,34 @@ const CreateVideoForm: React.FC = () => {
 
   return (
     <Card 
-      elevation={0} 
+      elevation={0}
       sx={{ 
-        maxWidth: 850, 
+        maxWidth: 850,
+        width: '100%',
         mx: 'auto', 
-        borderRadius: '32px', 
+        borderRadius: isMobile ? '16px' : '32px', 
         border: '1px solid', 
         borderColor: 'divider',
         overflow: 'hidden'
       }}
     >
-      <Box sx={{ bgcolor: 'primary.main', py: 4, px: 6, color: 'white' }}>
+      <Box sx={{ bgcolor: 'primary.main', py: isMobile ? 3 : 4, px: isMobile ? 2.5 : 6, color: 'white' }}>
          <Stack direction="row" spacing={2} alignItems="center">
-            <Layers sx={{ fontSize: 32 }} />
+            <Layers sx={{ fontSize: isMobile ? 24 : 32 }} />
             <Box>
-               <Typography variant="h5" fontWeight={800} sx={{ letterSpacing: '-0.5px' }}>Initialize Series</Typography>
-               <Typography variant="body2" sx={{ opacity: 0.8 }}>Define the core identity of your new drama collection.</Typography>
+               <Typography variant={isMobile ? "h6" : "h5"} fontWeight={800} sx={{ letterSpacing: '-0.5px' }}>
+                 Initialize Series
+               </Typography>
+               <Typography variant="body2" sx={{ opacity: 0.8, fontSize: isMobile ? '0.8rem' : '0.875rem' }}>
+                 Define the core identity of your new drama collection.
+               </Typography>
             </Box>
          </Stack>
       </Box>
 
-      <CardContent sx={{ p: 6 }}>
+      <CardContent sx={{ p: isMobile ? 2.5 : 6 }}>
         <Box component="form" onSubmit={handleSubmit}>
-          <Grid container spacing={5}>
+          <Grid container spacing={isMobile ? 4 : 5}>
             {/* Left Column: Media */}
             <Grid item xs={12} md={5}>
               <Typography variant="subtitle2" fontWeight={800} color="text.secondary" mb={2} sx={{ textTransform: 'uppercase', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -106,11 +116,11 @@ const CreateVideoForm: React.FC = () => {
                 sx={{
                   border: '2px dashed',
                   borderColor: thumbnail ? 'primary.main' : 'divider',
-                  borderRadius: '24px',
+                  borderRadius: isMobile ? '16px' : '24px',
                   p: 1.5,
                   textAlign: 'center',
                   bgcolor: 'action.hover',
-                  minHeight: 300,
+                  minHeight: isMobile ? 240 : 300,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -120,7 +130,7 @@ const CreateVideoForm: React.FC = () => {
               >
                 {preview ? (
                   <Box sx={{ width: '100%', height: '100%', position: 'relative' }}>
-                    <img src={preview} alt="Preview" style={{ width: '100%', height: '280px', borderRadius: '16px', objectFit: 'cover' }} />
+                    <img src={preview} alt="Preview" style={{ width: '100%', height: isMobile ? '220px' : '280px', borderRadius: isMobile ? '12px' : '16px', objectFit: 'cover' }} />
                     <IconButton
                       size="small"
                       onClick={removeFile}
@@ -130,7 +140,7 @@ const CreateVideoForm: React.FC = () => {
                     </IconButton>
                   </Box>
                 ) : (
-                  <Stack spacing={2} alignItems="center" sx={{ px: 4 }}>
+                  <Stack spacing={2} alignItems="center" sx={{ px: isMobile ? 2 : 4 }}>
                     <Avatar sx={{ width: 64, height: 64, bgcolor: 'primary.lighter', color: 'primary.main' }}>
                        <CloudUpload fontSize="large" />
                     </Avatar>
@@ -165,7 +175,7 @@ const CreateVideoForm: React.FC = () => {
                         label="Series Overview"
                         fullWidth
                         multiline
-                        rows={5}
+                        rows={isMobile ? 4 : 5}
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
                         placeholder="Draft a compelling synopsis..."
@@ -175,7 +185,7 @@ const CreateVideoForm: React.FC = () => {
                 </Box>
 
                 <Box>
-                   <Divider sx={{ mb: 4 }} />
+                   <Divider sx={{ mb: isMobile ? 3 : 4 }} />
                    <Typography variant="subtitle2" fontWeight={800} color="text.secondary" mb={2} sx={{ textTransform: 'uppercase', fontSize: '0.7rem' }}>Taxonomy</Typography>
                    <Grid container spacing={2}>
                       <Grid item xs={12} sm={6}>
@@ -226,12 +236,26 @@ const CreateVideoForm: React.FC = () => {
             </Grid>
           </Grid>
 
-          <Box sx={{ mt: 6, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-             <Button size="large" sx={{ fontWeight: 700 }}>Reset</Button>
+          <Box sx={{ mt: isMobile ? 4 : 6, display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'flex-end', gap: 2 }}>
+             <Button 
+               size="large" 
+               fullWidth={isMobile}
+               onClick={() => {
+                 setTitle('');
+                 setDescription('');
+                 setSelectedCats([]);
+                 setSelectedTags([]);
+                 removeFile();
+               }}
+               sx={{ fontWeight: 700 }}
+             >
+               Reset
+             </Button>
              <Button
                 type="submit"
                 variant="contained"
                 size="large"
+                fullWidth={isMobile}
                 disabled={loading}
                 startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <Send />}
                 sx={{ py: 1.5, px: 6, fontWeight: 800, borderRadius: '12px', boxShadow: '0 8px 20px -4px rgba(99, 102, 241, 0.4)' }}

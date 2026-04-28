@@ -15,59 +15,76 @@ import {
   ChevronRight,
   Clock,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Wallet
 } from "lucide-react";
 import { LineChart } from "@mui/x-charts/LineChart";
 import { Box, Typography, Stack, IconButton, Avatar as MuiAvatar } from "@mui/material";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuthStore } from "@/app/stores/authStore";
+import { useSubscriptionStore } from "@/app/stores/subscriptionStore";
+import { creatorApi, CreatorStats } from "@/app/api/creator.service";
+import { Video as IVideo } from "@/app/types";
+import { useEffect, useState } from "react";
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const { user, isAuthenticated } = useAuthStore();
+  const { user } = useAuthStore();
+  const { subscription } = useSubscriptionStore();
+  const isPremium = subscription?.status === 'active';
+  const isAdmin = user?.role === 'admin';
+  const isLocked = !isAdmin && !isPremium;
 
-  const isViewer = user?.role === 'viewer';
+  const [statsData, setStatsData] = useState<CreatorStats | null>(null);
+  const [videos, setVideos] = useState<IVideo[]>([]);
+  const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [s, v] = await Promise.all([
+          creatorApi.getStats(),
+          creatorApi.getRecentVideos(3)
+        ]);
+        setStatsData(s);
+        setVideos(v.data || []);
+      } catch (error) {
+        console.error("Dashboard load error", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, []);
 
-  // Mock Data
   const stats = [
-    { label: "Views", value: "12.4K", change: "+12%", icon: <Eye size={20} />, color: "#3B82F6" },
     { 
-      label: "Earn", 
-      value: isViewer ? "LOCKED" : "$24.5", 
-      change: isViewer ? "UPGRADE" : "+8%", 
-      icon: <DollarSign size={20} />, 
-      color: isViewer ? "#9CA3AF" : "#10B981" 
+      label: "Views", 
+      value: statsData ? (statsData.total_views >= 1000 ? `${(statsData.total_views/1000).toFixed(1)}K` : statsData.total_views) : "0", 
+      change: "+0%", 
+      icon: <Eye size={20} />, 
+      color: "#3B82F6" 
     },
-    { label: "Subs", value: "1.2K", change: "+5%", icon: <Users size={20} />, color: "#8B5CF6" },
-    { label: "Videos", value: "48", change: "+2", icon: <Video size={20} />, color: "#F59E0B" },
-  ];
-
-  const recentVideos = [
-    { 
-      title: "The Silent Ocean: Episode 5", 
-      views: "2.8K", 
-      likes: "1.2K", 
-      status: "Published", 
-      time: "2h ago",
-      thumbnail: "https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=2094&auto=format&fit=crop"
+    {
+      label: "Earn",
+      value: isLocked ? "LOCKED" : (statsData ? `$${statsData.total_earnings.toLocaleString()}` : "$0"),
+      change: isLocked ? "UPGRADE" : "+0%",
+      icon: <DollarSign size={20} />,
+      color: isLocked ? "#9CA3AF" : "#10B981"
     },
     { 
-      title: "Midnight Mystery: Finale", 
-      views: "5.4K", 
-      likes: "2.4K", 
-      status: "Reviewing", 
-      time: "1d ago",
-      thumbnail: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1968&auto=format&fit=crop"
+      label: "Subs", 
+      value: statsData ? (statsData.total_followers >= 1000 ? `${(statsData.total_followers/1000).toFixed(1)}K` : statsData.total_followers) : "0", 
+      change: "+0%", 
+      icon: <Users size={20} />, 
+      color: "#8B5CF6" 
     },
     { 
-      title: "Forest Tales: Chapter 2", 
-      views: "1.1K", 
-      likes: "450", 
-      status: "Published", 
-      time: "3d ago",
-      thumbnail: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?q=80&w=2071&auto=format&fit=crop"
+      label: "Videos", 
+      value: statsData ? statsData.total_videos.toString() : "0", 
+      change: "+0", 
+      icon: <Video size={20} />, 
+      color: "#F59E0B" 
     },
   ];
 
@@ -90,9 +107,9 @@ const Dashboard: React.FC = () => {
           <div className="relative">
             <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-red-600 to-orange-500 p-[2px]">
               <div className="w-full h-full rounded-full bg-[#08090C] flex items-center justify-center overflow-hidden border-2 border-[#08090C]">
-                <img 
-                  src={user?.profile_image || "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix"} 
-                  alt="Profile" 
+                <img
+                  src={user?.profile_image || "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix"}
+                  alt="Profile"
                   className="w-full h-full object-cover"
                 />
               </div>
@@ -102,15 +119,18 @@ const Dashboard: React.FC = () => {
         </div>
       </header>
 
-      <main className="px-5 mt-6 space-y-8 animate-in fade-in duration-700">
-        {/* QUICK STATS */}
+      <main className="px-5 mt-6 space-y-10 animate-in fade-in duration-700">
+        {/* WALLET SECTION */}
         <section>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-bold uppercase tracking-widest text-white/40 flex items-center gap-2">
-              <BarChart2 size={16} /> Quick Stats
-            </h2>
-            <button className="text-[10px] font-bold text-red-500 uppercase tracking-wider flex items-center gap-1">
-              Details <ChevronRight size={12} />
+            <div>
+               <h2 className="text-sm font-bold uppercase tracking-widest text-white/40 flex items-center gap-2">
+                 <Wallet size={16} /> Wallet
+               </h2>
+               <p className="text-[10px] font-black text-red-500 uppercase tracking-widest mt-1">Track your earnings and payouts</p>
+            </div>
+            <button onClick={()=>navigate("/dashboard/earnings")} className="p-2 rounded-xl bg-white/5 text-white/60 hover:bg-white/10 transition-all">
+              <ArrowUpRight size={20} />
             </button>
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -126,7 +146,7 @@ const Dashboard: React.FC = () => {
                   >
                     {stat.icon}
                   </div>
-                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${isViewer && stat.label === 'Earn' ? 'bg-orange-400/10 text-orange-400' : 'bg-emerald-400/10 text-emerald-400'}`}>
+                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${isLocked && stat.label === 'Earn' ? 'bg-orange-400/10 text-orange-400' : 'bg-emerald-400/10 text-emerald-400'}`}>
                     {stat.change}
                   </span>
                 </div>
@@ -141,7 +161,7 @@ const Dashboard: React.FC = () => {
         <section>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-bold uppercase tracking-widest text-white/40 flex items-center gap-2">
-              <TrendingUpIcon size={16} /> Performance
+               <TrendingUpIcon size={16} /> Performance
             </h2>
             <div className="flex gap-2">
               {['7D', '1M', '1Y'].map(t => (
@@ -152,7 +172,7 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
           <div className="glass-card rounded-[2.5rem] p-6 border border-white/5 bg-gradient-to-b from-white/[0.02] to-transparent overflow-hidden">
-            <div className="h-48 -mx-4">
+            <div className="h-44 -mx-4">
               <LineChart
                 xAxis={[{ data: [1, 2, 3, 4, 5, 6, 7], scaleType: 'point', hideTooltip: true }]}
                 series={[
@@ -163,8 +183,8 @@ const Dashboard: React.FC = () => {
                     showMark: false,
                   },
                 ]}
-                height={200}
-                margin={{ left: 10, right: 10, top: 10, bottom: 20 }}
+                height={180}
+                margin={{ left: 10, right: 10, top: 10, bottom: 0 }}
                 slotProps={{
                   legend: { hidden: true },
                 }}
@@ -182,7 +202,7 @@ const Dashboard: React.FC = () => {
               >
                 <defs>
                   <linearGradient id="chart-gradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#E50914" stopOpacity={0.8}/>
+                    <stop offset="5%" stopColor="#E50914" stopOpacity={0.6}/>
                     <stop offset="95%" stopColor="#E50914" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
@@ -196,51 +216,61 @@ const Dashboard: React.FC = () => {
           </div>
         </section>
 
-        {/* RECENT VIDEOS */}
+        {/* LIBRARY SECTION */}
         <section>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-bold uppercase tracking-widest text-white/40 flex items-center gap-2">
-              <Clock size={16} /> Recent Content
-            </h2>
-            <button className="text-[10px] font-bold text-white/40 hover:text-white transition-colors">
+            <div>
+               <h2 className="text-sm font-bold uppercase tracking-widest text-white/40 flex items-center gap-2">
+                 <Clock size={16} /> Library
+               </h2>
+               <p className="text-[10px] font-black text-red-500 uppercase tracking-widest mt-1">My Drama Series</p>
+            </div>
+            <button onClick={()=>navigate("/dashboard/videos")} className="text-[10px] font-bold text-white/40 hover:text-white transition-colors">
               VIEW ALL
             </button>
           </div>
           <div className="space-y-4">
-            {recentVideos.map((video, i) => (
+            {videos.length === 0 && !loading && (
+              <Box sx={{ py: 4, textAlign: 'center', opacity: 0.5 }}>
+                <Typography variant="body2">No videos uploaded yet.</Typography>
+              </Box>
+            )}
+            {videos.map((video, i) => (
               <div 
                 key={i} 
                 className="glass-card p-4 rounded-3xl border border-white/5 flex items-center gap-4 hover:bg-white/[0.02] transition-all group"
               >
                 <div className="relative w-20 h-20 rounded-2xl overflow-hidden shrink-0">
-                  <img src={video.thumbnail} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                  <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                    <Play size={20} fill="white" className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <img src={video.thumbnail_url || ""} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                  <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Play size={20} fill="white" className="text-white" />
                   </div>
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="font-bold text-sm text-white/90 truncate pr-4">{video.title}</h3>
                   <div className="flex items-center gap-3 mt-2">
                     <div className="flex items-center gap-1 text-[10px] text-white/40">
-                      <Eye size={12} /> {video.views}
+                      <Eye size={12} /> {video.view_count || 0}
                     </div>
                     <div className="flex items-center gap-1 text-[10px] text-white/40">
-                      <Play size={12} /> {video.likes}
+                      <Play size={12} /> {video.like_count || 0}
                     </div>
                   </div>
                   <div className="mt-3 flex items-center gap-2">
                     <span className={`text-[9px] font-black px-2 py-0.5 rounded-md flex items-center gap-1 ${
-                      video.status === 'Published' 
+                      (video.status === 'published' || video.status === 'ready')
                         ? 'bg-emerald-500/10 text-emerald-500' 
                         : 'bg-orange-500/10 text-orange-500'
                     }`}>
-                      {video.status === 'Published' ? <CheckCircle2 size={10} /> : <AlertCircle size={10} />}
-                      {video.status.toUpperCase()}
+                      {(video.status === 'published' || video.status === 'ready') ? <CheckCircle2 size={10} /> : <AlertCircle size={10} />}
+                      {(video.status || 'pending').toUpperCase()}
                     </span>
-                    <span className="text-[9px] font-bold text-white/20">{video.time}</span>
+                    <span className="text-[9px] font-bold text-white/20">
+                      {new Date(video.created_at).toLocaleDateString()}
+                    </span>
                   </div>
                 </div>
-                <IconButton size="small" className="text-white/20">
+                <IconButton size="small" className="text-white/20" onClick={() => navigate(`/dashboard/videos/${video.video_id}/episodes`)}>
                   <MoreVertical size={16} />
                 </IconButton>
               </div>
@@ -248,13 +278,6 @@ const Dashboard: React.FC = () => {
           </div>
         </section>
       </main>
-
-      {/* FLOATING UPLOAD BUTTON */}
-      <button className="fixed bottom-28 right-6 w-14 h-14 bg-gradient-to-tr from-red-600 to-orange-500 rounded-full shadow-[0_8px_30px_rgb(229,9,20,0.4)] flex items-center justify-center transform active:scale-90 transition-transform z-40 group"
-        onClick={() => navigate('/dashboard/videos/create')}
-      >
-        <Plus size={32} className="text-white group-hover:rotate-90 transition-transform" />
-      </button>
 
       {/* FLOATING UPLOAD BUTTON */}
       <button className="fixed bottom-28 right-6 w-14 h-14 bg-gradient-to-tr from-red-600 to-orange-500 rounded-full shadow-[0_8px_30px_rgb(229,9,20,0.4)] flex items-center justify-center transform active:scale-90 transition-transform z-40 group"

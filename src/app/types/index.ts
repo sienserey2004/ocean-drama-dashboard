@@ -2,7 +2,7 @@
 
 export type Role = 'viewer' | 'creator' | 'admin'
 export type UserStatus = 'active' | 'suspended' | 'banned' | 'deleted'
-export type VideoStatus = 'pending' | 'published' | 'rejected'
+export type VideoStatus = 'pending' | 'published' | 'rejected' | 'ready'
 export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded'
 export type ReportStatus = 'pending' | 'reviewed' | 'dismissed'
 export type NotificationType = 'new_episode' | 'payment' | 'system' | 'warning'
@@ -369,6 +369,22 @@ export interface SubscriptionPlan {
   isActive: boolean
   createdAt: string
   benefits: Benefit[]
+}
+
+export interface UserSubscription {
+  subscriptionId: string
+  userId: number
+  planId: number
+  status: 'active' | 'expired' | 'canceled' | 'pending'
+  startDate: string
+  endDate: string
+  autoRenew: boolean
+  provider: string
+  externalId: string | null
+  createdAt: string
+  updatedAt: string
+  gracePeriodEndsAt: string | null
+  plan?: SubscriptionPlan
 }
 
 // ─── API Error ───────────────────────────────────────────────────────────────

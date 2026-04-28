@@ -7,7 +7,7 @@ import {
   Avatar,
   Box,
 } from "@mui/material";
-import SavingsIcon from "@mui/icons-material/Savings";
+import SearchIcon from "@mui/icons-material/Search";
 import HomeIcon from "@mui/icons-material/Home";
 import TravelExploreIcon from "@mui/icons-material/TravelExplore";
 import VideoLibraryIcon from "@mui/icons-material/VideoLibrary";
@@ -32,7 +32,7 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   const defaultItems = [
     { label: "Home", icon: <HomeIcon sx={{ fontSize: 24 }} />, path: "/" },
     { label: "Explore", icon: <TravelExploreIcon sx={{ fontSize: 24 }} />, path: "/explore" },
-    { label: "Coins", icon: <SavingsIcon sx={{ fontSize: 24 }} />, path: "/coins" },
+    { label: "Search", icon: <SearchIcon sx={{ fontSize: 24 }} />, path: "/search" },
     { label: "My List", icon: <VideoLibraryIcon sx={{ fontSize: 24 }} />, path: "/library" },
     { 
       label: "Profile", 
