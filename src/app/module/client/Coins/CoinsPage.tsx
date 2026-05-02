@@ -15,6 +15,10 @@ import {
 import { coinsBalance, dailyCheckin, getCheckinStatus } from './services/balance.service';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
+import { videoApi } from '@/app/api/video.service';
+import { coinApi } from '@/app/api/coin.service';
+import { Video } from '@/app/types';
+import { Lock } from 'lucide-react';
 
 const CoinsPage = () => {
 
@@ -22,6 +26,7 @@ const CoinsPage = () => {
   const [cashBalance, setCashBalance] = React.useState("0");
   const [loading, setLoading] = React.useState(false);
   const [checkinStatus, setCheckinStatus] = React.useState<any>(null);
+  const [recommendedVideos, setRecommendedVideos] = React.useState<Video[]>([]);
   const navigate = useNavigate();
   const fetchStatus = async () => {
     try {
@@ -45,9 +50,53 @@ const CoinsPage = () => {
         console.error("Failed to fetch balance:", err);
       }
     };
+
+    const fetchRecommended = async () => {
+      try {
+        const res = await videoApi.recommended({ limit: 4 });
+        if (res && res.data) {
+          setRecommendedVideos(res.data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch recommended videos:", err);
+      }
+    };
+
     getCoins();
     fetchStatus();
+    fetchRecommended();
   }, []);
+
+  const handleUnlockVideo = async (videoId: number, usdPrice: number) => {
+    // Assuming 100 coins per 0.01 USD as per the exchange rate 10,000 = $1
+    const coinPrice = Math.round((Number(usdPrice) || 0) * 10000) || 100;
+    
+    if (coins < coinPrice) {
+      toast.error("Insufficient coins! Earn more by watching dramas.");
+      return;
+    }
+
+    if (!window.confirm(`Unlock this series for ${coinPrice.toLocaleString()} coins?`)) return;
+
+    setLoading(true);
+    try {
+      const res = await coinApi.unlockVideo(videoId, coinPrice);
+      toast.success(res.data?.message || "Video series unlocked!");
+      
+      // Refresh balance
+      const newBalance = await coinsBalance();
+      if (newBalance) {
+        setCoins(newBalance.coins);
+      }
+      
+      // Redirect to the video
+      setTimeout(() => navigate(`/viewer/episodes/${videoId}`), 1500);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to unlock video");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleCheckin = async () => {
     if (loading || checkinStatus?.hasCheckedInToday) return;
@@ -247,6 +296,51 @@ const CoinsPage = () => {
             </div>
           </div>
         </section>
+
+        {/* Unlock Videos Section */}
+        {recommendedVideos.length > 0 && (
+          <section className="space-y-4">
+            <div className="px-2 flex justify-between items-center">
+              <h2 className="text-lg font-bold flex items-center gap-2">
+                <Lock size={18} className="text-orange-400" />
+                Unlock with Coins
+              </h2>
+              <span className="text-[10px] text-orange-400/60 font-bold uppercase tracking-wider">Hot Dramas</span>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              {recommendedVideos.map((video) => {
+                const coinPrice = Math.round((Number(video.price) || 0) * 10000) || 100;
+                return (
+                  <div key={video.video_id} className="glass-card rounded-3xl overflow-hidden border-white/5 flex flex-col group">
+                    <div className="aspect-[3/4] relative overflow-hidden">
+                      <img 
+                        src={video.thumbnail_url} 
+                        alt={video.title} 
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                      <div className="absolute top-2 right-2 px-2 py-1 bg-black/60 backdrop-blur-md rounded-lg flex items-center gap-1 border border-white/10">
+                        <Coins size={10} className="text-orange-400" />
+                        <span className="text-[10px] font-bold text-orange-400">{coinPrice.toLocaleString()}</span>
+                      </div>
+                    </div>
+                    <div className="p-3 flex flex-col gap-2">
+                      <h3 className="text-xs font-bold line-clamp-1 text-white/90">{video.title}</h3>
+                      <button 
+                        onClick={() => handleUnlockVideo(video.video_id, video.price)}
+                        disabled={loading}
+                        className="w-full py-2 bg-orange-500/20 border border-orange-500/30 rounded-xl text-[10px] font-black text-orange-400 hover:bg-orange-500/30 transition-all active:scale-95"
+                      >
+                        {loading ? 'Processing...' : 'Unlock Now'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
         {/* Footer Info */}
         <div className="py-8 text-center space-y-2">

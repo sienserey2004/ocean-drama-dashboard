@@ -15,10 +15,11 @@ import SettingsIcon from '@mui/icons-material/Settings'
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder'
 import HistoryIcon from '@mui/icons-material/History'
 import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder'
+import LogoutIcon from '@mui/icons-material/Logout'
 import { useAuthStore } from '@/app/stores/authStore'
 
 const ClientProfilePage: React.FC = () => {
-    const { user, isAuthenticated } = useAuthStore()
+    const { user, isAuthenticated, logout } = useAuthStore()
     console.log(user)
     const navigate = useNavigate()
     const [tab, setTab] = React.useState(0)
@@ -72,20 +73,40 @@ const ClientProfilePage: React.FC = () => {
                     </Box>
                 </Stack>
 
-                <Button 
-                    variant="outlined" 
-                    onClick={() => navigate('/profile')}
-                    sx={{ 
-                        color: 'white', 
-                        borderColor: 'rgba(255,255,255,0.2)', 
-                        textTransform: 'none',
-                        px: 4,
-                        borderRadius: 1,
-                        '&:hover': { borderColor: 'white', bgcolor: 'rgba(255,255,255,0.05)' }
-                    }}
-                >
-                    Edit profile
-                </Button>
+                <Stack direction="row" spacing={2} justifyContent="center">
+                    <Button 
+                        variant="outlined" 
+                        onClick={() => navigate('/profile')}
+                        sx={{ 
+                            color: 'white', 
+                            borderColor: 'rgba(255,255,255,0.2)', 
+                            textTransform: 'none',
+                            px: 3,
+                            borderRadius: 1,
+                            '&:hover': { borderColor: 'white', bgcolor: 'rgba(255,255,255,0.05)' }
+                        }}
+                    >
+                        Edit profile
+                    </Button>
+                    <Button 
+                        variant="outlined" 
+                        onClick={async () => {
+                            await logout();
+                            navigate('/');
+                        }}
+                        startIcon={<LogoutIcon />}
+                        sx={{ 
+                            color: '#FE2C55', 
+                            borderColor: 'rgba(254, 44, 85, 0.2)', 
+                            textTransform: 'none',
+                            px: 3,
+                            borderRadius: 1,
+                            '&:hover': { borderColor: '#FE2C55', bgcolor: 'rgba(254, 44, 85, 0.05)' }
+                        }}
+                    >
+                        Logout
+                    </Button>
+                </Stack>
                 
                 <Typography variant="body2" sx={{ mt: 3, opacity: 0.8, maxWidth: 300, mx: 'auto' }}>
                     Movie enthusiast | Loving Ocean Drama short series 🌊✨

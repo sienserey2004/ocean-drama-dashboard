@@ -28,11 +28,23 @@ import { Episode } from "@/app/types";
 import QRPaymentCard from "../../shared/QRPaymentCard";
 import HLSPlayer from "../library/components/HLSPlayer";
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import { useAuthStore } from "@/app/stores/authStore";
+import { coinApi } from "@/app/api/coin.service";
+import { coinsBalance } from "../Coins/services/balance.service";
+import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
 
-const EpisodeListPage: React.FC = () => {
+interface EpisodeListPageProps {
+  videoIdProp?: string;
+  onClose?: () => void;
+}
+
+const EpisodeListPage: React.FC<EpisodeListPageProps> = ({ videoIdProp, onClose }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { videoId } = useParams();
+  const { videoId: paramVideoId } = useParams();
+  const videoId = videoIdProp || paramVideoId;
+  const { user, isAuthenticated } = useAuthStore();
+  const [userCoins, setUserCoins] = useState(0);
 
   const numericVideoId = Number(videoId);
 
@@ -78,6 +90,7 @@ const EpisodeListPage: React.FC = () => {
       (a, b) => a.episode_number - b.episode_number,
     );
     setEpisodes(sortedEpisodes);
+    console.log("Episodes fetched:", sortedEpisodes);
   };
 
   useEffect(() => {
@@ -93,6 +106,15 @@ const EpisodeListPage: React.FC = () => {
             setVideo(videoData);
           } catch (e) {
             console.error("Failed to fetch video missing from state", e);
+          }
+        }
+
+        if (isAuthenticated) {
+          try {
+            const balance = await coinsBalance();
+            if (balance) setUserCoins(balance.coins);
+          } catch (e) {
+            console.error("Failed to fetch user coins", e);
           }
         }
 
@@ -204,6 +226,48 @@ const EpisodeListPage: React.FC = () => {
       setPurchasing(false);
     }
   };
+  const handleUnlockWithCoins = async () => {
+    if (!isAuthenticated) {
+      toast.error("Please login to unlock with coins");
+      navigate('/login');
+      return;
+    }
+
+    const coinPrice = Math.round((Number(video.price) || 0) * 10000);
+    
+    if (userCoins < coinPrice) {
+      toast.error(`Insufficient coins! You need ${coinPrice.toLocaleString()} coins.`);
+      return;
+    }
+
+    if (!window.confirm(`Unlock this entire series for ${coinPrice.toLocaleString()} coins?`)) return;
+
+    try {
+      setPurchasing(true);
+      const res = await coinApi.unlockVideo(numericVideoId, coinPrice);
+      toast.success(res.data?.message || "Video unlocked successfully!");
+      
+      // Update local state
+      setEpisodes(prev => prev.map(ep => ({ ...ep, has_access: true })));
+      videoApi.clearCache();
+      
+      // Refresh balance
+      const balance = await coinsBalance();
+      if (balance) setUserCoins(balance.coins);
+      
+      setModalOpen(false);
+      
+      // Redirect or refresh
+      setTimeout(() => {
+        navigate(`/viewer/library/${numericVideoId}`, { replace: true });
+      }, 1500);
+    } catch (err: any) {
+      console.error("Unlock failed:", err);
+      toast.error(err.response?.data?.message || "Failed to unlock with coins");
+    } finally {
+      setPurchasing(false);
+    }
+  };
 
   if (!video) return null;
 
@@ -239,7 +303,7 @@ const EpisodeListPage: React.FC = () => {
           sx={{ p: 2 }}
         >
           <IconButton
-            onClick={() => navigate(-1)}
+            onClick={() => onClose ? onClose() : navigate(-1)}
             sx={{
               color: "white",
               bgcolor: "rgba(255,255,255,0.08)",
@@ -787,53 +851,88 @@ const EpisodeListPage: React.FC = () => {
             </Typography>
           </Box>
         </DialogContent>
-        <DialogActions sx={{ justifyContent: "center", p: 4, pt: 2, gap: 2 }}>
-          <Button
-            onClick={() => {
-              if (pollingRef.current) clearInterval(pollingRef.current);
-              setModalOpen(false);
-              setPaymentInfo(null);
-            }}
-            disabled={purchasing}
-            sx={{
-              color: "#A1A1AA",
-              fontWeight: 700,
-              textTransform: "none",
-              px: 3,
-              borderRadius: "12px",
-              "&:hover": { color: "#fff", bgcolor: "rgba(255,255,255,0.05)" },
-            }}
-          >
-            Not now
-          </Button>
-          {!paymentInfo && (
+        <DialogActions sx={{ flexDirection: 'column', p: 4, pt: 2, gap: 2 }}>
+          <Stack direction="row" spacing={2} sx={{ width: '100%' }}>
             <Button
-              variant="contained"
-              onClick={() => handlePurchase(numericVideoId)}
+              onClick={() => {
+                if (pollingRef.current) clearInterval(pollingRef.current);
+                setModalOpen(false);
+                setPaymentInfo(null);
+              }}
               disabled={purchasing}
               sx={{
-                bgcolor: "#FF2D2D",
-                color: "white",
-                fontWeight: 800,
-                px: 4,
-                py: 1.5,
-                borderRadius: "100px",
+                flex: 1,
+                color: "#A1A1AA",
+                fontWeight: 700,
                 textTransform: "none",
-                boxShadow: "0 0 20px rgba(255,45,45,0.3)",
-                "&:hover": {
-                  bgcolor: "#CC1F1F",
-                  boxShadow: "0 0 30px rgba(255,45,45,0.5)",
-                  transform: "translateY(-2px)",
-                },
-                "&:active": { transform: "translateY(0)" },
+                px: 3,
+                borderRadius: "12px",
+                "&:hover": { color: "#fff", bgcolor: "rgba(255,255,255,0.05)" },
               }}
             >
-              {purchasing ? (
-                <CircularProgress size={22} color="inherit" />
-              ) : (
-                "Unlock Now"
-              )}
+              Not now
             </Button>
+            {!paymentInfo && (
+              <Button
+                variant="contained"
+                onClick={() => handlePurchase(numericVideoId)}
+                disabled={purchasing}
+                sx={{
+                  flex: 1,
+                  bgcolor: "#FF2D2D",
+                  color: "white",
+                  fontWeight: 800,
+                  px: 4,
+                  py: 1.5,
+                  borderRadius: "100px",
+                  textTransform: "none",
+                  boxShadow: "0 0 20px rgba(255,45,45,0.3)",
+                  "&:hover": {
+                    bgcolor: "#CC1F1F",
+                    boxShadow: "0 0 30px rgba(255,45,45,0.5)",
+                    transform: "translateY(-2px)",
+                  },
+                  "&:active": { transform: "translateY(0)" },
+                }}
+              >
+                {purchasing ? (
+                  <CircularProgress size={22} color="inherit" />
+                ) : (
+                  "Pay USD"
+                )}
+              </Button>
+            )}
+          </Stack>
+          
+          {!paymentInfo && (
+            <Button
+              fullWidth
+              variant="outlined"
+              startIcon={<MonetizationOnIcon />}
+              onClick={handleUnlockWithCoins}
+              disabled={purchasing}
+              sx={{
+                borderColor: 'rgba(255,165,0,0.3)',
+                color: '#FFA500',
+                borderRadius: '100px',
+                py: 1.5,
+                fontWeight: 800,
+                textTransform: 'none',
+                '&:hover': {
+                  borderColor: '#FFA500',
+                  bgcolor: 'rgba(255,165,0,0.05)',
+                  transform: 'translateY(-2px)'
+                }
+              }}
+            >
+              Unlock with {Math.round((Number(video.price) || 0) * 10000).toLocaleString()} Coins
+            </Button>
+          )}
+          
+          {isAuthenticated && !paymentInfo && (
+            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>
+              Your Balance: {userCoins.toLocaleString()} Coins
+            </Typography>
           )}
         </DialogActions>
       </Dialog>

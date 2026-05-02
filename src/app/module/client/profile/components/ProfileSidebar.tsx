@@ -27,28 +27,35 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({ isMobile }) => {
             <ProfileBio user={user} isMobile={isMobile} stats={stats} />
             <VipPromotion onUpgrade={() => navigate('/subscription-plan')} />
             
-            {!isMobile && <LogoutButton />}
+            <LogoutButton />
         </Box>
     );
 };
 
-const ProfileHeader: React.FC = () => (
-    <Box className="px-6 pt-6 flex justify-between items-center bg-gradient-to-b from-[#FF2D2D]/10 to-transparent">
-        <Typography sx={{
-            fontSize: 20,
-            fontWeight: 900,
-            fontFamily: "'Oswald', sans-serif",
-            textTransform: 'uppercase',
-            color: 'white',
-            textShadow: '2px 2px 0px #FF2D2D',
-        }}>
-            OCEAN DRAMA
-        </Typography>
-        <IconButton className="bg-[#2A2A35]/50" sx={{ color: 'white' }}>
-            <SettingsOutlined />
-        </IconButton>
-    </Box>
-);
+const ProfileHeader: React.FC = () => {
+    const navigate = useNavigate();
+    return (
+        <Box className="px-6 pt-6 flex justify-between items-center bg-gradient-to-b from-[#FF2D2D]/10 to-transparent">
+            <Typography sx={{
+                fontSize: 20,
+                fontWeight: 900,
+                fontFamily: "'Oswald', sans-serif",
+                textTransform: 'uppercase',
+                color: 'white',
+                textShadow: '2px 2px 0px #FF2D2D',
+            }}>
+                OCEAN DRAMA
+            </Typography>
+            <IconButton 
+                className="bg-[#2A2A35]/50" 
+                sx={{ color: 'white' }}
+                onClick={() => navigate('/dashboard/profile')}
+            >
+                <SettingsOutlined />
+            </IconButton>
+        </Box>
+    );
+};
 
 interface ProfileBioProps {
     user: any;
@@ -127,13 +134,27 @@ const VipPromotion: React.FC<{ onUpgrade: () => void }> = ({ onUpgrade }) => (
     </Box>
 );
 
-const LogoutButton: React.FC = () => (
-    <Box className="p-8 pt-0 mt-auto">
-        <Button startIcon={<Logout />} fullWidth
-            className="text-[#A1A1AA] hover:text-[#FF2D2D] transition-colors normal-case font-bold p-3">
-            Log Out
-        </Button>
-    </Box>
-);
+const LogoutButton: React.FC = () => {
+    const { logout } = useAuthStore();
+    const navigate = useNavigate();
+
+    const handleLogout = async () => {
+        await logout();
+        navigate('/');
+    };
+
+    return (
+        <Box className="p-8 pt-0 mt-auto">
+            <Button 
+                startIcon={<Logout />} 
+                fullWidth
+                onClick={handleLogout}
+                className="text-[#A1A1AA] hover:text-[#FF2D2D] transition-colors normal-case font-bold p-3"
+            >
+                Log Out
+            </Button>
+        </Box>
+    );
+};
 
 export default ProfileSidebar;

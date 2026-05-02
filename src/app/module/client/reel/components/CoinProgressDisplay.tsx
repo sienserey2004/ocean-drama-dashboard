@@ -2,7 +2,7 @@ import React from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
-import CurrencyExchangeIcon from '@mui/icons-material/CurrencyExchange';
+import SavingsIcon from '@mui/icons-material/Savings';
 import VideoCard from "../VideoCard";
 import { FeedPreviewItem } from "@/app/api/video.service";
 import { useNavigate } from "react-router-dom";
@@ -114,7 +114,7 @@ const CoinProgressDisplay: React.FC<CoinProgressDisplayProps> = ({
                 color: "rgba(255, 255, 255, 0.05)",
               }}
             />
-            <CurrencyExchangeIcon
+            <SavingsIcon
               sx={{
                 position: "absolute",
                 top: "50%",

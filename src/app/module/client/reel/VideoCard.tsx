@@ -23,6 +23,7 @@ import { episodeApi } from "@/app/api/episode.service";
 import { useAuthStore } from "@/app/stores/authStore";
 import toast from "react-hot-toast";
 import HLSPlayer from "../library/components/HLSPlayer";
+import EpisodeListPage from "../episode-list/EpisodeListPage";
 
 interface VideoCardProps {
   video: any;
@@ -124,6 +125,8 @@ const VideoCard: React.FC<VideoCardProps> = ({
     { id: number; x: number; y: number }[]
   >([]);
   const lastTapRef = useRef<number>(0);
+
+  const [showEpisodes, setShowEpisodes] = useState(false);
 
   // Initial fetch for user engagement status
   useEffect(() => {
@@ -389,7 +392,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
         variant="contained"
         onClick={(e) => {
           e.stopPropagation();
-          navigate(`episodes/${video.videoId}`, { state: { video } });
+          setShowEpisodes(true);
         }}
         sx={{
           position: "absolute",
@@ -597,6 +600,32 @@ const VideoCard: React.FC<VideoCardProps> = ({
           }}
         />
       </Stack>
+
+      {/* Episodes Drawer */}
+      <Drawer
+        anchor="bottom"
+        open={showEpisodes}
+        onClose={() => setShowEpisodes(false)}
+        onClick={(e) => e.stopPropagation()}
+        PaperProps={{
+          sx: {
+            height: "85%",
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+            bgcolor: "#0B0B0F",
+            backdropFilter: "blur(20px)",
+            color: "white",
+            border: "1px solid rgba(255, 255, 255, 0.1)",
+            borderBottom: "none",
+            overflow: "hidden"
+          },
+        }}
+      >
+        <EpisodeListPage 
+          videoIdProp={video.videoId?.toString()} 
+          onClose={() => setShowEpisodes(false)} 
+        />
+      </Drawer>
 
       {/* Comments Drawer */}
       <Drawer

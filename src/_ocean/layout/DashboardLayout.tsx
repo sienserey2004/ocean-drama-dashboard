@@ -55,7 +55,7 @@ import { useAuthStore } from "@/app/stores/authStore";
 import { useSubscriptionStore } from "@/app/stores/subscriptionStore";
 import MobileBottomNav from "./components/MobileBottomNav";
 import toast from "react-hot-toast";
-import { Crown } from "lucide-react";
+import { Crown, Coins } from "lucide-react";
 import { useEffect } from "react";
 
 const EXPANDED_WIDTH = 280;
@@ -80,13 +80,6 @@ const NAV_GROUPS: NavGroup[] = [
     title: "Analytics & Monitoring",
     items: [
       {
-        label: "Platform Overview",
-        icon: <DashboardIcon />,
-        path: "/dashboard/admin/stats",
-        adminOnly: true,
-        badge: "Live"
-      },
-      {
         label: "Content Performance",
         icon: <BarChart />,
         path: "/dashboard/analytics",
@@ -96,18 +89,6 @@ const NAV_GROUPS: NavGroup[] = [
   {
     title: "Content Governance",
     items: [
-      {
-        label: "Drama Review Queue",
-        icon: <RateReview />,
-        path: "/dashboard/admin/review",
-        adminOnly: true,
-      },
-      {
-        label: "Category Manager",
-        icon: <Category />,
-        path: "/dashboard/admin/categories",
-        adminOnly: true,
-      },
       {
         label: "Global Library",
         icon: <PlayCircle />,
@@ -133,41 +114,17 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    title: "Users & Security",
-    items: [
-      {
-        label: "User Accounts",
-        icon: <People />,
-        path: "/dashboard/admin/users",
-        adminOnly: true,
-      },
-      {
-        label: "Reported Issues",
-        icon: <Security />,
-        path: "/dashboard/admin/reports",
-        adminOnly: true,
-      },
-      {
-        label: "Audit Logs",
-        icon: <ManageHistory />,
-        path: "/dashboard/admin/users", // Reusing user path for logs if no separate log path exists
-        adminOnly: true,
-      },
-    ],
-  },
-  {
     title: "Personal Space",
     items: [
+      {
+        label: "Reward Center",
+        icon: <Coins size={20} />,
+        path: "/coins",
+      },
       {
         label: "Account Settings",
         icon: <Person />,
         path: "/dashboard/profile",
-      },
-      {
-        label: "Push Center",
-        icon: <Notifications />,
-        path: "/dashboard/admin/notifications",
-        adminOnly: true,
       },
     ],
   },
@@ -191,6 +148,7 @@ export default function DashboardLayout() {
   // new tabs here
   const viewerDashboardNavItems = [
     { label: "App Studio", icon: <AutoGraph />, path: "/dashboard/app-studio" },
+    { label: "Coins", icon: <Coins size={20} />, path: "/coins" },
     { label: "My Uploads", icon: <VideoLibrary />, path: "/dashboard/videos" },
     { label: "Revenue", icon: <AttachMoney />, path: "/dashboard/earnings" },
     { label: "Profile", icon: <Person />, path: "/dashboard/profile" },

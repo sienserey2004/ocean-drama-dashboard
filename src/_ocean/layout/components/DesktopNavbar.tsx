@@ -8,6 +8,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import MessageIcon from '@mui/icons-material/Message';
 import VideoLibraryIcon from '@mui/icons-material/VideoLibrary';
 import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
+import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
 import { NavigateFunction, Location } from 'react-router-dom';
 import Avatar from '@mui/material/Avatar';
 import IconButton from '@mui/material/IconButton';
@@ -30,6 +31,7 @@ const DesktopNavbar: React.FC<DesktopNavbarProps> = ({
     { label: 'Explore', icon: SearchIcon, path: '/explore', disabled: false },
     { label: 'Messages', icon: MessageIcon, path: '/messages', disabled: false },
     { label: 'Series', icon: VideoLibraryIcon, path: '/library', exact: false },
+    { label: 'Coins', icon: MonetizationOnIcon, path: '/coins', exact: true },
   ];
 
   const isActive = (path: string, exact: boolean = false) => {

@@ -18,6 +18,7 @@ const ViewerSeriesDetail = lazy(() => import('../module/client/library/component
 const SeriesPlayerPage = lazy(() => import('../module/client/library/components/SeriesPlayerPage'))
 const AppStudioDashboard = lazy(() => import('../module/client/app-studio/module/dasboard/Dashboard'))
 const SubscriptionPlan = lazy(() => import('../module/client/app-studio/module/subscription-plan/SubscriptionPlan'))
+const CoinsPage = lazy(() => import('../module/client/Coins/CoinsPage'))
 
 const Loader = () => (
   <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
@@ -64,6 +65,7 @@ export const viewerRoutes: RouteObject[] = [
           { path: 'profile-screen', element: <ProfileScreen /> },
           { path: 'search', element: <SearchVideo /> },
           { path: 'subscription-plan', element: <SubscriptionPlan /> },
+          { path: 'coins', element: <CoinsPage /> },
         ],
       },
     ],
