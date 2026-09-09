@@ -1,17 +1,10 @@
 // DesktopNavbar.tsx
-import React from 'react';
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
-import Stack from '@mui/material/Stack';
-import HomeIcon from '@mui/icons-material/Home';
-import SearchIcon from '@mui/icons-material/Search';
-import MessageIcon from '@mui/icons-material/Message';
-import VideoLibraryIcon from '@mui/icons-material/VideoLibrary';
-import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
-import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
+import React, { useRef, useState } from 'react';
+import { Home, Compass, Search, Library, Bell, Coins, User, Settings, LogOut } from 'lucide-react';
 import { NavigateFunction, Location } from 'react-router-dom';
-import Avatar from '@mui/material/Avatar';
-import IconButton from '@mui/material/IconButton';
+import { Avatar, IconButton, Menu, MenuItem, Divider } from '@/_ocean/ui';
+import { useAuthStore } from '@/app/stores/authStore';
+import toast from '@/app/utils/toast';
 
 interface DesktopNavbarProps {
   user: any;
@@ -27,111 +20,94 @@ const DesktopNavbar: React.FC<DesktopNavbarProps> = ({
   navigate,
 }) => {
   const navItems = [
-    { label: 'For You', icon: HomeIcon, path: '/viewer', exact: true },
-    { label: 'Explore', icon: SearchIcon, path: '/explore', disabled: false },
-    { label: 'Messages', icon: MessageIcon, path: '/messages', disabled: false },
-    { label: 'Series', icon: VideoLibraryIcon, path: '/library', exact: false },
-    { label: 'Coins', icon: MonetizationOnIcon, path: '/coins', exact: true },
+    { label: 'For You', icon: Home, path: '/viewer', exact: true },
+    { label: 'Explore', icon: Compass, path: '/explore', exact: false },
+    { label: 'Search', icon: Search, path: '/search', exact: false },
+    { label: 'Series', icon: Library, path: '/library', exact: false },
+    { label: 'Coins', icon: Coins, path: '/coins', exact: true },
   ];
 
   const isActive = (path: string, exact: boolean = false) => {
     if (exact) return location.pathname === path;
     if (path === '/library') return location.pathname.includes('/library');
+    if (path === '/search') return location.pathname.includes('/search');
     if (path === '/viewer' && location.pathname === '/') return true; // handle root redirect
     return location.pathname.startsWith(path);
   };
 
-  return (
-    <Box 
-      sx={{ 
-        height: 70, 
-        px: 6, 
-        display: { xs: 'none', md: 'flex' }, 
-        alignItems: 'center', 
-        justifyContent: 'space-between',
-        bgcolor: 'rgba(11,11,15,0.7)',
-        backdropFilter: 'blur(20px)',
-        borderBottom: '1px solid rgba(255,255,255,0.08)',
-        position: 'sticky',
-        top: 0,
-        zIndex: 1000
-      }}
-    >
-      <Typography
-        onClick={() => navigate('/viewer')}
-        sx={{
-          fontSize: 24,
-          fontWeight: 900,
-          fontFamily: "'Oswald', sans-serif",
-          textTransform: 'uppercase',
-          color: 'white',
-          cursor: 'pointer',
-          textShadow: '2px 2px 0px #FF2D2D',
-          letterSpacing: '1.5px'
-        }}
-      >
-        OCEAN DRAMA
-      </Typography>
+  const { logout } = useAuthStore();
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const avatarRef = useRef<HTMLButtonElement>(null);
 
-      <Stack direction="row" spacing={6} alignItems="center">
+  const handleLogout = async () => {
+    setAccountMenuOpen(false);
+    await logout();
+    toast.success("You've been logged out.");
+    navigate('/');
+  };
+
+  return (
+    <div className="hidden h-[70px] items-center justify-between border-b border-white/[0.08] bg-[rgba(11,11,15,0.7)] px-6 backdrop-blur-2xl sticky top-0 z-[1000] md:flex">
+      <p
+        onClick={() => navigate('/viewer')}
+        className="cursor-pointer text-2xl font-black uppercase tracking-wider text-white"
+        style={{ textShadow: '2px 2px 0px #0EA5E9' }}
+      >
+        Ocean Drama
+      </p>
+
+      <div className="flex items-center gap-12">
         {navItems.map((item) => (
-          <Typography 
-            key={item.label} 
-            sx={{
-              color: isActive(item.path, item.exact) ? '#FF2D2D' : '#A1A1AA',
-              fontWeight: 900,
-              textTransform: 'uppercase',
-              fontSize: '12px',
-              letterSpacing: '0.15em',
-              cursor: 'pointer',
-              transition: 'all 0.3s ease',
-              position: 'relative',
-              '&:hover': { color: 'white' },
-              '&::after': isActive(item.path, item.exact) ? {
-                content: '""',
-                position: 'absolute',
-                bottom: -8,
-                left: '50%',
-                transform: 'translateX(-50%)',
-                width: 4,
-                height: 4,
-                bgcolor: '#FF2D2D',
-                borderRadius: '50%',
-                boxShadow: '0 0 10px #FF2D2D'
-              } : {}
-            }}
-            onClick={() => !item.disabled && navigate(item.path)}
+          <p
+            key={item.label}
+            onClick={() => navigate(item.path)}
+            className={`relative cursor-pointer text-xs font-black uppercase tracking-widest transition-colors duration-300 hover:text-white ${
+              isActive(item.path, item.exact) ? 'text-primary' : 'text-zinc-400'
+            }`}
           >
             {item.label}
-          </Typography>
+            {isActive(item.path, item.exact) && (
+              <span
+                className="absolute left-1/2 -bottom-2 h-1 w-1 -translate-x-1/2 rounded-full bg-primary"
+                style={{ boxShadow: '0 0 10px #0EA5E9' }}
+              />
+            )}
+          </p>
         ))}
-      </Stack>
+      </div>
 
-      <Stack direction="row" spacing={3} alignItems="center">
-        <IconButton sx={{ color: '#A1A1AA', '&:hover': { color: '#FF2D2D' } }}>
-          <NotificationsNoneIcon />
+      <div className="flex items-center gap-6">
+        <IconButton plain className="text-zinc-400 transition-colors duration-300 hover:text-primary">
+          <Bell size={22} />
         </IconButton>
-        <Avatar 
-          src={user?.profile_image || ''}
-          onClick={() => navigate(isAuthenticated ? '/profile-screen' : '/login')}
-          sx={{ 
-            bgcolor: '#1A1A22', 
-            cursor: 'pointer', 
-            width: 38, 
-            height: 38,
-            border: '2px solid #2A2A35',
-            transition: 'all 0.3s ease',
-            '&:hover': { 
-              transform: 'scale(1.1)',
-              borderColor: '#FF2D2D',
-              boxShadow: '0 0 15px rgba(255,45,45,0.3)'
-            }
-          }}
-        >
-          {user?.name?.charAt(0).toUpperCase() || 'U'}
-        </Avatar>
-      </Stack>
-    </Box>
+        <div className="relative">
+          <button
+            ref={avatarRef}
+            onClick={() => (isAuthenticated ? setAccountMenuOpen((v) => !v) : navigate('/login'))}
+            className="transition-transform duration-300 hover:scale-110"
+          >
+            <Avatar
+              src={user?.profile_image}
+              alt={user?.name}
+              size="md"
+              className="border-2 border-[#2A2A35] bg-[#1A1A22] hover:border-primary"
+            />
+          </button>
+          <Menu open={accountMenuOpen} onClose={() => setAccountMenuOpen(false)} anchorRef={avatarRef}>
+            <MenuItem onClick={() => { navigate('/profile-screen'); setAccountMenuOpen(false); }}>
+              <User size={16} /> Profile
+            </MenuItem>
+            <MenuItem onClick={() => { navigate('/dashboard/profile'); setAccountMenuOpen(false); }}>
+              <Settings size={16} /> Account Settings
+            </MenuItem>
+            <Divider className="my-1" />
+            <MenuItem danger onClick={handleLogout}>
+              <LogOut size={16} /> Log Out
+            </MenuItem>
+          </Menu>
+        </div>
+      </div>
+    </div>
   );
 };
 

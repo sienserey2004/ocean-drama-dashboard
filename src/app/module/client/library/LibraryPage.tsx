@@ -1,78 +1,33 @@
 import React, { useState } from "react";
 import {
-  Box,
-  Container,
-  LinearProgress,
-  Chip,
-  Button,
-  IconButton,
-  BottomNavigation,
-  BottomNavigationAction,
-  Avatar,
-  Typography,
-  Paper,
-  useMediaQuery,
-  ThemeProvider,
-  createTheme,
-  CssBaseline,
-  CircularProgress,
-} from "@mui/material";
-
-import {
-  Sort,
   Star,
-  Schedule,
-  Theaters,
-  Home,
+  Film,
   Search,
-  LibraryBooks,
-  Person,
-  PlayArrow,
+  Play,
   Download,
   CheckCircle,
-  MoreHoriz,
-  AccessTime,
-  TrendingUp,
-  Refresh,
-} from "@mui/icons-material";
+  Clock,
+  RefreshCw,
+  X,
+} from "lucide-react";
 import { videoApi } from "@/app/api/video.service";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
-import toast from "react-hot-toast";
+import toast from "@/app/utils/toast";
 import { useAuthStore } from "@/app/stores/authStore";
-
-// Custom theme for dark mode
-const theme = createTheme({
-  palette: {
-    mode: "dark",
-    primary: {
-      main: "#E50914",
-      dark: "#B20710",
-      light: "#FF4D4F",
-    },
-    secondary: {
-      main: "#0F6E56",
-    },
-    background: {
-      default: "#08090C",
-      paper: "#111217",
-    },
-    text: {
-      primary: "#F9FAFB",
-      secondary: "#9CA3AF",
-    },
-  },
-  typography: {
-    fontFamily: "'Poppins', 'Inter', system-ui, sans-serif",
-    fontSize: 14,
-  },
-  shape: {
-    borderRadius: 16,
-  },
-});
+import {
+  Button,
+  IconButton,
+  Card,
+  Chip,
+  LinearProgressBar,
+  Spinner,
+} from "@/_ocean/ui";
 
 // Types
 interface Episode {
+  /** episode_id — what /play/:videoId/:episodeId resolves against. */
+  id: number;
   number: number;
   title: string;
   duration: string;
@@ -96,7 +51,7 @@ interface Series {
   price: string;
   thumbnailGradient: string;
   ownedBadgeText: string;
-  ownedBadgeColor: string;
+  ownedBadgeColor: "primary" | "success";
   episodes: Episode[];
   status: "in-progress" | "completed" | "not-started";
 }
@@ -106,8 +61,7 @@ const LibraryPage: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuthStore();
   const [selectedFilter, setSelectedFilter] = useState<string>("all");
-  const [sortOpen, setSortOpen] = useState(false);
-  const [value, setValue] = React.useState("my-list");
+  const [searchQuery, setSearchQuery] = useState("");
   const [purchases, setPurchases] = useState<Series[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -152,9 +106,10 @@ const LibraryPage: React.FC = () => {
               ? `url("${video.thumbnail_url}")`
               : "linear-gradient(135deg,#1a1040,#2d1b69)",
           ownedBadgeText: status === "completed" ? "DONE" : "OWNED",
-          ownedBadgeColor: status === "completed" ? "#0F6E56" : "#E50914",
+          ownedBadgeColor: status === "completed" ? "success" : "primary",
           status: status,
           episodes: (video.episodes || []).map((ep: any) => ({
+            id: ep.episodeId ?? ep.episode_id ?? 0,
             number: ep.episodeNumber || 0,
             title: ep.title || `Episode ${ep.episodeNumber}`,
             duration: ep.duration
@@ -213,10 +168,16 @@ const LibraryPage: React.FC = () => {
     (s) => s.status === "not-started",
   ).length;
 
-  // Filter series based on selected tab
+  // Filter series by status and title/category search.
   const filteredSeries = purchases.filter((series) => {
-    if (selectedFilter === "all") return true;
-    return series.status === selectedFilter;
+    const matchesFilter =
+      selectedFilter === "all" || series.status === selectedFilter;
+    const query = searchQuery.trim().toLocaleLowerCase();
+    const searchableText = [series.title, ...series.categories]
+      .join(" ")
+      .toLocaleLowerCase();
+
+    return matchesFilter && (!query || searchableText.includes(query));
   });
 
   // Filter tabs configuration
@@ -227,12 +188,15 @@ const LibraryPage: React.FC = () => {
     { id: "not-started", label: "Not started", count: notStartedCount },
   ];
 
-  const handleResumeEpisode = (seriesId: string, episodeNumber: number) => {
-    navigate(`/play/${seriesId}/${episodeNumber}`);
+  // The route segment is an episode_id. Passing an episode_number here used to
+  // send /play/1/1 for an episode whose real id is 9, which resolved to nothing.
+  // With no id to hand, omit the segment and let the player open episode one.
+  const handleResumeEpisode = (seriesId: string, episodeId?: number) => {
+    navigate(episodeId ? `/play/${seriesId}/${episodeId}` : `/play/${seriesId}`);
   };
 
   const handleWatchAgain = (seriesId: string) => {
-    navigate(`/play/${seriesId}/1`);
+    navigate(`/play/${seriesId}`);
   };
 
   const handleDetails = (seriesId: string) => {
@@ -257,72 +221,67 @@ const LibraryPage: React.FC = () => {
       episode.progress && episode.progress > 0 && episode.progress < 100;
 
     let statusClass = "";
-    let statusIcon = null;
 
     if (isWatched) {
-      statusClass = "bg-[#0F6E56] text-[#E1F5EE]";
-      statusIcon = <CheckCircle sx={{ fontSize: 13, color: "#0F6E56" }} />;
+      statusClass = "bg-success/15 text-success";
     } else if (isPartiallyWatched || isCurrent) {
-      statusClass = "bg-[#E50914] text-white";
+      statusClass = "bg-primary text-white";
     } else {
-      statusClass = "bg-[#262A33] text-[#9CA3AF]";
+      statusClass =
+        "bg-ocean-border-light dark:bg-ocean-border-dark text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark";
     }
 
     return (
-      <Box
-        className={`flex items-center gap-3 py-2.5 ${!isWatched && !isPartiallyWatched && !isCurrent ? "border-b border-[#262A33]" : ""}`}
-        sx={
+      <div
+        className={`flex items-center gap-3 py-2.5 ${
           isCurrent
-            ? {
-                bgcolor: "rgba(229,9,20,0.1)",
-                borderRadius: "8px",
-                mx: -0.5,
-                px: 1,
-                border: "1px solid rgba(229,9,20,0.2)",
-              }
-            : {}
-        }
+            ? "rounded-xl -mx-0.5 px-1 bg-primary/10 border border-primary/20"
+            : !isWatched && !isPartiallyWatched
+              ? "border-b border-ocean-border-light dark:border-ocean-border-dark"
+              : ""
+        }`}
       >
-        <Box
-          className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${statusClass}`}
+        <div
+          className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${statusClass}`}
         >
           {episode.number}
-        </Box>
-        <Box className="flex-1 min-w-0">
-          <Typography
-            variant="body2"
-            className={`block truncate ${isCurrent ? "text-[#F9FAFB]" : isWatched ? "text-gray-300" : "text-[#9CA3AF]"}`}
-            sx={{ fontSize: 13, fontWeight: isCurrent ? 700 : 400 }}
+        </div>
+        <div className="flex-1 min-w-0">
+          <span
+            className={`block truncate text-[13px] ${
+              isCurrent
+                ? "font-bold text-ocean-text-primary-light dark:text-ocean-text-primary-dark"
+                : isWatched
+                  ? "font-normal text-ocean-text-primary-light dark:text-ocean-text-primary-dark"
+                  : "font-normal text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark"
+            }`}
           >
             {episode.title}
-          </Typography>
-          <Typography
-            variant="caption"
-            className={`block ${isPartiallyWatched ? "text-[#E50914]" : "text-[#9CA3AF]"}`}
-            sx={{ fontSize: 11, opacity: 0.7 }}
+          </span>
+          <span
+            className={`block text-[11px] opacity-70 ${
+              isPartiallyWatched
+                ? "text-primary"
+                : "text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark"
+            }`}
           >
             {isWatched
               ? `Watched · ${episode.duration}`
               : isPartiallyWatched
                 ? `${episode.currentTime} / ${episode.totalTime} · ${episode.progress}% done`
                 : `${episode.duration} min`}
-          </Typography>
-        </Box>
-        <Box className="flex-shrink-0">
+          </span>
+        </div>
+        <div className="shrink-0">
           {isWatched ? (
-            statusIcon
+            <CheckCircle size={13} className="text-success" />
           ) : isPartiallyWatched ? (
-            <Box className="w-16 h-1.5 bg-[#262A33] rounded-full overflow-hidden">
-              <Box
-                className="h-full bg-[#E50914] rounded-full shadow-glow"
-                style={{ width: `${episode.progress}%` }}
-              />
-            </Box>
+            <LinearProgressBar value={episode.progress ?? 0} color="primary" className="w-16" />
           ) : (
-            <PlayArrow sx={{ fontSize: 16, color: "#9CA3AF" }} />
+            <Play size={16} className="text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark" />
           )}
-        </Box>
-      </Box>
+        </div>
+      </div>
     );
   };
 
@@ -330,169 +289,120 @@ const LibraryPage: React.FC = () => {
     const isCompleted = series.status === "completed";
     const isInProgress = series.status === "in-progress";
     const displayEpisodes = series.episodes.slice(0, 4);
-    const remainingEpisodes = series.episodes.length - 4;
+    // Resume target: the part-watched episode, else the first unwatched, else the
+    // first. The old fallback was a hardcoded episodes[2], which is undefined for
+    // any series with fewer than three episodes.
     const currentEpisode = isInProgress
       ? series.episodes.find(
           (ep) => ep.progress && ep.progress > 0 && ep.progress < 100,
-        ) || series.episodes[2]
+        ) ||
+        series.episodes.find((ep) => !ep.watched) ||
+        series.episodes[0]
       : null;
 
+    // One truncated line replaces the chip row and the boxed stats pill, which
+    // together ate most of a phone-width card without adding scannable detail.
+    const metaLine = [
+      `\u2605 ${series.rating}`,
+      `${series.episodeCount} eps`,
+      ...series.categories.slice(0, 2),
+    ].join(" \u00b7 ");
+
     return (
-      <Paper
-        elevation={0}
-        className="bg-[#181A20] rounded-2xl overflow-hidden border border-[#262A33] mb-6 cursor-pointer transition-all duration-300 hover:border-[#E50914]/50 hover:shadow-glow hover:scale-[1.02]"
-      >
-        <Box className="flex flex-row min-h-[160px] sm:min-h-[280px]">
-          {/* Left Side: Poster Image - Fixed Width on Mobile, Larger on Desktop */}
-          <Box className="w-[100px] sm:w-[200px] lg:w-[240px] shrink-0 relative bg-[#08090C] overflow-hidden">
-            <Box
-              className="w-full h-full transition-transform duration-700 hover:scale-110"
-              sx={{
+      <Card className="mb-3 overflow-hidden sm:mb-6 sm:hover:border-primary">
+        <div className="flex flex-row">
+          {/* Poster doubles as the details tap target on mobile, where there is no
+              room for a separate "Series details" button. */}
+          <button
+            type="button"
+            aria-label={`${series.title} details`}
+            onClick={() => handleDetails(series.id)}
+            className="relative w-[108px] shrink-0 self-stretch overflow-hidden bg-ocean-background-light dark:bg-ocean-background-dark sm:w-[200px] lg:w-[240px]"
+          >
+            <div
+              className="h-full w-full transition-transform duration-700 sm:hover:scale-110"
+              style={{
                 backgroundImage: series.thumbnailGradient,
                 backgroundSize: "cover",
                 backgroundPosition: "center",
               }}
             >
-              <Box className="absolute inset-0 bg-gradient-to-t from-[#08090C] via-transparent to-transparent opacity-60" />
-            </Box>
+              <div className="absolute inset-0 bg-gradient-to-t from-ocean-background-light via-transparent to-transparent opacity-60 dark:from-ocean-background-dark" />
+            </div>
 
             <Chip
               label={series.ownedBadgeText}
-              size="small"
-              sx={{
-                position: "absolute",
-                top: { xs: 8, sm: 16 },
-                left: { xs: 8, sm: 16 },
-                bgcolor: series.ownedBadgeColor,
-                color: "#fff",
-                fontSize: { xs: 8, sm: 11 },
-                fontWeight: 900,
-                height: { xs: 18, sm: 24 },
-                px: 0,
-                boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
-                "& .MuiChip-label": { px: { xs: 0.8, sm: 1.5 } },
-              }}
+              color={series.ownedBadgeColor}
+              size="sm"
+              className="absolute left-2 top-2 shadow-soft sm:left-4 sm:top-4"
             />
-          </Box>
+          </button>
 
           {/* Right Side: Details & Content */}
-          <Box className="flex-1 flex flex-col p-4 sm:p-8 lg:p-10 min-w-0">
-            {/* Header: Title & Stats Pill Area */}
-            <Box className="flex flex-col mb-5">
-              <Typography
-                variant="h6"
-                className="font-black text-[#F9FAFB] mb-2 truncate uppercase italic tracking-tighter"
-                sx={{ fontSize: { xs: 18, sm: 32 } }}
-              >
+          <div className="flex min-w-0 flex-1 flex-col gap-2.5 p-3 sm:gap-0 sm:p-8 lg:p-10">
+            <div className="min-w-0">
+              {/* Sentence case at phone sizes — uppercase italic with tight
+                  tracking is hard to read at 15px. Restored from sm: up. */}
+              <h3 className="truncate text-[15px] font-bold text-ocean-text-primary-light dark:text-ocean-text-primary-dark sm:mb-2 sm:text-3xl sm:font-black sm:uppercase sm:italic sm:tracking-tighter">
                 {series.title}
-              </Typography>
-              <Box className="flex gap-2 flex-wrap mb-4">
-                {series.categories.slice(0, 3).map((cat) => (
-                  <Chip
-                    key={cat}
-                    label={cat}
-                    size="small"
-                    sx={{
-                      bgcolor: "rgba(229,9,20,0.1)",
-                      color: "#FF4D4F",
-                      fontSize: { xs: 9, sm: 12 },
-                      fontWeight: 700,
-                      height: { xs: 20, sm: 28 },
-                      border: "1px solid rgba(229,9,20,0.2)",
-                      "& .MuiChip-label": { px: { xs: 1, sm: 2 } },
-                    }}
-                  />
-                ))}
-              </Box>
+              </h3>
 
-              {/* Stats Row - Compact on Mobile */}
-              <Box className="flex gap-4 sm:gap-6 items-center bg-[#111217] w-fit px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl border border-[#262A33]">
-                <Box className="flex items-center gap-1.5">
-                  <Star
-                    sx={{ fontSize: { xs: 14, sm: 18 }, color: "#FAC775" }}
-                  />
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      fontSize: { xs: 12, sm: 15 },
-                      color: "#F9FAFB",
-                      fontWeight: 700,
-                    }}
-                  >
-                    {series.rating}
-                  </Typography>
-                </Box>
-                <Box className="w-px h-3 bg-[#262A33]" />
-                <Box className="flex items-center gap-1.5">
-                  <Theaters
-                    sx={{ fontSize: { xs: 14, sm: 18 }, color: "#9CA3AF" }}
-                  />
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      fontSize: { xs: 12, sm: 15 },
-                      color: "#F9FAFB",
-                      fontWeight: 700,
-                    }}
-                  >
-                    {series.episodeCount} eps
-                  </Typography>
-                </Box>
-              </Box>
-            </Box>
+              <p className="mt-0.5 truncate text-xs text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark sm:hidden">
+                {metaLine}
+              </p>
 
-            {/* Progress Section */}
-            <Box className="mb-6 sm:mb-8">
-              <Box className="flex justify-between items-center mb-2">
-                <Typography
-                  variant="body2"
-                  sx={{
-                    fontSize: { xs: 10, sm: 13 },
-                    color: "#9CA3AF",
-                    fontWeight: 800,
-                    letterSpacing: "1px",
-                  }}
+              {/* Desktop keeps the roomier chips + stats pill treatment. */}
+              <div className="mb-4 hidden sm:block">
+                <div className="mb-4 flex flex-wrap gap-2">
+                  {series.categories.slice(0, 3).map((cat) => (
+                    <Chip key={cat} label={cat} size="sm" />
+                  ))}
+                </div>
+                <div className="flex w-fit max-w-full items-center gap-6 rounded-xl border border-ocean-border-light bg-ocean-background-light px-5 py-2.5 dark:border-ocean-border-dark dark:bg-ocean-background-dark">
+                  <div className="flex items-center gap-1.5">
+                    <Star size={18} className="shrink-0 text-warning" />
+                    <span className="text-[15px] font-bold text-ocean-text-primary-light dark:text-ocean-text-primary-dark">
+                      {series.rating}
+                    </span>
+                  </div>
+                  <div className="h-3 w-px bg-ocean-border-light dark:bg-ocean-border-dark" />
+                  <div className="flex items-center gap-1.5">
+                    <Film size={18} className="shrink-0 text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark" />
+                    <span className="whitespace-nowrap text-[15px] font-bold text-ocean-text-primary-light dark:text-ocean-text-primary-dark">
+                      {series.episodeCount} eps
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Progress */}
+            <div className="sm:mb-8">
+              <div className="mb-1.5 flex items-center justify-between gap-2 sm:mb-2">
+                <span className="text-[11px] font-semibold text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark sm:text-[13px] sm:font-bold sm:uppercase sm:tracking-wide">
+                  {series.watchedEpisodes}/{series.totalEpisodes} episodes
+                </span>
+                <span
+                  className={`text-[11px] font-bold tabular-nums sm:text-sm sm:font-extrabold ${
+                    isCompleted ? "text-success" : "text-primary"
+                  }`}
                 >
-                  PROGRESS
-                </Typography>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    fontSize: { xs: 11, sm: 14 },
-                    color: isCompleted ? "#4ADE80" : "#E50914",
-                    fontWeight: 900,
-                  }}
-                >
-                  {series.watchedEpisodes}/{series.totalEpisodes} DONE
-                </Typography>
-              </Box>
-              <LinearProgress
-                variant="determinate"
+                  {series.progressPercentage}%
+                </span>
+              </div>
+              <LinearProgressBar
                 value={series.progressPercentage}
-                sx={{
-                  height: { xs: 5, sm: 10 },
-                  borderRadius: 5,
-                  bgcolor: "#262A33",
-                  "& .MuiLinearProgress-bar": {
-                    bgcolor: isCompleted ? "#0F6E56" : "#E50914",
-                    borderRadius: 5,
-                    boxShadow: isCompleted ? "none" : "0 0 10px #E50914",
-                  },
-                }}
+                color={isCompleted ? "success" : "primary"}
               />
-            </Box>
+            </div>
 
             {/* Episodes & Main Actions */}
-            <Box className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-auto">
+            <div className="mt-auto grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
               {/* Episode Preview - Hidden on tiny screens, show simplified on medium */}
-              <Box className="hidden sm:block">
-                <Typography
-                  variant="overline"
-                  className="font-black text-[#9CA3AF] tracking-[0.2em] mb-2 block opacity-50"
-                  sx={{ fontSize: 10 }}
-                >
+              <div className="hidden sm:block">
+                <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.2em] text-ocean-text-secondary-light opacity-50 dark:text-ocean-text-secondary-dark">
                   {isCompleted ? "HISTORY" : "CONTINUE"}
-                </Typography>
+                </span>
                 {displayEpisodes.slice(0, 2).map((ep) => (
                   <EpisodeMiniRow
                     key={ep.number}
@@ -501,372 +411,257 @@ const LibraryPage: React.FC = () => {
                     isCurrent={currentEpisode?.number === ep.number}
                   />
                 ))}
-              </Box>
+              </div>
 
               {/* Primary Actions */}
-              <Box className="flex flex-col justify-end gap-3 sm:gap-4">
-                <Box className="flex gap-3">
+              <div className="flex flex-col justify-end gap-2 sm:gap-4">
+                <div className="flex min-w-0 gap-2 sm:gap-3">
                   <Button
                     variant="contained"
+                    color="primary"
                     fullWidth
-                    startIcon={
-                      <PlayArrow sx={{ fontSize: { xs: 20, sm: 24 } }} />
-                    }
+                    size="sm"
+                    className="!min-w-0 !px-2 sm:!px-6"
+                    startIcon={<Play size={16} className="sm:h-6 sm:w-6" />}
                     onClick={() =>
                       isCompleted
                         ? handleWatchAgain(series.id)
-                        : handleResumeEpisode(
-                            series.id,
-                            currentEpisode?.number || 1,
-                          )
+                        : handleResumeEpisode(series.id, currentEpisode?.id)
                     }
-                    sx={{
-                      bgcolor: isCompleted ? "#0F6E56" : "#E50914",
-                      fontSize: { xs: 12, sm: 16 },
-                      fontWeight: 900,
-                      py: { xs: 1.2, sm: 1.8 },
-                      borderRadius: 9999, // Pill shape
-                      textTransform: "none",
-                      boxShadow: isCompleted
-                        ? "none"
-                        : "0 0 20px rgba(229,9,20,0.4)",
-                      "&:hover": {
-                        bgcolor: isCompleted ? "#138166" : "#B20710",
-                        transform: "translateY(-2px)",
-                        boxShadow: isCompleted
-                          ? "none"
-                          : "0 0 30px rgba(229,9,20,0.6)",
-                      },
-                      transition: "all 0.3s ease",
-                    }}
                   >
                     {isCompleted
                       ? "Watch again"
                       : `Resume E${currentEpisode?.number || 1}`}
                   </Button>
                   <IconButton
+                    aria-label={`Download ${series.title}`}
                     onClick={() => handleDownload(series.id)}
-                    sx={{
-                      bgcolor: "#262A33",
-                      borderRadius: 9999,
-                      p: { xs: 1.2, sm: 2 },
-                      border: "1px solid rgba(255,255,255,0.05)",
-                      "&:hover": {
-                        bgcolor: "#323741",
-                        transform: "scale(1.1)",
-                      },
-                      transition: "all 0.3s ease",
-                    }}
+                    className="shrink-0 border border-ocean-border-light bg-ocean-background-light dark:border-ocean-border-dark dark:bg-ocean-background-dark"
                   >
-                    <Download
-                      sx={{ fontSize: { xs: 20, sm: 24 }, color: "#F9FAFB" }}
-                    />
+                    <Download size={18} className="sm:h-6 sm:w-6" />
                   </IconButton>
-                </Box>
+                </div>
+                {/* On mobile the poster is the details affordance instead. */}
                 <Button
                   variant="outlined"
+                  color="default"
                   fullWidth
+                  size="sm"
+                  className="hidden !px-2 sm:!inline-flex sm:!px-6"
                   onClick={() => handleDetails(series.id)}
-                  sx={{
-                    borderColor: "#262A33",
-                    color: "#9CA3AF",
-                    fontSize: { xs: 11, sm: 14 },
-                    fontWeight: 700,
-                    py: 1,
-                    borderRadius: 9999, // Pill shape
-                    textTransform: "none",
-                    "&:hover": {
-                      borderColor: "#E50914",
-                      color: "#F9FAFB",
-                      bgcolor: "rgba(229,9,20,0.05)",
-                    },
-                    transition: "all 0.3s ease",
-                  }}
                 >
                   Series details
                 </Button>
-              </Box>
-            </Box>
-          </Box>
-        </Box>
+              </div>
+            </div>
+          </div>
+        </div>
 
-        {/* Footer Payment Strip */}
-        <Box className="flex items-center justify-between px-4 sm:px-8 py-3 sm:py-4 bg-[#08090C] border-t border-[#262A33]">
-          <Typography
-            variant="caption"
-            sx={{
-              fontSize: { xs: 10, sm: 13 },
-              color: "#9CA3AF",
-              fontWeight: 600,
-              opacity: 0.6,
-            }}
-          >
+        {/* Footer Payment Strip — desktop only; the purchase date is reference
+            detail that does not earn a row on a phone. */}
+        <div className="hidden items-center justify-between gap-3 border-t border-ocean-border-light bg-ocean-background-light px-8 py-4 dark:border-ocean-border-dark dark:bg-ocean-background-dark sm:flex">
+          <span className="min-w-0 truncate text-[13px] font-semibold text-ocean-text-secondary-light opacity-60 dark:text-ocean-text-secondary-dark">
             Purchased on {series.purchaseDate}
-          </Typography>
-          <Box className="flex items-center gap-2">
-            <CheckCircle
-              sx={{ fontSize: { xs: 12, sm: 16 }, color: "#0F6E56" }}
-            />
-            <Typography
-              sx={{
-                color: "#0F6E56",
-                fontSize: { xs: 9, sm: 11 },
-                fontWeight: 800,
-                letterSpacing: "1px",
-              }}
-            >
+          </span>
+          <div className="flex shrink-0 items-center gap-1.5" title="Verified access">
+            <CheckCircle size={16} className="text-success" />
+            <span className="text-[11px] font-extrabold tracking-wide text-success">
               VERIFIED ACCESS
-            </Typography>
-          </Box>
-        </Box>
-      </Paper>
+            </span>
+          </div>
+        </div>
+      </Card>
     );
   };
 
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <Box
-        className="min-h-screen pb-24 sm:pb-12"
-        sx={{
-          bgcolor: "#08090C",
-          backgroundImage:
-            "radial-gradient(circle at top, rgba(229,9,20,0.15), transparent 70%)",
-          backgroundAttachment: "fixed",
-        }}
-      >
-        <Box className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Header Section */}
-          <Box className="flex items-center justify-between pt-8 sm:pt-12 pb-6 sm:pb-8">
-            <Box>
-              <Typography
-                variant="h4"
-                className="font-black text-white tracking-tighter uppercase italic"
-                sx={{ fontSize: { xs: 28, sm: 48 } }}
-              >
-                My Library
-              </Typography>
-              <Typography
-                variant="body2"
-                sx={{ color: "#9CA3AF", fontWeight: 600, letterSpacing: "1px" }}
-              >
-                {totalSeries} SERIES PURCHASED
-              </Typography>
-            </Box>
-            <Button
-              variant="contained"
-              startIcon={<Star />}
-              sx={{
-                bgcolor: "#E50914",
-                color: "white",
-                fontWeight: 900,
-                borderRadius: 9999, // Pill shape
-                px: { xs: 2, sm: 4 },
-                py: { xs: 1, sm: 1.5 },
-                fontSize: { xs: 11, sm: 14 },
-                textTransform: "none",
-                boxShadow: "0 0 20px rgba(229,9,20,0.4)",
-                "&:hover": {
-                  bgcolor: "#B20710",
-                  transform: "scale(1.05)",
-                  boxShadow: "0 0 30px rgba(229,9,20,0.6)",
-                },
-                transition: "all 0.3s ease",
-              }}
+    <div className="min-h-screen bg-ocean-background-light bg-ocean-radial bg-fixed pb-[calc(var(--tab-bar-h)+16px)] dark:bg-ocean-background-dark md:pb-12">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+        {/* Header Section */}
+        <div className="flex items-center justify-between gap-3 pb-5 pt-5 sm:pb-8 sm:pt-12">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-black uppercase italic tracking-tighter text-ocean-text-primary-light dark:text-ocean-text-primary-dark sm:text-5xl">
+              My Library
+            </h1>
+            {/* Carries the two counts worth knowing at a glance, so the stat grid
+                below can stay off a phone screen entirely. */}
+            <p className="mt-0.5 truncate text-xs font-semibold text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark sm:text-sm sm:tracking-wide">
+              {totalSeries} series &middot; {totalEpisodes} episodes
+            </p>
+          </div>
+          <Button
+            variant="contained"
+            color="primary"
+            size="sm"
+            className="shrink-0"
+            startIcon={<Star size={16} />}
+          >
+            Premium
+          </Button>
+        </div>
+
+        {/* Summary Bar - Stats Area */}
+        {/* Purchased / Completed / Watching duplicate the filter tab counts, and
+            four cards push the actual library below the fold on a phone. */}
+        <div className="mb-8 hidden gap-6 sm:mb-12 sm:grid sm:grid-cols-2 md:grid-cols-4">
+          {[
+            {
+              label: "Purchased",
+              value: totalSeries,
+              icon: <Film className="text-primary" />,
+            },
+            {
+              label: "Episodes",
+              value: totalEpisodes,
+              icon: <Play className="text-primary" />,
+            },
+            {
+              label: "Completed",
+              value: completedCount,
+              icon: <CheckCircle className="text-success" />,
+            },
+            {
+              label: "Watching",
+              value: inProgressCount,
+              icon: <Clock className="text-primary" />,
+            },
+          ].map((stat, i) => (
+            <Card key={i} className="flex min-w-0 items-center gap-2 p-3 hover:border-primary/30 sm:gap-4 sm:p-6">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-ocean-border-light bg-ocean-background-light dark:border-ocean-border-dark dark:bg-ocean-background-dark sm:h-14 sm:w-14">
+                {stat.icon}
+              </div>
+              <div className="min-w-0">
+                <p className="text-lg font-black text-ocean-text-primary-light dark:text-ocean-text-primary-dark sm:text-2xl">
+                  {stat.value}
+                </p>
+                <p className="truncate text-[9px] font-bold uppercase tracking-wide text-ocean-text-secondary-light opacity-60 dark:text-ocean-text-secondary-dark sm:text-[11px]">
+                  {stat.label}
+                </p>
+              </div>
+            </Card>
+          ))}
+        </div>
+
+        {/* Filters & Content Area */}
+        <section
+          aria-label="Library filters"
+          className="mb-5 sm:mb-8 sm:rounded-2xl sm:border sm:border-ocean-border-light sm:bg-ocean-surface-light sm:p-3 sm:shadow-soft sm:dark:border-ocean-border-dark sm:dark:bg-ocean-surface-dark"
+        >
+          <div className="flex flex-col-reverse gap-3 lg:flex-row lg:items-center lg:justify-between">
+            {/* A 2x2 grid of filters cost two rows before any content; one
+                horizontally scrolling row of chips is the phone convention. */}
+            <div
+              role="tablist"
+              aria-label="Filter library series"
+              className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 pb-0.5 sm:mx-0 sm:flex-wrap sm:gap-1 sm:overflow-visible sm:px-0 sm:pb-0"
             >
-              Premium
-            </Button>
-          </Box>
-
-          {/* Summary Bar - Stats Area */}
-          <Box className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6 mb-8 sm:mb-12">
-            {[
-              {
-                label: "Purchased",
-                value: totalSeries,
-                icon: <Theaters sx={{ color: "#E50914" }} />,
-              },
-              {
-                label: "Episodes",
-                value: totalEpisodes,
-                icon: <PlayArrow sx={{ color: "#E50914" }} />,
-              },
-              {
-                label: "Completed",
-                value: completedCount,
-                icon: <CheckCircle sx={{ color: "#0F6E56" }} />,
-              },
-              {
-                label: "Watching",
-                value: inProgressCount,
-                icon: <AccessTime sx={{ color: "#E50914" }} />,
-              },
-            ].map((stat, i) => (
-              <Paper
-                key={i}
-                elevation={0}
-                className="p-4 sm:p-6 rounded-2xl bg-[#111217] border border-[#262A33] flex items-center gap-3 sm:gap-4 hover:border-[#E50914]/30 transition-all duration-300"
-              >
-                <Box className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl bg-[#181A20] flex items-center justify-center border border-[#262A33]">
-                  {stat.icon}
-                </Box>
-                <Box>
-                  <Typography
-                    variant="h5"
-                    className="font-black text-white"
-                    sx={{ fontSize: { xs: 18, sm: 24 } }}
-                  >
-                    {stat.value}
-                  </Typography>
-                  <Typography
-                    variant="caption"
-                    className="font-bold text-[#9CA3AF] tracking-wider uppercase opacity-60"
-                    sx={{ fontSize: { xs: 9, sm: 11 } }}
-                  >
-                    {stat.label}
-                  </Typography>
-                </Box>
-              </Paper>
-            ))}
-          </Box>
-
-          {/* Filters & Content Area */}
-          <Box className="flex flex-col sm:flex-row sm:items-center gap-4 mb-8">
-            <Box className="flex-1 flex gap-2 overflow-x-auto no-scrollbar pb-1">
               {filterTabs.map((tab) => {
                 const isActive = selectedFilter === tab.id;
                 return (
-                  <Chip
+                  <button
+                    type="button"
                     key={tab.id}
-                    label={`${tab.label} (${tab.count})`}
+                    role="tab"
+                    aria-selected={isActive}
                     onClick={() => setSelectedFilter(tab.id)}
-                    sx={{
-                      bgcolor: isActive ? "#E50914" : "#111217",
-                      color: isActive ? "white" : "#9CA3AF",
-                      fontWeight: 700,
-                      borderRadius: 9999,
-                      border: isActive ? "none" : "1px solid #262A33",
-                      px: { xs: 1, sm: 2 },
-                      height: { xs: 32, sm: 40 },
-                      fontSize: { xs: 12, sm: 14 },
-                      boxShadow: isActive
-                        ? "0 0 15px rgba(229,9,20,0.4)"
-                        : "none",
-                      "&:hover": {
-                        bgcolor: isActive ? "#B20710" : "#181A20",
-                        color: "white",
-                      },
-                      transition: "all 0.3s ease",
-                    }}
-                  />
+                    className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-2 text-[13px] font-semibold transition-colors duration-200 sm:rounded-xl sm:px-4 sm:text-sm sm:font-bold ${
+                      isActive
+                        ? "border-primary bg-primary text-white"
+                        : "border-ocean-border-light text-ocean-text-secondary-light hover:bg-ocean-card-light hover:text-ocean-text-primary-light dark:border-ocean-border-dark dark:text-ocean-text-secondary-dark dark:hover:bg-ocean-card-dark dark:hover:text-ocean-text-primary-dark"
+                    }`}
+                  >
+                    <span>{tab.label}</span>
+                    <span
+                      className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] leading-none ${
+                        isActive
+                          ? "bg-white/20 text-white"
+                          : "bg-ocean-border-light text-ocean-text-secondary-light dark:bg-ocean-border-dark dark:text-ocean-text-secondary-dark"
+                      }`}
+                    >
+                      {tab.count}
+                    </span>
+                  </button>
                 );
               })}
-            </Box>
+            </div>
 
-            <Box className="flex items-center gap-2 bg-[#111217] px-4 py-2 rounded-full border border-[#262A33]">
-              <Search sx={{ color: "#9CA3AF", fontSize: 20 }} />
-              <input
-                type="text"
-                placeholder="Search library..."
-                className="bg-transparent border-none outline-none text-white text-sm w-32 sm:w-48 placeholder:text-[#9CA3AF]"
+            <div className="relative w-full lg:max-w-xs">
+              <label htmlFor="library-search" className="sr-only">
+                Search your library
+              </label>
+              <Search
+                size={18}
+                aria-hidden="true"
+                className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark"
               />
-            </Box>
-          </Box>
-
-          {/* Series List */}
-          <Box className="pb-20">
-            {loading ? (
-              <Box className="py-20 text-center">
-                <CircularProgress size={40} sx={{ color: "#E50914", mb: 2 }} />
-                <Typography sx={{ color: "#9CA3AF" }}>
-                  Fetching your collection...
-                </Typography>
-              </Box>
-            ) : error ? (
-              <Box className="py-12 px-5 text-center bg-[#111217] rounded-3xl border border-red-900/30">
-                <Typography
-                  variant="subtitle1"
-                  sx={{ color: "#F9FAFB", mb: 1 }}
+              <input
+                id="library-search"
+                type="text"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search your library"
+                autoComplete="off"
+                className="h-11 w-full rounded-xl border border-ocean-border-light bg-ocean-card-light pl-10 pr-10 text-sm text-ocean-text-primary-light outline-none transition-colors placeholder:text-ocean-text-secondary-light focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-ocean-border-dark dark:bg-ocean-card-dark dark:text-ocean-text-primary-dark dark:placeholder:text-ocean-text-secondary-dark"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  aria-label="Clear library search"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-ocean-text-secondary-light transition-colors hover:bg-ocean-border-light hover:text-ocean-text-primary-light dark:text-ocean-text-secondary-dark dark:hover:bg-ocean-border-dark dark:hover:text-ocean-text-primary-dark"
                 >
-                  Error
-                </Typography>
-                <Typography sx={{ color: "#9CA3AF", mb: 3 }}>
-                  {error}
-                </Typography>
-                <Button
-                  variant="outlined"
-                  startIcon={<Refresh />}
-                  onClick={fetchPurchases}
-                  sx={{ borderColor: "#E50914", color: "#E50914" }}
-                >
-                  Try Again
-                </Button>
-              </Box>
-            ) : filteredSeries.length === 0 ? (
-              <Box className="text-center py-20 bg-[#111217] rounded-3xl border border-dashed border-[#262A33]">
-                <Theaters sx={{ fontSize: 60, color: "#262A33", mb: 2 }} />
-                <Typography variant="h6" className="text-white font-bold mb-1">
-                  No series found
-                </Typography>
-                <Typography variant="body2" className="text-[#9CA3AF]">
-                  Try adjusting your filters or search
-                </Typography>
-              </Box>
-            ) : (
-              filteredSeries.map((series) => (
-                <SeriesCard key={series.id} series={series} />
-              ))
-            )}
-          </Box>
-        </Box>
+                  <X size={15} />
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="hidden px-2 pt-2 text-xs text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark sm:block">
+            Showing {filteredSeries.length} of {purchases.length} series
+          </div>
+        </section>
 
-        {/* Bottom Nav - Mobile Only */}
-        <Box className="fixed bottom-0 left-0 right-0 sm:hidden bg-[#08090C]/80 backdrop-blur-xl border-t border-[#262A33] px-6 py-3 flex justify-between items-center z-50">
-          <IconButton
-            sx={{ color: "#9CA3AF", "&:hover": { color: "#E50914" } }}
-            onClick={() => navigate("/")}
-          >
-            <Home />
-          </IconButton>
-          <IconButton
-            sx={{
-              color: "#E50914",
-              bgcolor: "rgba(229,9,20,0.1)",
-              boxShadow: "0 0 15px rgba(229,9,20,0.2)",
-            }}
-          >
-            <LibraryBooks />
-          </IconButton>
-          <IconButton
-            sx={{ color: "#9CA3AF", "&:hover": { color: "#E50914" } }}
-          >
-            <Search />
-          </IconButton>
-          <IconButton
-            sx={{ color: "#9CA3AF", "&:hover": { color: "#E50914" } }}
-            onClick={() => navigate("/profile")}
-          >
-            <Person />
-          </IconButton>
-        </Box>
-      </Box>
-      <style
-        dangerouslySetInnerHTML={{
-          __html: `
-        .shadow-glow {
-          box-shadow: 0 0 20px rgba(229, 9, 20, 0.45);
-        }
-        .no-scrollbar::-webkit-scrollbar {
-          display: none;
-        }
-        .no-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-      `,
-        }}
-      />
-    </ThemeProvider>
+        {/* Series List */}
+        <div>
+          {loading ? (
+            <div className="py-20 text-center">
+              <Spinner size={40} className="text-primary mb-2 mx-auto" />
+              <p className="text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark">
+                Fetching your collection...
+              </p>
+            </div>
+          ) : error ? (
+            <div className="py-12 px-5 text-center bg-ocean-card-light dark:bg-ocean-card-dark rounded-3xl border border-danger/30">
+              <p className="mb-1 font-semibold text-ocean-text-primary-light dark:text-ocean-text-primary-dark">
+                Error
+              </p>
+              <p className="mb-3 text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark">
+                {error}
+              </p>
+              <Button variant="outlined" color="primary" startIcon={<RefreshCw size={16} />} onClick={fetchPurchases}>
+                Try Again
+              </Button>
+            </div>
+          ) : filteredSeries.length === 0 ? (
+            <div className="text-center py-20 bg-ocean-card-light dark:bg-ocean-card-dark rounded-3xl border border-dashed border-ocean-border-light dark:border-ocean-border-dark">
+              <Film size={60} className="mx-auto mb-2 text-ocean-border-light dark:text-ocean-border-dark" />
+              <p className="font-bold mb-1 text-ocean-text-primary-light dark:text-ocean-text-primary-dark">
+                No series found
+              </p>
+              <p className="text-sm text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark">
+                {searchQuery
+                  ? `No matches for “${searchQuery}”. Try another title or category.`
+                  : "Try adjusting your filters or search"}
+              </p>
+            </div>
+          ) : (
+            filteredSeries.map((series) => (
+              <SeriesCard key={series.id} series={series} />
+            ))
+          )}
+        </div>
+      </div>
+
+    </div>
   );
 };
 

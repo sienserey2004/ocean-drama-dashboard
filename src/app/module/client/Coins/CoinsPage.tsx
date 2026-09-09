@@ -13,12 +13,23 @@ import {
   Gift
 } from 'lucide-react';
 import { coinsBalance, dailyCheckin, getCheckinStatus } from './services/balance.service';
-import toast from 'react-hot-toast';
+import toast from '@/app/utils/toast';
 import { useNavigate } from 'react-router-dom';
 import { videoApi } from '@/app/api/video.service';
 import { coinApi } from '@/app/api/coin.service';
 import { Video } from '@/app/types';
 import { Lock } from 'lucide-react';
+
+type DailyCheckinStatus = {
+  day: number;
+  checkedIn: boolean;
+  isToday?: boolean;
+};
+
+const WEEKLY_CHECKIN_DAYS: DailyCheckinStatus[] = Array.from(
+  { length: 7 },
+  (_, index) => ({ day: index + 1, checkedIn: false, isToday: index === 0 })
+);
 
 const CoinsPage = () => {
 
@@ -113,7 +124,12 @@ const CoinsPage = () => {
       await fetchStatus();
     } catch (err: any) {
       const msg = err.response?.data?.message || "Already checked in today!";
-      toast.error(msg);
+      const isCompletedCheckIn = msg.trim().toLowerCase().replace(/[!.]+$/, '') === 'already checked in today';
+      if (isCompletedCheckIn) {
+        toast(msg, { icon: '✓', id: 'daily-checkin:already-complete' });
+      } else {
+        toast.error(msg);
+      }
       await fetchStatus(); // Ensure status is synced
     } finally {
       setLoading(false);
@@ -124,47 +140,47 @@ const CoinsPage = () => {
   return (
     <div className="min-h-screen bg-[#0B0B0F] text-white pb-24 overflow-x-hidden">
       {/* Background Glows */}
-      <div className="fixed top-[-10%] left-[-10%] w-[40%] h-[40%] bg-orange-500/10 blur-[120px] rounded-full pointer-events-none" />
-      <div className="fixed bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-red-500/10 blur-[120px] rounded-full pointer-events-none" />
+      <div className="fixed top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/10 blur-[120px] rounded-full pointer-events-none" />
+      <div className="fixed bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary/5 blur-[120px] rounded-full pointer-events-none" />
 
       {/* Header */}
       <div className="px-6 pt-8 pb-4 flex justify-between items-center sticky top-0 bg-[#0B0B0F]/80 backdrop-blur-md z-10">
-        <h1 className="text-2xl font-bold bg-gradient-to-r from-orange-400 to-yellow-200 bg-clip-text text-transparent">
+        <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-primary-light bg-clip-text text-transparent">
           Reward Center
         </h1>
         <div className="flex gap-4">
           <button className="p-2 glass-card rounded-full hover:bg-white/10 transition-colors">
-            <History size={20} className="text-orange-400" />
+            <History size={20} className="text-primary" />
           </button>
           <button className="p-2 glass-card rounded-full hover:bg-white/10 transition-colors">
-            <Gift size={20} className="text-orange-400" />
+            <Gift size={20} className="text-primary" />
           </button>
         </div>
       </div>
 
       <div className="px-4 space-y-6">
         {/* Balance Card */}
-        <div className="relative overflow-hidden glass-card rounded-[2rem] p-6 border-orange-500/20 bg-gradient-to-br from-orange-500/10 via-transparent to-transparent">
+        <div className="relative overflow-hidden glass-card rounded-[2rem] p-6 border-primary/20 bg-gradient-to-br from-primary/10 via-transparent to-transparent">
           <div className="flex justify-between items-start mb-6">
             <div>
-              <div className="flex items-center gap-2 text-orange-200/60 text-sm mb-1">
+              <div className="flex items-center gap-2 text-primary-light/60 text-sm mb-1">
                 <Coins size={14} />
                 <span>Total Coins</span>
               </div>
               <div className="text-5xl font-black tracking-tight flex items-baseline gap-1">
-                <span className="text-glow">{coins}</span>
-                <span className="text-sm font-medium text-orange-400 uppercase">Coins</span>
+                <span className="[text-shadow:0_0_20px_rgba(14,165,233,0.4)]">{coins}</span>
+                <span className="text-sm font-medium text-primary uppercase">Coins</span>
               </div>
             </div>
-            <button className="flex items-center gap-1 px-4 py-2 bg-orange-500/20 border border-orange-500/30 rounded-full text-xs font-semibold text-orange-400 hover:bg-orange-500/30 transition-all active:scale-95">
+            <button className="flex items-center gap-1 px-4 py-2 bg-primary/20 border border-primary/30 rounded-full text-xs font-semibold text-primary hover:bg-primary/30 transition-all active:scale-95">
               Withdraw <ArrowUpRight size={14} />
             </button>
           </div>
 
           <div className="flex items-center justify-between pt-6 border-t border-white/5">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-500/20 rounded-xl">
-                <Wallet size={18} className="text-green-400" />
+              <div className="p-2 bg-primary/20 rounded-xl">
+                <Wallet size={18} className="text-primary" />
               </div>
               <div>
                 <p className="text-[10px] text-white/40 uppercase tracking-wider">Cash Earnings</p>
@@ -173,7 +189,7 @@ const CoinsPage = () => {
             </div>
             <div className="text-right">
               <p className="text-[10px] text-white/40 uppercase tracking-wider">Exchange Rate</p>
-              <p className="text-xs text-orange-300/60 font-medium">10,000 Coins ≈ $1.00</p>
+              <p className="text-xs text-primary-light/60 font-medium">10,000 Coins ≈ $1.00</p>
             </div>
           </div>
         </div>
@@ -182,7 +198,7 @@ const CoinsPage = () => {
         <section>
           <div className="flex justify-between items-center mb-4 px-2">
             <h2 className="text-lg font-bold flex items-center gap-2">
-              <Calendar size={18} className="text-orange-400" />
+              <Calendar size={18} className="text-primary" />
               Daily Check-in
             </h2>
             <button 
@@ -191,34 +207,26 @@ const CoinsPage = () => {
               className={`text-xs px-4 py-1.5 rounded-full transition-all disabled:opacity-50 ${
                 checkinStatus?.hasCheckedInToday 
                   ? 'bg-green-500/20 border border-green-500/30 text-green-400'
-                  : 'bg-orange-500/20 border border-orange-500/30 text-orange-400 hover:bg-orange-500/30'
+                  : 'bg-primary/20 border border-primary/30 text-primary hover:bg-primary/30'
               }`}
             >
               {loading ? 'Checking...' : checkinStatus?.hasCheckedInToday ? 'Checked Today' : 'Check-in Now'}
             </button>
           </div>
-          <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
-            {(checkinStatus?.dailyStatus || [
-              { day: 1, checkedIn: false },
-              { day: 2, checkedIn: false },
-              { day: 3, checkedIn: false },
-              { day: 4, checkedIn: false },
-              { day: 5, checkedIn: false },
-              { day: 6, checkedIn: false },
-              { day: 7, checkedIn: false },
-            ]).map((status: any, i: number) => (
+          <div className="grid grid-cols-7 gap-1.5 sm:gap-3">
+            {((checkinStatus?.dailyStatus as DailyCheckinStatus[] | undefined) || WEEKLY_CHECKIN_DAYS).map((status) => (
               <div 
-                key={i}
-                className={`flex-shrink-0 w-16 p-3 rounded-2xl flex flex-col items-center justify-between gap-2 border transition-all ${
+                key={status.day}
+                className={`min-w-0 px-1 py-3 rounded-2xl flex flex-col items-center justify-between gap-2 border transition-all ${
                   status.checkedIn
-                    ? 'bg-orange-500/20 border-orange-500/40 text-orange-300' 
+                    ? 'bg-primary/20 border-primary/40 text-primary-light'
                     : status.isToday
-                      ? 'bg-white/10 border-orange-500/30 text-white animate-pulse'
+                      ? 'bg-white/10 border-primary/30 text-white animate-pulse'
                       : 'glass-card border-white/5 text-white/40'
                 }`}
               >
                 <span className="text-[10px] font-medium">Day {status.day}</span>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${status.checkedIn ? 'bg-orange-500/40' : 'bg-white/5'}`}>
+                <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center ${status.checkedIn ? 'bg-primary/40' : 'bg-white/5'}`}>
                   <Coins size={14} />
                 </div>
                 <span className="text-[10px] font-bold">
@@ -233,15 +241,15 @@ const CoinsPage = () => {
         <section className="space-y-4">
           <div className="px-2">
             <h2 className="text-lg font-bold flex items-center gap-2">
-              <TrendingUp size={18} className="text-orange-400" />
+              <TrendingUp size={18} className="text-primary" />
               Earn Coins
             </h2>
           </div>
 
           {/* Main Task: Watch Drama */}
-          <div className="relative group overflow-hidden glass-card rounded-[1.5rem] p-5 flex items-center justify-between border-white/10 hover:border-orange-500/30 transition-all">
+          <div className="relative group overflow-hidden glass-card rounded-[1.5rem] p-5 flex items-center justify-between border-white/10 hover:border-primary/30 transition-all">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center shadow-lg shadow-orange-500/20">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-light to-primary-dark flex items-center justify-center shadow-lg shadow-primary/20">
                 <Play fill="white" size={24} className="text-white ml-1" />
               </div>
               <div>
@@ -249,13 +257,13 @@ const CoinsPage = () => {
                 <p className="text-xs text-white/40 mt-0.5">Double coins every 5 mins</p>
                 <div className="mt-2 flex items-center gap-2">
                   <div className="h-1 w-24 bg-white/5 rounded-full overflow-hidden">
-                    <div className="h-full w-2/3 bg-orange-500" />
+                    <div className="h-full w-2/3 bg-primary" />
                   </div>
-                  <span className="text-[10px] text-orange-400 font-medium">12/30min</span>
+                  <span className="text-[10px] text-primary font-medium">12/30min</span>
                 </div>
               </div>
             </div>
-            <button onClick={() => navigate("/")} className="px-4 py-2 bg-white text-black text-xs font-bold rounded-full hover:bg-orange-100 transition-colors">
+            <button onClick={() => navigate("/")} className="px-4 py-2 bg-white text-black text-xs font-bold rounded-full hover:bg-sky-100 transition-colors">
               Watch
             </button>
           </div>
@@ -272,7 +280,7 @@ const CoinsPage = () => {
               </div>
             </div>
             <div className="text-right">
-              <p className="text-xs font-bold text-orange-400 mb-2">+200~500</p>
+              <p className="text-xs font-bold text-primary mb-2">+200~500</p>
               <button className="px-4 py-2 glass-card border-white/10 text-white/60 text-xs font-bold rounded-full">
                 Claim
               </button>
@@ -302,10 +310,10 @@ const CoinsPage = () => {
           <section className="space-y-4">
             <div className="px-2 flex justify-between items-center">
               <h2 className="text-lg font-bold flex items-center gap-2">
-                <Lock size={18} className="text-orange-400" />
+                <Lock size={18} className="text-primary" />
                 Unlock with Coins
               </h2>
-              <span className="text-[10px] text-orange-400/60 font-bold uppercase tracking-wider">Hot Dramas</span>
+              <span className="text-[10px] text-primary/60 font-bold uppercase tracking-wider">Hot Dramas</span>
             </div>
             
             <div className="grid grid-cols-2 gap-4">
@@ -321,8 +329,8 @@ const CoinsPage = () => {
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
                       <div className="absolute top-2 right-2 px-2 py-1 bg-black/60 backdrop-blur-md rounded-lg flex items-center gap-1 border border-white/10">
-                        <Coins size={10} className="text-orange-400" />
-                        <span className="text-[10px] font-bold text-orange-400">{coinPrice.toLocaleString()}</span>
+                        <Coins size={10} className="text-primary" />
+                        <span className="text-[10px] font-bold text-primary">{coinPrice.toLocaleString()}</span>
                       </div>
                     </div>
                     <div className="p-3 flex flex-col gap-2">
@@ -330,7 +338,7 @@ const CoinsPage = () => {
                       <button 
                         onClick={() => handleUnlockVideo(video.video_id, video.price)}
                         disabled={loading}
-                        className="w-full py-2 bg-orange-500/20 border border-orange-500/30 rounded-xl text-[10px] font-black text-orange-400 hover:bg-orange-500/30 transition-all active:scale-95"
+                        className="w-full py-2 bg-primary/20 border border-primary/30 rounded-xl text-[10px] font-black text-primary hover:bg-primary/30 transition-all active:scale-95"
                       >
                         {loading ? 'Processing...' : 'Unlock Now'}
                       </button>
@@ -353,7 +361,7 @@ const CoinsPage = () => {
 
       {/* Quick Action Button (Floating) */}
       <div className="fixed bottom-24 right-6">
-        <button className="w-14 h-14 bg-gradient-to-tr from-orange-600 to-yellow-400 rounded-full shadow-2xl shadow-orange-500/40 flex items-center justify-center hover:scale-110 transition-transform active:scale-95 animate-bounce">
+        <button className="w-14 h-14 bg-gradient-to-tr from-primary-dark to-primary-light rounded-full shadow-2xl shadow-primary/40 flex items-center justify-center hover:scale-110 transition-transform active:scale-95 animate-bounce">
           <Gift size={28} className="text-white" />
         </button>
       </div>

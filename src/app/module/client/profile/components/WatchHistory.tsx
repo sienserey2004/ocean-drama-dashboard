@@ -1,6 +1,7 @@
 import React from 'react';
-import { Box, Typography, Stack, LinearProgress } from '@mui/material';
-import { ChevronRight, History, CheckCircle, PlayCircleOutline } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
+import { ChevronRight, History, CheckCircle, PlayCircle } from 'lucide-react';
+import { Spinner, LinearProgressBar } from '@/_ocean/ui';
 
 interface WatchHistoryProps {
     isMobile: boolean;
@@ -9,85 +10,85 @@ interface WatchHistoryProps {
 }
 
 const WatchHistory: React.FC<WatchHistoryProps> = ({ isMobile, history, loading }) => {
+    const navigate = useNavigate();
+
     return (
-        <Box className={`${isMobile ? 'px-6' : ''} mb-10`}>
-            <Box className="flex justify-between items-center mb-6">
-                <Typography className="text-white text-lg font-black italic uppercase tracking-tighter">
+        <div className={`${isMobile ? 'px-6' : ''} mb-10`}>
+            <div className="flex justify-between items-center mb-6">
+                <span className="text-ocean-text-primary-light dark:text-ocean-text-primary-dark text-lg font-black italic uppercase tracking-tighter">
                     Recently Watched
-                </Typography>
-                <Typography className="text-[#FF2D2D] text-xs font-bold cursor-pointer hover:underline items-center flex gap-1">
-                    View All <ChevronRight sx={{ fontSize: 14 }} />
-                </Typography>
-            </Box>
-            
+                </span>
+                <button
+                    type="button"
+                    onClick={() => navigate('/watch-history')}
+                    className="text-primary text-xs font-bold cursor-pointer hover:underline items-center flex gap-1"
+                >
+                    View All <ChevronRight size={14} />
+                </button>
+            </div>
+
             {loading && history.length === 0 ? (
                 <LoadingState />
             ) : history.length === 0 ? (
                 <EmptyState />
             ) : (
-                <HistoryList history={history} />
+                <HistoryList history={history} onSelect={(item) => navigate(`/play/${item.video_id}${item.episode_id ? `/${item.episode_id}` : ''}`)} />
             )}
-        </Box>
+        </div>
     );
 };
 
 const LoadingState: React.FC = () => (
-    <Box className="flex justify-center p-10">
-        <LinearProgress sx={{ width: '100%', bgcolor: 'rgba(255,255,255,0.05)', '& .MuiLinearProgress-bar': { bgcolor: '#FF2D2D' } }} />
-    </Box>
+    <div className="flex justify-center p-10">
+        <Spinner size={32} className="text-primary" />
+    </div>
 );
 
 const EmptyState: React.FC = () => (
-    <Box className="bg-[#1A1A22]/50 border border-dashed border-[#2A2A35] rounded-3xl p-10 flex flex-col items-center justify-center text-center opacity-50">
-        <History sx={{ fontSize: 40, mb: 2, color: '#A1A1AA' }} />
-        <Typography className="text-sm font-bold">No watch history yet</Typography>
-        <Typography className="text-[10px]">Your recently watched dramas will appear here</Typography>
-    </Box>
+    <div className="bg-ocean-card-light/50 dark:bg-ocean-card-dark/50 border border-dashed border-ocean-border-light dark:border-ocean-border-dark rounded-3xl p-10 flex flex-col items-center justify-center text-center opacity-50">
+        <History size={40} className="mb-2 text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark" />
+        <p className="text-sm font-bold">No watch history yet</p>
+        <p className="text-[10px]">Your recently watched dramas will appear here</p>
+    </div>
 );
 
-const HistoryList: React.FC<{ history: any[] }> = ({ history }) => (
-    <Stack direction="row" spacing={3} className="overflow-x-auto pb-6 no-scrollbar">
+const HistoryList: React.FC<{ history: any[]; onSelect: (item: any) => void }> = ({ history, onSelect }) => (
+    <div className="flex flex-row gap-6 overflow-x-auto pb-6 no-scrollbar">
         {history.map((item, idx) => (
-            <HistoryItem key={idx} item={item} />
+            <HistoryItem key={idx} item={item} onClick={() => onSelect(item)} />
         ))}
-    </Stack>
+    </div>
 );
 
-const HistoryItem: React.FC<{ item: any }> = ({ item }) => (
-    <Box className="flex-shrink-0 w-[160px] group cursor-pointer">
-        <Box className="relative w-[160px] h-[240px] rounded-2xl overflow-hidden border border-[#2A2A35] group-hover:border-[#FF2D2D] group-hover:scale-[1.02] transition-all duration-300 shadow-xl group-hover:shadow-[0_0_20px_rgba(255,45,45,0.2)]">
-            <Box component="img" src={item.thumbnail_url} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity" />
-            <Box className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black to-transparent" />
-            
-            <Box className="absolute bottom-3 left-3 right-3">
-                <Box className="flex justify-between items-center mb-1">
-                    <Typography sx={{ fontSize: '8px', fontWeight: 900, color: 'white', opacity: 0.8 }}>
-                        EP {item.episode_number}
-                    </Typography>
-                    {item.completed && <CheckCircle sx={{ fontSize: 10, color: '#22C55E' }} />}
-                </Box>
-                <LinearProgress
-                    variant="determinate"
-                    value={item.completed ? 100 : Math.min(100, item.watch_duration)}
-                    sx={{
-                        height: 4,
-                        borderRadius: 99,
-                        bgcolor: 'rgba(255,255,255,0.2)',
-                        '& .MuiLinearProgress-bar': { bgcolor: '#FF2D2D' }
-                    }}
-                />
-            </Box>
+const HistoryItem: React.FC<{ item: any; onClick: () => void }> = ({ item, onClick }) => (
+    <div className="flex-shrink-0 w-[160px] group cursor-pointer" onClick={onClick}>
+        <div className="relative w-[160px] h-[240px] rounded-2xl overflow-hidden border border-ocean-border-light dark:border-ocean-border-dark group-hover:border-primary group-hover:scale-[1.02] transition-all duration-300 shadow-xl group-hover:shadow-glow">
+            <img src={item.thumbnail_url} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity" />
+            <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black to-transparent" />
 
-            <Box className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 backdrop-blur-[2px]">
-                <Box className="bg-[#FF2D2D] p-3 rounded-full shadow-[0_0_20px_rgba(255,45,45,0.8)]">
-                    <PlayCircleOutline sx={{ color: 'white', fontSize: 32 }} />
-                </Box>
-            </Box>
-        </Box>
-        <Typography className="text-[11px] font-black text-white mt-3 group-hover:text-[#FF2D2D] truncate tracking-tight uppercase italic">
+            <div className="absolute bottom-3 left-3 right-3">
+                <div className="flex justify-between items-center mb-1">
+                    <span className="text-[8px] font-black text-white opacity-80">
+                        EP {item.episode_number}
+                    </span>
+                    {item.completed && <CheckCircle size={10} className="text-success" />}
+                </div>
+                <LinearProgressBar
+                    value={item.completed ? 100 : Math.min(100, item.watch_duration)}
+                    color="primary"
+                />
+            </div>
+
+            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 backdrop-blur-[2px]">
+                <div className="bg-primary p-3 rounded-full shadow-glow">
+                    <PlayCircle size={32} className="text-white" />
+                </div>
+            </div>
+        </div>
+        <p className="text-[11px] font-black text-ocean-text-primary-light dark:text-ocean-text-primary-dark mt-3 group-hover:text-primary truncate tracking-tight uppercase italic">
             {item.video_title}
-        </Typography>
-    </Box>
+        </p>
+    </div>
 );
 
 export default WatchHistory;

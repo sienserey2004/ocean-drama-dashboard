@@ -14,10 +14,18 @@ export const episodeApi = {
   getStreamUrl: (episode_id: number) =>
     api.get<{ full_video_url: string; expires_at: string; resume_at: number }>(`/episodes/${episode_id}/stream`).then(r => r.data),
 
-  getBinaryStreamUrl: (ep: Episode, type: 'preview' | 'full' = 'full') => {
-    const token = localStorage.getItem('access_token');
+  // Issues a short-lived, episode-scoped token — required for 'full' streams.
+  // Never send the user's login access_token to stream-binary: the backend
+  // verifies a separate, purpose-built stream token (see stream-token.service
+  // on the API), not the Firebase-derived login JWT.
+  getStreamToken: (video_id: number, episode_id: number) =>
+    api
+      .get<{ token: string; expires_in: number }>(`/episodes/${video_id}/${episode_id}/stream-token`)
+      .then(r => r.data),
+
+  getBinaryStreamUrl: async (ep: Episode, type: 'preview' | 'full' = 'full') => {
     const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
-    
+
     // Choose the right source URL
     const sourceUrl = type === 'preview' ? ep.preview_video_url : ep.full_video_url;
     if (!sourceUrl) return '';
@@ -25,13 +33,16 @@ export const episodeApi = {
     // Extract filename without query parameters to preserve extension (.m3u8 or .mp4)
     const cleanUrl = sourceUrl.split('?')[0];
     const fileName = cleanUrl.split('/').pop() || (sourceUrl.includes('.m3u8') ? 'master.m3u8' : 'video.mp4');
-    
+
     const urlParams = new URLSearchParams();
-    if (token && token !== 'null' && token !== 'undefined') {
+    // 'preview' streams need no auth at all on the backend — only fetch a
+    // token for 'full' streams.
+    if (type === 'full') {
+      const { token } = await episodeApi.getStreamToken(ep.video_id, ep.episode_id);
       urlParams.set('token', token);
     }
     const queryString = urlParams.toString() ? `?${urlParams.toString()}` : '';
-    
+
     // Pattern: /api/episodes/:video_id/:episode_id/stream-binary/:type/:filename?token=...
     return `${baseUrl}/episodes/${ep.video_id}/${ep.episode_id}/stream-binary/${type}/${fileName}${queryString}`;
   },

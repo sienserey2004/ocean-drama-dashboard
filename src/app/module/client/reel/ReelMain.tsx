@@ -1,14 +1,6 @@
 import React, { useState } from "react";
-import Box from "@mui/material/Box";
-import Typography from "@mui/material/Typography";
-import Stack from "@mui/material/Stack";
-import IconButton from "@mui/material/IconButton";
-import Tooltip from "@mui/material/Tooltip";
-import Slider from "@mui/material/Slider";
-import VolumeUpIcon from "@mui/icons-material/VolumeUp";
-import VolumeOffIcon from "@mui/icons-material/VolumeOff";
-import VolumeDownIcon from "@mui/icons-material/VolumeDown";
-import { Search } from "@mui/icons-material";
+import { Search, Volume2, VolumeX, Volume1 } from "lucide-react";
+import { IconButton, Tooltip } from "@/_ocean/ui";
 import { useAuthStore } from "@/app/stores/authStore";
 import SearchVideo from "../search-video/SearchVideo";
 import ForYou from "./components/ForYou";
@@ -41,14 +33,13 @@ const ReelMain: React.FC = () => {
     volumeTimeoutRef.current = setTimeout(() => setShowVolumeSlider(false), 3000);
   };
 
-  const handleVolumeChange = (_: Event, val: number | number[]) => {
-    const v = val as number;
-    setVolume(v);
-    setMuted(v === 0);
+  const handleVolumeChange = (val: number) => {
+    setVolume(val);
+    setMuted(val === 0);
     resetHideTimer();
   };
 
-  const VolumeIcon = muted || volume === 0 ? VolumeOffIcon : volume < 0.5 ? VolumeDownIcon : VolumeUpIcon;
+  const VolumeIconComp = muted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
 
   const renderContent = () => {
     switch (activeTab) {
@@ -64,212 +55,103 @@ const ReelMain: React.FC = () => {
   };
 
   return (
-    <Box
-      sx={{
-        height: "100%",
-        width: "100%",
-        bgcolor: "#08090C",
-        position: "relative",
-        overflow: "hidden",
-      }}
-    >
+    <div className="relative h-full w-full overflow-hidden bg-[#08090C]">
       {/* ── Background Glow ────────────────────────────────────── */}
-      <Box
-        sx={{
-          position: "fixed",
-          inset: 0,
-          background: "radial-gradient(circle at top, rgba(229,9,20,0.15), transparent 70%)",
-          pointerEvents: "none",
-          zIndex: 0,
-        }}
-      />
+      <div className="pointer-events-none fixed inset-0 z-0 bg-ocean-radial" />
 
       {/* ── Top Nav Bar ───────────────────────────────────────── */}
-      <Stack
-        direction="row"
-        justifyContent="center"
-        alignItems="center"
-        spacing={3}
-        sx={{
-          position: "absolute",
-          top: { xs: 20, md: 30 },
-          left: 0,
-          right: 0,
-          zIndex: 20,
-          color: "#9CA3AF",
-          fontWeight: "bold",
-          px: 3,
-        }}
-      >
-        <Box sx={{ flex: 1, display: { xs: "none", md: "block" } }}>
+      <div className="absolute inset-x-0 top-5 z-20 flex items-center justify-center gap-6 px-6 font-bold text-[#9CA3AF] md:top-[30px]">
+        <div className="flex-1">
           {isAuthenticated && user && (
-            <Typography
-              sx={{
-                color: "#F9FAFB",
-                fontSize: 14,
-                fontWeight: "700",
-                opacity: 0.8,
-              }}
-            >
+            <p className="hidden text-sm font-bold text-[#F9FAFB] opacity-80 md:block">
               Welcome back, {user.name} 👋
-            </Typography>
+            </p>
           )}
-        </Box>
+        </div>
 
-        <Stack direction="row" spacing={4}>
+        <div className="flex items-center gap-8">
           {[
             { id: "following", label: "Following" },
             { id: "foryou", label: "For You" },
             { id: "nearby", label: "Near By" },
           ].map((tab) => (
-            <Box
+            <div
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              sx={{
-                cursor: "pointer",
-                paddingBottom: "5px",
-                position: "relative",
-                transition: "all 0.3s ease",
-              }}
+              className="relative cursor-pointer pb-[5px] transition-all duration-300"
             >
-              <Typography
-                variant="h6"
-                sx={{
-                  fontSize: 17,
-                  fontWeight: "800",
-                  color: activeTab === tab.id ? "white" : "#9CA3AF",
-                  textShadow: activeTab === tab.id ? "0 0 10px rgba(229,9,20,0.3)" : "none",
-                  "&:hover": { color: "white" },
-                }}
+              <span
+                className={`text-[17px] font-extrabold transition-colors hover:text-white ${
+                  activeTab === tab.id
+                    ? "text-white [text-shadow:0_0_10px_rgba(14,165,233,0.3)]"
+                    : "text-[#9CA3AF]"
+                }`}
               >
                 {tab.label}
-              </Typography>
+              </span>
               {activeTab === tab.id && (
-                <Box
-                  sx={{
-                    position: "absolute",
-                    bottom: 0,
-                    left: "20%",
-                    right: "20%",
-                    height: "3px",
-                    bgcolor: "#E50914",
-                    borderRadius: "2px",
-                    boxShadow: "0 0 10px #E50914",
-                  }}
-                />
+                <span className="absolute bottom-0 left-[20%] right-[20%] h-[3px] rounded-[2px] bg-primary shadow-glow" />
               )}
-            </Box>
+            </div>
           ))}
-        </Stack>
+        </div>
 
-        <Box
-          sx={{
-            flex: 1,
-            display: "flex",
-            justifyContent: "flex-end",
-            alignItems: "center",
-            gap: 2,
-          }}
-        >
-          <Typography
-            sx={{
-              display: { xs: "none", md: "block" },
-              fontFamily: "'Bebas Neue', sans-serif",
-              fontSize: 24,
-              fontWeight: 900,
-              color: "white",
-              letterSpacing: "0.05em",
-              textShadow: "1px 1px 0px #E50914, 2px 2px 0px #B20710",
-              opacity: 0.9,
-            }}
-          >
+        <div className="flex flex-1 items-center justify-end gap-4">
+          <span className="hidden font-bebas text-2xl font-black tracking-wider text-white opacity-90 [text-shadow:1px_1px_0px_#0EA5E9,2px_2px_0px_#0284C7] md:block">
             OCEAN DRAMA
-          </Typography>
+          </span>
           <IconButton
+            plain
             onClick={() => setSearchOpen(true)}
-            sx={{
-              color: "white",
-              bgcolor: "rgba(255,255,255,0.08)",
-              backdropFilter: "blur(8px)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              "&:hover": { bgcolor: "rgba(255,255,255,0.15)", borderColor: "rgba(255,255,255,0.2)" },
-            }}
+            className="border border-white/10 bg-white/[0.08] text-white backdrop-blur-md transition-colors hover:border-white/20 hover:bg-white/[0.15]"
           >
-            <Search />
+            <Search size={20} />
           </IconButton>
-        </Box>
-      </Stack>
+        </div>
+      </div>
 
       {/* ── Search Component ───────────────────────────────────── */}
       <SearchVideo open={searchOpen} onClose={() => setSearchOpen(false)} />
 
       {/* ── Volume Control ─────────────────────────────────────── */}
-      <Box
-        sx={{
-          position: "fixed",
-          top: 24,
-          left: 24,
-          zIndex: 30,
-          display: "flex",
-          alignItems: "center",
-          gap: 1,
-          background: "rgba(17, 18, 23, 0.6)",
-          backdropFilter: "blur(16px)",
-          borderRadius: "99px",
-          px: showVolumeSlider ? 2 : 1,
-          py: 1,
-          border: "1px solid rgba(255,255,255,0.08)",
-          boxShadow: showVolumeSlider ? "0 0 20px rgba(229,9,20,0.2)" : "0 4px 24px rgba(0,0,0,0.4)",
-          transition: "all 0.4s cubic-bezier(0.4,0,0.2,1)",
-          overflow: "hidden",
-          maxWidth: showVolumeSlider ? 240 : 52,
-        }}
+      <div
+        className={`fixed left-6 top-6 z-30 flex items-center gap-2 overflow-hidden rounded-full border border-white/[0.08] bg-[#111217]/60 py-2 backdrop-blur-lg transition-all duration-[400ms] ease-in-out ${
+          showVolumeSlider
+            ? "px-4 shadow-[0_0_20px_rgba(14,165,233,0.2)]"
+            : "px-2 shadow-[0_4px_24px_rgba(0,0,0,0.4)]"
+        }`}
+        style={{ maxWidth: showVolumeSlider ? 240 : 52 }}
       >
         <Tooltip title={muted ? "Unmute" : "Mute"} placement="right">
           <IconButton
-            size="small"
+            plain
+            size="sm"
             onClick={handleVolumeIconClick}
-            sx={{
-              color: "white",
-              p: 0.75,
-              transition: "all 0.2s ease",
-              "&:hover": { color: "#E50914", transform: "scale(1.1)" },
-            }}
+            className="text-white transition-all duration-200 hover:scale-110 hover:text-primary"
           >
-            <VolumeIcon sx={{ fontSize: 24 }} />
+            <VolumeIconComp size={24} />
           </IconButton>
         </Tooltip>
 
         {showVolumeSlider && (
-          <Box sx={{ width: 140, display: "flex", alignItems: "center", pr: 1 }}>
-            <Slider
-              size="small"
-              value={muted ? 0 : volume}
+          <div className="flex w-[140px] items-center pr-2">
+            <input
+              type="range"
               min={0}
               max={1}
               step={0.01}
-              onChange={handleVolumeChange}
+              value={muted ? 0 : volume}
+              onChange={(e) => handleVolumeChange(Number(e.target.value))}
               onMouseEnter={resetHideTimer}
-              sx={{
-                color: "#E50914",
-                "& .MuiSlider-thumb": {
-                  width: 12,
-                  height: 12,
-                  bgcolor: "white",
-                  boxShadow: "0 0 10px rgba(229,9,20,0.5)",
-                },
-                "& .MuiSlider-rail": { opacity: 0.2, bgcolor: "white" },
-              }}
+              className="h-1 w-full cursor-pointer appearance-none rounded-full bg-white/20 accent-primary"
             />
-          </Box>
+          </div>
         )}
-      </Box>
+      </div>
 
       {/* ── Active Content ────────────────────────────────────── */}
-      <Box sx={{ height: "100%", width: "100%" }}>
-        {renderContent()}
-      </Box>
-    </Box>
+      <div className="h-full w-full">{renderContent()}</div>
+    </div>
   );
 };
 

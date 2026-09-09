@@ -1,38 +1,40 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
-  Box, Card, Typography, Button, TextField, Switch, FormControlLabel,
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  IconButton, Dialog, DialogTitle, DialogContent, DialogActions,
-  Chip, CircularProgress, Alert, Paper,
-  Stack, Avatar, Grid,
-  LinearProgress,
-  useTheme, useMediaQuery, CardContent, CardActions
-} from '@mui/material'
-import { 
-  Add, Edit, Delete, ArrowBack, PlayArrow, FolderSpecial, 
-  Close, Visibility, UploadFile, VideoFile, CheckCircle, 
-  CloudUpload, WorkspacePremium, AccessTime, Lock, LockOpen 
-} from '@mui/icons-material'
+  Plus, Edit2, Trash2, ArrowLeft, Play, Folder,
+  X, Eye, Upload, FileVideo, CheckCircle,
+  UploadCloud, Crown, Clock, Lock, Unlock, Loader2,
+} from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import type { Episode } from '@/app/types'
-import toast from 'react-hot-toast'
+import toast from '@/app/utils/toast'
 import { episodeApi } from '@/app/api/episode.service'
 import HLSPlayer from '@/app/module/client/library/components/HLSPlayer'
 import { useProcessingStatus } from '@/app/utils/useProcessingStatus'
 import { useAuthStore } from '@/app/stores/authStore'
 import { useSubscriptionStore } from '@/app/stores/subscriptionStore'
+import {
+  AdminLTE, ContentHeader, AdminCard, SmallBox, LteBadge, ProgressBar, LteDialog,
+  type LteColor,
+} from '@/app/module/shared/adminlte'
+import { RouteLoader } from '@/_ocean/ui'
 
 const schema = z.object({
   episode_number: z.coerce.number().min(1),
   title: z.string().min(1, 'Required'),
   duration: z.coerce.number().min(1, 'Duration in seconds'),
-  price: z.coerce.number().min(0).optional(),
-  is_free: z.boolean().optional(),
 })
 type FormData = z.infer<typeof schema>
+
+const STATUS_COLOR: Record<string, LteColor> = {
+  READY:       'success',
+  TRANSCODING: 'info',
+  UPLOADING:   'info',
+  PENDING:     'warning',
+  FAILED:      'danger',
+}
 
 function fmtDuration(s: number) {
   const m = Math.floor(s / 60)
@@ -40,15 +42,109 @@ function fmtDuration(s: number) {
   return `${m}:${sec.toString().padStart(2, '0')}`
 }
 
+type VideoThumbnailProps = {
+  file: File | null
+  thumbnailUrl?: string
+  videoUrl?: string
+  label: string
+}
+
+/**
+ * Uses the first useful frame of a newly selected video as its local cover.
+ * Once the upload is processed, the API-provided episode thumbnail takes over.
+ */
+function VideoThumbnail({ file, thumbnailUrl, videoUrl, label }: VideoThumbnailProps) {
+  const [localSource, setLocalSource] = useState('')
+  const [generatedThumbnail, setGeneratedThumbnail] = useState('')
+  const [videoFailed, setVideoFailed] = useState(false)
+
+  useEffect(() => {
+    if (!file) {
+      setLocalSource('')
+      return
+    }
+
+    const source = URL.createObjectURL(file)
+    setLocalSource(source)
+    return () => URL.revokeObjectURL(source)
+  }, [file])
+
+  useEffect(() => {
+    setGeneratedThumbnail('')
+    setVideoFailed(false)
+    if (!localSource) return
+
+    const video = document.createElement('video')
+    video.muted = true
+    video.playsInline = true
+    video.preload = 'metadata'
+    video.src = localSource
+
+    const capture = () => {
+      if (!video.videoWidth || !video.videoHeight) return
+      const canvas = document.createElement('canvas')
+      canvas.width = video.videoWidth
+      canvas.height = video.videoHeight
+      const context = canvas.getContext('2d')
+      if (!context) return
+      context.drawImage(video, 0, 0, canvas.width, canvas.height)
+      setGeneratedThumbnail(canvas.toDataURL('image/jpeg', 0.82))
+    }
+
+    const handleMetadata = () => {
+      if (Number.isFinite(video.duration) && video.duration > 0) {
+        video.currentTime = Math.min(1, video.duration / 2)
+      } else {
+        capture()
+      }
+    }
+
+    video.addEventListener('loadedmetadata', handleMetadata)
+    video.addEventListener('seeked', capture, { once: true })
+    video.addEventListener('error', () => setVideoFailed(true), { once: true })
+    video.load()
+
+    return () => {
+      video.pause()
+      video.removeAttribute('src')
+      video.load()
+    }
+  }, [localSource])
+
+  const source = localSource || videoUrl
+  const image = generatedThumbnail || (!file ? thumbnailUrl : '')
+
+  return (
+    <div className="episode-media-thumbnail" aria-label={label}>
+      {image && !videoFailed ? (
+        <img src={image} alt="" onError={() => setVideoFailed(true)} />
+      ) : source && !videoFailed ? (
+        <video src={source} muted playsInline preload="metadata" />
+      ) : (
+        <FileVideo size={28} />
+      )}
+      <span className="episode-media-thumbnail-label">{label}</span>
+      {file && <span className="episode-media-thumbnail-badge">New thumbnail</span>}
+    </div>
+  )
+}
+
 export default function EpisodesPage() {
   const { videoId } = useParams<{ videoId: string }>()
   const navigate = useNavigate()
+
+  // Reachable from both My Videos and Browse, so go back the way we came in.
+  // `history.state.idx` is 0 when this page was opened directly by URL.
+  const goBack = () => {
+    if (window.history.state?.idx > 0) navigate(-1)
+    else navigate('/dashboard/videos')
+  }
+
   const { role } = useAuthStore()
   const { subscription } = useSubscriptionStore()
   const isAdmin = role === 'admin'
   const isPremium = subscription?.status === 'active'
   const canUploadFull = isAdmin || isPremium
-  const isViewer = role === 'viewer'
   const [episodes, setEpisodes] = useState<Episode[]>([])
   const [totalEpisodes, setTotalEpisodes] = useState(0)
   const [videoTitle, setVideoTitle] = useState('')
@@ -61,26 +157,24 @@ export default function EpisodesPage() {
   const [currentVideoType, setCurrentVideoType] = useState<'preview' | 'full'>('full')
   const [currentEpisodeId, setCurrentEpisodeId] = useState<number | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const [isFree, setIsFree] = useState(false)
+  const [isFullFree, setIsFullFree] = useState(false)
 
   const [previewFile, setPreviewFile] = useState<File | null>(null)
   const [fullFile, setFullFile] = useState<File | null>(null)
   const [uploadProgress, setUploadProgress] = useState(0)
-  
+  const uploadToastId = useRef<string | null>(null)
+  const processingEpisodeId = useRef<number | null>(null)
+
   const processingStatus = useProcessingStatus()
-  const theme = useTheme()
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { is_free: false, duration: 60, price: 0 },
+    defaultValues: { duration: 60 },
   })
 
-  // ... [Your existing logic and APIs underneath remain completely unchanged]
-
-  const load = useCallback(async () => {
+  const load = useCallback(async (withLoader = true) => {
     if (!videoId) return
-    setLoading(true)
+    if (withLoader) setLoading(true)
     try {
       const eps = await episodeApi.list(Number(videoId), { limit: 100 }) as unknown as {
         video_title: string; total: number; data: Episode[]
@@ -89,10 +183,51 @@ export default function EpisodesPage() {
       setTotalEpisodes(eps.total || eps.data.length || 0)
       setEpisodes(eps.data || [])
     } catch { }
-    setLoading(false)
+    if (withLoader) setLoading(false)
   }, [videoId])
 
   useEffect(() => { load() }, [load])
+
+  // Keep one toast alive from the browser upload through background HLS work.
+  // Socket events update this immediately; the processing hook falls back to polling.
+  useEffect(() => {
+    const id = uploadToastId.current
+    if (!id || processingStatus.status === 'idle') return
+
+    if (processingStatus.status === 'READY' || processingStatus.isReady) {
+      toast.success('Video processing complete — thumbnail is ready', { id })
+      uploadToastId.current = null
+      void load(false)
+      return
+    }
+
+    if (processingStatus.status === 'FAILED') {
+      toast.error(processingStatus.error || 'Video processing failed', { id })
+      uploadToastId.current = null
+      return
+    }
+
+    toast.loading(
+      `Processing video · ${processingStatus.status.toLowerCase()} · ${processingStatus.progress}%`,
+      { id },
+    )
+  }, [load, processingStatus.error, processingStatus.isReady, processingStatus.progress, processingStatus.status])
+
+  useEffect(() => {
+    const episodeId = processingEpisodeId.current
+    const status = processingStatus.status
+    if (!episodeId || status === 'idle') return
+
+    setEpisodes(current => current.map(episode => (
+      episode.episode_id === episodeId
+        ? {
+            ...episode,
+            status: processingStatus.isReady ? 'READY' : status,
+            progress: processingStatus.progress,
+          }
+        : episode
+    )))
+  }, [processingStatus.isReady, processingStatus.progress, processingStatus.status])
 
   const handlePlayVideo = (epId: number, url: string, title: string, type: 'preview' | 'full') => {
     setCurrentEpisodeId(epId)
@@ -102,24 +237,33 @@ export default function EpisodesPage() {
     setVideoPlayerOpen(true)
   }
 
+  const closePlayer = () => {
+    setVideoPlayerOpen(false)
+    setCurrentVideoUrl('')
+  }
+
   const openCreate = () => {
     setEditEp(null)
+    processingEpisodeId.current = null
     setPreviewFile(null)
     setFullFile(null)
     setUploadProgress(0)
     processingStatus.reset()
-    setIsFree(false)
-    reset({ episode_number: episodes.length + 1, title: '', duration: 60, price: 0, is_free: false })
+    setIsFullFree(false)
+    reset({ episode_number: episodes.length + 1, title: '', duration: 60 })
     setDialogOpen(true)
   }
 
   const openEdit = (ep: Episode) => {
     setEditEp(ep)
+    processingEpisodeId.current = null
     setPreviewFile(null)
     setFullFile(null)
     setUploadProgress(0)
     processingStatus.reset()
-    setIsFree(false)
+    // Seed the toggle from the episode being edited — resetting it to false here
+    // silently demoted every free episode to paid on save.
+    setIsFullFree(ep.is_full_free === true)
     reset({ episode_number: ep.episode_number, title: ep.title, duration: ep.duration })
     setDialogOpen(true)
   }
@@ -127,34 +271,64 @@ export default function EpisodesPage() {
   const onSubmit = async (data: FormData) => {
     setSubmitting(true)
     setUploadProgress(0)
+    const uploaded = Boolean(previewFile || fullFile)
+    const toastId = uploaded ? `episode-upload-${videoId || 'new'}-${editEp?.episode_id || 'new'}-${Date.now()}` : null
+    const uploadLabel = previewFile && fullFile
+      ? 'preview and full videos'
+      : previewFile
+        ? 'preview video'
+        : 'full video'
+
+    if (toastId) {
+      uploadToastId.current = toastId
+      toast.loading(`Uploading ${uploadLabel} · 0%`, { id: toastId })
+    }
+
+    const handleUploadProgress = (pct: number) => {
+      setUploadProgress(pct)
+      if (toastId) toast.loading(`Uploading ${uploadLabel} · ${pct}%`, { id: toastId })
+    }
+
     try {
       const fd = new window.FormData()
       fd.append('episode_number', String(data.episode_number))
       fd.append('title', data.title)
       fd.append('duration', String(data.duration))
-      if (data.price !== undefined) fd.append('price', String(data.price))
-      fd.append('is_free', String(isFree))
-      
+      // The API reads `is_full_free`; episodes carry no price of their own.
+      fd.append('is_full_free', String(isFullFree))
+
       if (previewFile) fd.append('preview_video', previewFile)
       if (fullFile) fd.append('full_video', fullFile)
 
-      let result;
+      let result
       if (editEp) {
-        result = await episodeApi.update(editEp.episode_id, fd, (pct) => setUploadProgress(pct))
-        toast.success('Episode updated')
+        result = await episodeApi.update(editEp.episode_id, fd, handleUploadProgress)
       } else {
-        result = await episodeApi.create(Number(videoId), fd, (pct) => setUploadProgress(pct))
-        toast.success('Episode created successfully, processing started')
+        result = await episodeApi.create(Number(videoId), fd, handleUploadProgress)
       }
 
-      if (result && result.episode_id) {
+      // Only a new upload kicks off transcoding — a metadata-only edit is done,
+      // so close out instead of polling a job that will never start.
+      if (uploaded && result?.episode_id) {
+        processingEpisodeId.current = result.episode_id
+        if (toastId) toast.loading('Upload complete · waiting for video processing · 0%', { id: toastId })
         processingStatus.startPolling(result.episode_id)
+      } else {
+        toast.success(editEp ? 'Episode updated' : 'Episode created successfully', toastId ? { id: toastId } : undefined)
+        uploadToastId.current = null
+        setDialogOpen(false)
       }
-      
-      load()
+
+      await load(false)
     } catch (err: any) {
       console.error(err)
-      toast.error('Failed to save episode')
+      const message = err?.response?.data?.message || 'Failed to save episode'
+      if (toastId) {
+        toast.error(message, { id: toastId })
+        uploadToastId.current = null
+      } else {
+        toast.error(message)
+      }
     } finally {
       setSubmitting(false)
     }
@@ -163,6 +337,7 @@ export default function EpisodesPage() {
   const handleCloseDialog = () => {
     if (submitting) return
     setDialogOpen(false)
+    processingEpisodeId.current = null
     processingStatus.stop()
   }
 
@@ -175,477 +350,385 @@ export default function EpisodesPage() {
     } catch { }
   }
 
-  if (loading) return (
-    <Box sx={{ display: 'flex', justifyContent: 'center', py: 12 }}>
-      <CircularProgress thickness={5} />
-    </Box>
-  )
+  if (loading) return <RouteLoader />
+
+  const freeCount  = episodes.filter(ep => ep.is_full_free).length
+  const readyCount = episodes.filter(ep => ep.status === 'READY').length
+  const runtime    = episodes.reduce((sum, ep) => sum + (ep.duration || 0), 0)
 
   return (
-    <Box sx={{ px: isMobile ? 2 : 0, pb: isMobile ? 8 : 0 }}>
-      {/* Header section optimized for mobile stack */}
-      <Box sx={{ 
-        display: 'flex', 
-        flexDirection: isMobile ? 'column' : 'row', 
-        alignItems: isMobile ? 'stretch' : 'center', 
-        gap: 2, 
-        mb: isMobile ? 3 : 6 
-      }}>
-        <Stack direction="row" spacing={2} alignItems="center" sx={{ flex: 1 }}>
-          <IconButton
-            onClick={() => navigate('/dashboard/videos')}
-            sx={{ bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: '12px' }}
-          >
-            <ArrowBack fontSize="small" />
-          </IconButton>
-          <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography variant={isMobile ? "h5" : "h3"} sx={{ fontWeight: 800, letterSpacing: '-1px', mb: 0.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {videoTitle}
-            </Typography>
-            {!isMobile && (
-              <Typography color="text.secondary" variant="body1">
-                Manage episodes and content delivery for this series.
-              </Typography>
-            )}
-          </Box>
-        </Stack>
-        <Button
-          variant="contained"
-          startIcon={<Add />}
-          onClick={openCreate}
-          fullWidth={isMobile}
-          sx={{ borderRadius: '12px', px: 3, py: isMobile ? 1.5 : 1.2, fontWeight: 700 }}
-        >
-          Add Episode
-        </Button>
-      </Box>
+    <AdminLTE className="-m-2 min-h-full rounded-[24px] p-3 md:-m-4 md:rounded-[18px] md:p-5">
+      <ContentHeader
+        title={videoTitle}
+        description="Manage episodes and content delivery for this series."
+        breadcrumb={[
+          { label: 'Dashboard', to: '/dashboard' },
+          { label: 'Videos', to: '/dashboard/videos' },
+          { label: 'Episodes' },
+        ]}
+        actions={
+          <>
+            <button type="button" className="btn btn-default" onClick={goBack}>
+              <ArrowLeft size={16} /> Back
+            </button>
+            <button type="button" className="btn btn-primary" onClick={openCreate}>
+              <Plus size={16} /> Add Episode
+            </button>
+          </>
+        }
+      />
 
-      {/* Stats section */}
-      <Grid container spacing={isMobile ? 2 : 3} sx={{ mb: 4 }}>
-        <Grid item xs={12} md={4}>
-          <Paper elevation={0} sx={{ p: 2.5, borderRadius: '20px', border: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Avatar sx={{ bgcolor: 'primary.light', color: 'primary.main', borderRadius: '12px' }}><FolderSpecial /></Avatar>
-            <Box>
-              <Typography variant="h6" fontWeight={800}>{totalEpisodes}</Typography>
-              <Typography variant="caption" color="text.secondary" fontWeight={600}>Total Episodes</Typography>
-            </Box>
-          </Paper>
-        </Grid>
-        <Grid item xs={12} md={8}>
-          <Alert severity="info" sx={{ borderRadius: '16px', border: '1px solid', borderColor: 'info.light', bgcolor: 'info.lighter' }}>
-            <Typography variant="body2" fontWeight={600}>🚀 Asynchronous Processing Enabled:</Typography>
-            Episodes support direct multipart upload. The server will process HLS in the background.
-          </Alert>
-        </Grid>
-      </Grid>
+      {/* Stat row */}
+      <div className="grid grid-cols-1 gap-x-4 sm:grid-cols-2 lg:grid-cols-4">
+        <SmallBox color="info" value={totalEpisodes} label="Total episodes" icon={<Folder size={48} />} />
+        <SmallBox color="success" value={readyCount} label="Ready to stream" icon={<CheckCircle size={48} />} />
+        <SmallBox color="warning" value={freeCount} label="Free episodes" icon={<Unlock size={48} />} />
+        <SmallBox color="purple" value={fmtDuration(runtime)} label="Total runtime" icon={<Clock size={48} />} />
+      </div>
 
-      {/* Mobile list view vs Desktop table view */}
-      {episodes.length === 0 ? (
-        <Card elevation={0} sx={{ borderRadius: '24px', border: '1px solid', borderColor: 'divider' }}>
-          <Box sx={{ py: 10, textAlign: 'center' }}>
-            <Stack spacing={2} alignItems="center">
-              <PlayArrow sx={{ fontSize: 60, color: 'text.disabled', opacity: 0.3 }} />
-              <Typography variant="h6" fontWeight={700}>No episodes yet</Typography>
-              <Button variant="outlined" sx={{ borderRadius: '10px' }} onClick={openCreate}>Add First Episode</Button>
-            </Stack>
-          </Box>
-        </Card>
-      ) : isMobile ? (
-        <Stack spacing={2}>
-          {episodes.map(ep => (
-            <Card key={ep.episode_id} sx={{ borderRadius: '16px', border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
-              <CardContent sx={{ pb: 1, pt: 2, px: 2 }}>
-                <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-                  <Box sx={{ pr: 1 }}>
-                    <Typography variant="caption" sx={{ fontWeight: 800, color: 'primary.main' }}>
-                      EPISODE {ep.episode_number.toString().padStart(2, '0')}
-                    </Typography>
-                    <Typography variant="subtitle1" fontWeight={700} sx={{ mt: 0.5, lineHeight: 1.2 }}>
-                      {ep.title}
-                    </Typography>
-                  </Box>
-                  <Stack direction="row" spacing={0.5}>
-                    <IconButton size="small" onClick={() => openEdit(ep)} sx={{ bgcolor: 'action.hover' }}><Edit fontSize="small" /></IconButton>
-                    <IconButton size="small" color="error" onClick={() => handleDelete(ep.episode_id)} sx={{ bgcolor: 'error.lighter' }}><Delete fontSize="small" /></IconButton>
-                  </Stack>
-                </Stack>
-                
-                <Stack direction="row" spacing={2} sx={{ mt: 2, alignItems: 'center' }}>
-                  <Stack direction="row" spacing={0.5} alignItems="center">
-                    <AccessTime sx={{ fontSize: 16, color: 'text.secondary' }} />
-                    <Typography variant="body2" color="text.secondary" fontWeight={600}>{fmtDuration(ep.duration)}</Typography>
-                  </Stack>
-                  <Box>
-                     {ep.has_access ? (
-                       <Chip label="Has Access" size="small" color="success" icon={<LockOpen sx={{ fontSize: '14px !important'}} />} sx={{ fontWeight: 700, borderRadius: '6px', height: 24 }} />
-                     ) : (
-                       <Chip label="Locked" size="small" variant="outlined" icon={<Lock sx={{ fontSize: '14px !important'}}/>} sx={{ fontWeight: 700, borderRadius: '6px', height: 24 }} />
-                     )}
-                  </Box>
-                </Stack>
-              </CardContent>
-              <CardActions sx={{ px: 2, pb: 2, pt: 1 }}>
-                <Stack direction="row" spacing={1} sx={{ width: '100%' }}>
-                  <Button
-                    fullWidth
-                    size="small"
-                    onClick={ep.preview_video_url ? () => handlePlayVideo(ep.episode_id, ep.preview_video_url as string, `Preview · ${ep.title}`, 'preview') : undefined}
-                    startIcon={<Visibility />}
-                    variant={ep.preview_video_url ? 'contained' : 'outlined'}
-                    color={ep.preview_video_url ? 'success' : 'inherit'}
-                    disabled={!ep.preview_video_url}
-                    sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 700, boxShadow: 'none' }}
-                  >
-                    Preview
-                  </Button>
-                  <Button
-                    fullWidth
-                    size="small"
-                    onClick={ep.full_video_url ? () => handlePlayVideo(ep.episode_id, ep.full_video_url!, `Full · ${ep.title}`, 'full') : undefined}
-                    startIcon={<PlayArrow />}
-                    variant={ep.full_video_url ? 'contained' : 'outlined'}
-                    color={ep.full_video_url ? 'primary' : 'inherit'}
-                    disabled={!ep.full_video_url}
-                    sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 700, boxShadow: 'none' }}
-                  >
-                    Watch Full
-                  </Button>
-                </Stack>
-              </CardActions>
-            </Card>
-          ))}
-        </Stack>
-      ) : (
-        <Card elevation={0} sx={{ borderRadius: '24px', border: '1px solid', borderColor: 'divider' }}>
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow sx={{ bgcolor: 'action.hover' }}>
-                  <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', py: 2 }}>#</TableCell>
-                  <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' }}>Title</TableCell>
-                  <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' }}>Runtime</TableCell>
-                  <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' }}>Videos</TableCell>
-                  <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' }}>Access</TableCell>
-                  <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' }}>Created At</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' }}>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {episodes.map((ep) => (
-                  <TableRow key={ep.episode_id} hover sx={{ '&:last-child td': { border: 0 } }}>
-                    <TableCell>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'primary.main' }}>
-                        {ep.episode_number.toString().padStart(2, '0')}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" fontWeight={700}>{ep.title}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" color="text.secondary" fontWeight={600}>{fmtDuration(ep.duration)}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Stack direction="row" spacing={1}>
-                        <Chip
-                          onClick={ep.preview_video_url ? () => handlePlayVideo(ep.episode_id, ep.preview_video_url as string, `Preview · ${ep.title}`, 'preview') : undefined}
-                          label="Preview"
-                          size="small"
-                          icon={<Visibility sx={{ fontSize: '14px !important' }} />}
-                          color={ep.preview_video_url ? 'success' : 'default'}
-                          variant={ep.preview_video_url ? 'filled' : 'outlined'}
-                          sx={{ fontWeight: 700, cursor: ep.preview_video_url ? 'pointer' : 'default' }}
-                        />
-                        <Chip
-                          onClick={ep.full_video_url ? () => handlePlayVideo(ep.episode_id, ep.full_video_url!, `Full · ${ep.title}`, 'full') : undefined}
-                          label="Full"
-                          size="small"
-                          icon={<PlayArrow sx={{ fontSize: '14px !important' }} />}
-                          color={ep.full_video_url ? 'primary' : 'default'}
-                          variant={ep.full_video_url ? 'filled' : 'outlined'}
-                          sx={{ fontWeight: 700, cursor: ep.full_video_url ? 'pointer' : 'default' }}
-                        />
-                      </Stack>
-                    </TableCell>
-                    <TableCell>
-                      {ep.has_access ? (
-                        <Chip label="Has Access" size="small" color="success" sx={{ fontWeight: 700, borderRadius: '8px' }} />
+      <AdminCard
+        title="Episodes"
+        icon={<Play size={16} />}
+        bodyClassName="p-0"
+        tools={
+          <button type="button" className="btn btn-primary btn-sm" onClick={openCreate}>
+            <Plus size={14} /> Add Episode
+          </button>
+        }
+        footer={
+          <span className="lte-text-muted text-sm">
+            Asynchronous processing is enabled — uploads are transcoded to HLS in the background.
+          </span>
+        }
+      >
+        {episodes.length === 0 ? (
+          <div className="empty-state">
+            <Play size={56} className="mx-auto opacity-40" />
+            <h2>No episodes yet</h2>
+            <p>Add the first episode to start building this series.</p>
+            <button type="button" className="btn btn-primary mt-3" onClick={openCreate}>
+              <Plus size={14} /> Add First Episode
+            </button>
+          </div>
+        ) : (
+          <div className="table-responsive">
+            <table className="table table-hover table-striped">
+              <thead>
+                <tr>
+                  <th style={{ width: 60 }}>#</th>
+                  <th>Title</th>
+                  <th style={{ width: 100 }}>Runtime</th>
+                  <th style={{ width: 170 }}>Status</th>
+                  <th style={{ width: 160 }}>Videos</th>
+                  <th style={{ width: 110 }}>Access</th>
+                  <th style={{ width: 110 }}>Created</th>
+                  <th style={{ width: 110, textAlign: 'right' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {episodes.map(ep => (
+                  <tr key={ep.episode_id}>
+                    <td className="lte-text-primary lte-text-bold">
+                      {ep.episode_number.toString().padStart(2, '0')}
+                    </td>
+                    <td className="lte-text-bold">{ep.title}</td>
+                    <td>{fmtDuration(ep.duration)}</td>
+                    <td>
+                      {ep.status ? (
+                        <>
+                          <LteBadge color={STATUS_COLOR[ep.status] ?? 'secondary'}>{ep.status}</LteBadge>
+                          {ep.status !== 'READY' && ep.status !== 'FAILED' && (
+                            <ProgressBar
+                              value={ep.progress || 0}
+                              size="xs"
+                              color={STATUS_COLOR[ep.status] ?? 'primary'}
+                            />
+                          )}
+                        </>
                       ) : (
-                        <Chip label="Locked" size="small" variant="outlined" sx={{ fontWeight: 700, borderRadius: '8px' }} />
+                        <span className="lte-text-muted">—</span>
                       )}
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" color="text.secondary" fontWeight={600}>
-                        {ep.created_at ? new Date(ep.created_at).toLocaleDateString() : 'N/A'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="right">
-                      <Stack direction="row" spacing={1} justifyContent="flex-end">
-                        <IconButton size="small" onClick={() => openEdit(ep)} sx={{ bgcolor: 'action.hover' }}><Edit fontSize="small" /></IconButton>
-                        <IconButton size="small" color="error" onClick={() => handleDelete(ep.episode_id)} sx={{ bgcolor: 'error.lighter' }}><Delete fontSize="small" /></IconButton>
-                      </Stack>
-                    </TableCell>
-                  </TableRow>
+                    </td>
+                    <td>
+                      <div className="flex gap-1.5">
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-primary"
+                          disabled={!ep.preview_video_url}
+                          onClick={() => handlePlayVideo(ep.episode_id, ep.preview_video_url, `Preview - ${ep.title}`, 'preview')}
+                        >
+                          <Eye size={13} /> Preview
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-primary"
+                          disabled={!ep.full_video_url}
+                          onClick={() => handlePlayVideo(ep.episode_id, ep.full_video_url!, `Full - ${ep.title}`, 'full')}
+                        >
+                          <Play size={13} /> Full
+                        </button>
+                      </div>
+                    </td>
+                    <td>
+                      {ep.has_access ? (
+                        <LteBadge color="success"><Unlock size={11} /> Open</LteBadge>
+                      ) : (
+                        <LteBadge color="secondary"><Lock size={11} /> Locked</LteBadge>
+                      )}
+                    </td>
+                    <td>{ep.created_at ? new Date(ep.created_at).toLocaleDateString() : 'N/A'}</td>
+                    <td style={{ textAlign: 'right' }}>
+                      <div className="flex justify-end gap-1">
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-default"
+                          onClick={() => openEdit(ep)}
+                          aria-label={`Edit episode ${ep.episode_number}`}
+                        >
+                          <Edit2 size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-danger"
+                          onClick={() => handleDelete(ep.episode_id)}
+                          aria-label={`Delete episode ${ep.episode_number}`}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
                 ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Card>
-      )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </AdminCard>
 
-      {/* ─── Add/Edit Episode Dialog ─────────────────────────────────── */}
-      <Dialog
+
+      {/* Add / Edit Episode dialog. LteDialog renders inline at z-index 1400,
+          above the shell's header (1100) and sidebar (1200). */}
+      <LteDialog
         open={dialogOpen}
         onClose={handleCloseDialog}
-        maxWidth="md"
-        fullWidth
-        fullScreen={isMobile}
-        PaperProps={{ sx: { borderRadius: isMobile ? 0 : '24px', p: isMobile ? 0 : 1 } }}
+        size="lg"
+        icon={editEp ? <Edit2 size={18} /> : <Plus size={18} />}
+        title={editEp ? `Edit Episode ${editEp.episode_number}` : 'Add New Episode'}
       >
-        <DialogTitle component="div" sx={{ fontWeight: 800, fontSize: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          {editEp ? `Edit Episode ${editEp.episode_number}` : 'Add New Episode'}
-          <IconButton size="small" onClick={handleCloseDialog} disabled={submitting}>
-            <Close fontSize="small" />
-          </IconButton>
-        </DialogTitle>
-        <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ display: 'flex', flexDirection: 'column', height: isMobile ? '100%' : 'auto' }}>
-          <DialogContent sx={{ flex: 1 }}>
-            <Grid container spacing={isMobile ? 4 : 3}>
-              {/* Left column: Metadata */}
-              <Grid item xs={12} md={5}>
-                <Stack spacing={3}>
-                  <Typography variant="overline" fontWeight={800} color="text.secondary">
-                    Episode Details
-                  </Typography>
+        <form onSubmit={handleSubmit(onSubmit)}>
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="ep-number">Episode #</label>
+              <input
+                id="ep-number"
+                type="number"
+                min={1}
+                className={`form-control ${errors.episode_number ? 'is-invalid' : ''}`}
+                {...register('episode_number')}
+              />
+              {errors.episode_number && <span className="invalid-feedback">{errors.episode_number.message}</span>}
+            </div>
+            <div className="form-group">
+              <label htmlFor="ep-duration">Runtime (sec)</label>
+              <input
+                id="ep-duration"
+                type="number"
+                min={1}
+                className={`form-control ${errors.duration ? 'is-invalid' : ''}`}
+                {...register('duration')}
+              />
+              {errors.duration && <span className="invalid-feedback">{errors.duration.message}</span>}
+            </div>
+          </div>
 
-                  <Stack direction="row" spacing={2}>
-                    <TextField
-                      label="Episode #"
-                      type="number"
-                      {...register('episode_number')}
-                      error={!!errors.episode_number}
-                      helperText={errors.episode_number?.message}
-                      sx={{ flex: 1 }}
-                      InputProps={{ inputProps: { min: 1 } }}
-                    />
-                    <TextField
-                      label="Runtime (sec)"
-                      type="number"
-                      {...register('duration')}
-                      error={!!errors.duration}
-                      helperText={errors.duration?.message}
-                      sx={{ flex: 1 }}
-                      InputProps={{ inputProps: { min: 1 } }}
-                    />
-                  </Stack>
+          <div className="form-group">
+            <label htmlFor="ep-title">Episode Title</label>
+            <input
+              id="ep-title"
+              className={`form-control ${errors.title ? 'is-invalid' : ''}`}
+              {...register('title')}
+            />
+            {errors.title && <span className="invalid-feedback">{errors.title.message}</span>}
+          </div>
 
-                  <TextField
-                    label="Episode Title"
-                    fullWidth
-                    {...register('title')}
-                    error={!!errors.title}
-                    helperText={errors.title?.message}
+          <div className="form-group checkbox-list">
+            <label>
+              <input type="checkbox" checked={isFullFree} onChange={e => setIsFullFree(e.target.checked)} />
+              Free episode - viewers can watch the full video without paying
+            </label>
+          </div>
+
+          <div className="selection-row">
+            <p className="lte-text-bold mb-2">Video Content</p>
+
+            {(submitting || uploadProgress > 0) && (
+              <div className="upload-progress">
+                <div>
+                  <span>Uploading to server...</span>
+                  <span>{uploadProgress}%</span>
+                </div>
+                <ProgressBar value={uploadProgress} color="primary" />
+              </div>
+            )}
+
+            {processingStatus.status !== 'idle' && processingStatus.status !== 'READY' && (
+              <div className="upload-progress">
+                <div>
+                  <span className={processingStatus.status === 'FAILED' ? 'lte-text-danger' : 'lte-text-success'}>
+                    {processingStatus.status === 'FAILED' ? 'Processing failed' : `${processingStatus.status}...`}
+                  </span>
+                  <span>{processingStatus.progress}%</span>
+                </div>
+                <ProgressBar
+                  value={processingStatus.progress}
+                  color={processingStatus.status === 'FAILED' ? 'danger' : 'success'}
+                />
+                {processingStatus.error && (
+                  <p className="lte-text-danger mt-1 text-xs">Error: {processingStatus.error}</p>
+                )}
+                {processingStatus.status === 'TRANSCODING' && (
+                  <p className="lte-text-muted mt-1 text-xs">
+                    Generating HLS variants (360p, 480p, 720p, 1080p)...
+                  </p>
+                )}
+              </div>
+            )}
+
+            {processingStatus.isReady && (
+              <p className="lte-text-success lte-text-bold flex items-center gap-2">
+                <CheckCircle size={16} /> Episode is ready for playback.
+              </p>
+            )}
+
+            {!submitting && !processingStatus.isPolling && (
+              <div className="episode-media-grid">
+                <div className="episode-media-field">
+                  <div className="episode-media-heading">
+                    <label htmlFor="ep-preview">Preview Video</label>
+                    <LteBadge color="info"><Eye size={11} /> Thumbnail source</LteBadge>
+                  </div>
+                  <VideoThumbnail
+                    file={previewFile}
+                    thumbnailUrl={editEp?.thumbnail_url}
+                    videoUrl={editEp?.preview_video_url}
+                    label={previewFile ? 'Preview frame' : 'Current preview thumbnail'}
                   />
+                  <label htmlFor="ep-preview" className="btn btn-default w-full justify-start">
+                    <FileVideo size={16} />
+                    {previewFile ? previewFile.name : (editEp?.preview_video_url ? 'Change preview video' : 'Select preview video')}
+                  </label>
+                  <input
+                    id="ep-preview"
+                    type="file"
+                    className="hidden"
+                    accept="video/*"
+                    onChange={e => setPreviewFile(e.target.files?.[0] || null)}
+                  />
+                  <small className="episode-media-help">The processed preview frame is also used as this episode’s thumbnail.</small>
+                </div>
 
-                  <Stack direction="row" spacing={2}>
-                    <Paper sx={{ flex: 1, p: 1.5, borderRadius: '12px', border: '1px solid', borderColor: isFree ? 'success.light' : 'divider', display: 'flex', alignItems: 'center' }}>
-                      <FormControlLabel
-                        control={<Switch checked={isFree} onChange={e => setIsFree(e.target.checked)} color="success" size="small" />}
-                        label={<Typography variant="body2" fontWeight={700}>Free Episode</Typography>}
-                        sx={{ m: 0 }}
-                      />
-                    </Paper>
-                  </Stack>
-                </Stack>
-              </Grid>
-
-              {/* Right column: Upload & Progress */}
-              <Grid item xs={12} md={7}>
-                <Stack spacing={2.5}>
-                  <Typography variant="overline" fontWeight={800} color="text.secondary">
-                    Video Content
-                  </Typography>
-
-                  {/* Combined Upload State UI */}
-                  {(submitting || uploadProgress > 0) && (
-                    <Paper sx={{ p: 2, borderRadius: '16px', border: '1px solid', borderColor: 'primary.light', bgcolor: 'primary.lighter' }}>
-                      <Stack spacing={1}>
-                        <Stack direction="row" justifyContent="space-between">
-                          <Typography variant="caption" fontWeight={800} color="primary.main">
-                            Uploading to Server...
-                          </Typography>
-                          <Typography variant="caption" fontWeight={800}>{uploadProgress}%</Typography>
-                        </Stack>
-                        <LinearProgress variant="determinate" value={uploadProgress} sx={{ height: 8, borderRadius: 4 }} />
-                      </Stack>
-                    </Paper>
-                  )}
-
-                  {/* Processing Status Polling UI */}
-                  {(processingStatus.status !== 'idle' && processingStatus.status !== 'READY') && (
-                    <Paper sx={{ p: 2, borderRadius: '16px', border: '1px solid', borderColor: 'success.light', bgcolor: 'success.lighter' }}>
-                      <Stack spacing={1}>
-                        <Stack direction="row" justifyContent="space-between">
-                          <Typography variant="caption" fontWeight={800} color="success.main">
-                            {processingStatus.status === 'FAILED' ? '❌ Processing Failed' : `⚙️ Processing: ${processingStatus.status}...`}
-                          </Typography>
-                          <Typography variant="caption" fontWeight={800}>{processingStatus.progress}%</Typography>
-                        </Stack>
-                        <LinearProgress 
-                          variant="determinate" 
-                          value={processingStatus.progress} 
-                          color={processingStatus.status === 'FAILED' ? 'error' : 'success'} 
-                          sx={{ height: 6, borderRadius: 3 }} 
-                        />
-                        {processingStatus.error && (
-                          <Typography variant="caption" color="error.main">{processingStatus.error}</Typography>
-                        )}
-                      </Stack>
-                    </Paper>
-                  )}
-
-                  {/* Success UI */}
-                  {processingStatus.isReady && (
-                    <Alert icon={<CheckCircle fontSize="inherit" />} severity="success" sx={{ borderRadius: '12px' }}>
-                      Episode is ready for playback!
-                    </Alert>
-                  )}
-
-                  {/* File Selection Controls */}
-                  {!submitting && !processingStatus.isPolling && (
+                <div className="episode-media-field">
+                  <div className="episode-media-heading">
+                    <label htmlFor="ep-full">Full Video</label>
+                    {canUploadFull && <LteBadge color="success"><UploadCloud size={11} /> Premium upload</LteBadge>}
+                  </div>
+                  <VideoThumbnail
+                    file={fullFile}
+                    thumbnailUrl={previewFile ? '' : editEp?.thumbnail_url}
+                    videoUrl={editEp?.full_video_url}
+                    label={fullFile ? 'Full video frame' : 'Current full video'}
+                  />
+                  {!canUploadFull ? (
+                    <div className="callout">
+                      <p className="lte-text-bold flex items-center gap-2">
+                        <Crown size={16} className="lte-text-warning" /> Full video upload is restricted
+                      </p>
+                      <p className="lte-text-muted text-sm">Become a member to upload full videos.</p>
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm mt-3"
+                        onClick={() => navigate('/subscription-plan')}
+                      >
+                        Upgrade to start business
+                      </button>
+                    </div>
+                  ) : (
                     <>
-                      {/* Preview Picker */}
-                      <Box>
-                        <Typography variant="caption" fontWeight={800} sx={{ mb: 1, display: 'block' }}>Preview Video</Typography>
-                        <Button
-                          component="label"
-                          fullWidth
-                          variant="outlined"
-                          startIcon={<VideoFile />}
-                          sx={{ py: 1.5, borderRadius: '12px', borderStyle: 'dashed' }}
-                        >
-                          {previewFile ? previewFile.name : (editEp?.preview_video_url ? 'Change Preview' : 'Select Preview Video')}
-                          <input type="file" hidden accept="video/*" onChange={e => setPreviewFile(e.target.files?.[0] || null)} />
-                        </Button>
-                      </Box>
-
-                      {/* Full Video Picker */}
-                      <Box>
-                        <Typography variant="caption" fontWeight={800} sx={{ mb: 1, display: 'block' }}>Full Video</Typography>
-                        {!canUploadFull ? (
-                          <Paper 
-                            variant="outlined" 
-                            sx={{ 
-                              p: 2.5, 
-                              borderRadius: '12px', 
-                              borderStyle: 'dashed', 
-                              bgcolor: 'action.hover',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              alignItems: 'center',
-                              gap: 1.5,
-                              textAlign: 'center'
-                            }}
-                          >
-                            <WorkspacePremium color="warning" sx={{ fontSize: 32 }} />
-                            <Box>
-                              <Typography variant="subtitle2" fontWeight={800}>Full Video restricted</Typography>
-                              <Typography variant="caption" color="text.secondary">Become a member to upload full videos.</Typography>
-                            </Box>
-                            <Button 
-                              variant="contained" 
-                              size="small" 
-                              color="warning" 
-                              sx={{ fontWeight: 800, borderRadius: '8px' }}
-                              onClick={() => navigate('/subscription-plan')}
-                            >
-                              Upgrade to start business
-                            </Button>
-                          </Paper>
-                        ) : (
-                          <Button
-                            component="label"
-                            fullWidth
-                            variant="outlined"
-                            startIcon={<CloudUpload />}
-                            sx={{ py: 1.5, borderRadius: '12px', borderStyle: 'dashed' }}
-                          >
-                            {fullFile ? fullFile.name : (editEp?.full_video_url ? 'Change Full Video' : 'Select Full Video')}
-                            <input type="file" hidden accept="video/*" onChange={e => setFullFile(e.target.files?.[0] || null)} />
-                          </Button>
-                        )}
-                      </Box>
+                      <label htmlFor="ep-full" className="btn btn-default w-full justify-start">
+                        <UploadCloud size={16} />
+                        {fullFile ? fullFile.name : (editEp?.full_video_url ? 'Change full video' : 'Select full video')}
+                      </label>
+                      <input
+                        id="ep-full"
+                        type="file"
+                        className="hidden"
+                        accept="video/*"
+                        onChange={e => setFullFile(e.target.files?.[0] || null)}
+                      />
                     </>
                   )}
+                </div>
+              </div>
+            )}
 
-                  {editEp && !previewFile && !fullFile && !submitting && !processingStatus.isPolling && (
-                     <Alert severity="info" variant="outlined" sx={{ borderRadius: '12px' }}>
-                        Leave files empty to keep existing videos.
-                     </Alert>
-                  )}
-                </Stack>
-              </Grid>
-            </Grid>
-          </DialogContent>
-          <DialogActions sx={{ px: 3, pb: isMobile ? 4 : 3, pt: 2, gap: 1, borderTop: isMobile ? '1px solid' : 'none', borderColor: 'divider' }}>
-            <Button onClick={handleCloseDialog} disabled={submitting} sx={{ fontWeight: 700 }} fullWidth={isMobile}>
+            {editEp && !previewFile && !fullFile && !submitting && !processingStatus.isPolling && (
+              <p className="lte-text-muted text-sm">Leave the file pickers empty to keep the existing videos.</p>
+            )}
+          </div>
+
+          <div className="modal-footer">
+            <button type="button" className="btn btn-default" onClick={handleCloseDialog} disabled={submitting}>
               Cancel
-            </Button>
-            <Button
-              type="submit"
-              variant="contained"
-              disabled={submitting}
-              fullWidth={isMobile}
-              startIcon={submitting ? <CircularProgress size={16} color="inherit" /> : <UploadFile />}
-              sx={{ px: 4, borderRadius: '10px', fontWeight: 800 }}
+            </button>
+            <button type="submit" className="btn btn-primary" disabled={submitting}>
+              {submitting
+                ? <><Loader2 size={16} className="animate-spin" /> Saving...</>
+                : <><Upload size={16} /> {editEp ? 'Save Changes' : 'Create Episode'}</>}
+            </button>
+          </div>
+        </form>
+      </LteDialog>
+
+      {/* Video player. Same backdrop contract as LteDialog, but the body is a
+          black stage rather than a padded form. */}
+      {videoPlayerOpen && (
+        <div
+          className="lte-modal-backdrop"
+          role="presentation"
+          onMouseDown={e => e.target === e.currentTarget && closePlayer()}
+        >
+          <section
+            className="lte-modal-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-label={currentVideoTitle}
+            style={{ maxWidth: currentVideoType === 'preview' ? 380 : 920 }}
+          >
+            <div className="lte-modal-header">
+              <h3>{currentVideoTitle}</h3>
+              <button type="button" className="btn-tool" onClick={closePlayer} aria-label="Close player">
+                <X size={20} />
+              </button>
+            </div>
+            <div
+              className="flex w-full items-center justify-center bg-black"
+              style={{ aspectRatio: currentVideoType === 'preview' ? '9/16' : '16/9', maxHeight: '78vh' }}
             >
-              {submitting ? 'Saving...' : editEp ? 'Save Changes' : 'Create Episode'}
-            </Button>
-          </DialogActions>
-        </Box>
-      </Dialog>
-
-      {/* ─── Video Player Dialog ──────────────────────────────────────── */}
-      <Dialog
-        open={videoPlayerOpen}
-        onClose={() => setVideoPlayerOpen(false)}
-        TransitionProps={{ onExited: () => setCurrentVideoUrl('') }}
-        maxWidth={currentVideoType === 'preview' ? 'xs' : 'md'}
-        fullWidth
-        PaperProps={{ sx: { bgcolor: 'black', borderRadius: '16px', overflow: 'hidden', m: isMobile ? 2 : 4 } }}
-      >
-        <DialogTitle component="div" sx={{ color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2 }}>
-          <Typography variant="subtitle1" fontWeight={700}>{currentVideoTitle}</Typography>
-          <IconButton size="small" onClick={() => setVideoPlayerOpen(false)} sx={{ color: 'white' }}>
-            <Close />
-          </IconButton>
-        </DialogTitle>
-        <Box sx={{
-          width: '100%',
-          aspectRatio: currentVideoType === 'preview' ? '9/16' : '16/9',
-          bgcolor: 'black',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          maxHeight: '80vh',
-        }}>
-          {(() => {
-            if (!currentVideoUrl) return (
-              <Typography sx={{ color: 'white' }}>Video not available</Typography>
-            );
-
-            return (
-              <HLSPlayer
-                key={currentVideoUrl + currentEpisodeId}
-                url={currentVideoUrl}
-                episodeId={currentEpisodeId || undefined}
-                type={currentVideoType}
-                autoPlay
-                objectFit={currentVideoType === 'preview' ? 'cover' : 'contain'}
-              />
-            );
-          })()}
-        </Box>
-      </Dialog>
-    </Box>
+              {!currentVideoUrl ? (
+                <p className="text-white">Video not available</p>
+              ) : (
+                <HLSPlayer
+                  key={currentVideoUrl + currentEpisodeId}
+                  url={currentVideoUrl}
+                  episodeId={currentEpisodeId || undefined}
+                  type={currentVideoType}
+                  autoPlay
+                />
+              )}
+            </div>
+          </section>
+        </div>
+      )}
+    </AdminLTE>
   )
 }

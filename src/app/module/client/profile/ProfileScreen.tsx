@@ -1,13 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Container, Grid, useMediaQuery, useTheme } from '@mui/material';
 import { userApi } from '@/app/api/user.service';
 import { useAuthStore } from '@/app/stores/authStore';
 import ProfileContent from './components/ProfileContent';
 import ProfileSidebar from './components/ProfileSidebar';
 
+// Matches MUI's old breakpoints.down('md') threshold (900px) so the isMobile-driven
+// layout swaps below behave exactly as they did before the MUI removal.
+function useIsMobile(breakpointPx = 900) {
+    const [isMobile, setIsMobile] = useState(() => window.innerWidth < breakpointPx);
+
+    useEffect(() => {
+        const mq = window.matchMedia(`(max-width: ${breakpointPx - 0.05}px)`);
+        const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+        setIsMobile(mq.matches);
+        mq.addEventListener('change', handler);
+        return () => mq.removeEventListener('change', handler);
+    }, [breakpointPx]);
+
+    return isMobile;
+}
+
 const ProfileScreen: React.FC = () => {
-    const theme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+    const isMobile = useIsMobile();
     const { user, isAuthenticated, refreshUser } = useAuthStore();
     
     const [watchHistory, setWatchHistory] = useState<any[]>([]);
@@ -35,30 +49,24 @@ const ProfileScreen: React.FC = () => {
     };
 
     return (
-        <Box sx={{
-            minHeight: '100vh',
-            bgcolor: '#0B0B0F',
-            backgroundImage: 'radial-gradient(circle at top, rgba(255,45,45,0.15), transparent 70%)',
-            backgroundAttachment: 'fixed',
-            color: '#FFFFFF',
-            fontFamily: "'Inter', 'Poppins', sans-serif",
-            pb: isMobile ? 12 : 8
-        }}>
-            <Container maxWidth="lg" sx={{ px: isMobile ? 0 : 4, py: isMobile ? 0 : 8 }}>
-                <Grid container spacing={isMobile ? 0 : 4}>
-                    <Grid item xs={12} md={4} lg={3.5}>
+        <div
+            className={`min-h-screen bg-ocean-background-light dark:bg-ocean-background-dark bg-ocean-radial bg-fixed text-ocean-text-primary-light dark:text-ocean-text-primary-dark font-sans ${isMobile ? 'pb-24' : 'pb-16'}`}
+        >
+            <div className={`max-w-6xl mx-auto w-full ${isMobile ? 'px-0 py-0' : 'px-8 py-16'}`}>
+                <div className={`flex flex-col md:flex-row ${isMobile ? 'gap-0' : 'gap-8'}`}>
+                    <div className="md:w-1/3 lg:w-[29%]">
                         <ProfileSidebar isMobile={isMobile} />
-                    </Grid>
-                    <Grid item xs={12} md={8} lg={8.5}>
-                        <ProfileContent 
+                    </div>
+                    <div className="md:flex-1">
+                        <ProfileContent
                             isMobile={isMobile}
                             watchHistory={watchHistory}
                             loading={loading}
                         />
-                    </Grid>
-                </Grid>
-            </Container>
-        </Box>
+                    </div>
+                </div>
+            </div>
+        </div>
     );
 };
 

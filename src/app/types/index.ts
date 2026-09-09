@@ -2,7 +2,7 @@
 
 export type Role = 'viewer' | 'creator' | 'admin'
 export type UserStatus = 'active' | 'suspended' | 'banned' | 'deleted'
-export type VideoStatus = 'pending' | 'published' | 'rejected' | 'ready'
+export type VideoStatus = 'pending' | 'published' | 'rejected' | 'ready' | 'failed'
 export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded'
 export type ReportStatus = 'pending' | 'reviewed' | 'dismissed'
 export type NotificationType = 'new_episode' | 'payment' | 'system' | 'warning'
@@ -78,8 +78,8 @@ export interface AuthResponse {
 export interface VideoRess {
   video_id: number;
   title: string;
-  status: "published" | "pending";
-  creator: string;
+  status: VideoStatus;
+  creator?: string;
   episodes_count: number;
   price: number;
   thumbnail_url?: string;
@@ -142,9 +142,16 @@ export interface Episode {
   title: string
   preview_video_url: string
   full_video_url?: string
+  /** Generated from the preview video after HLS processing. */
+  thumbnail_url?: string
   duration: number
   has_access: boolean
   created_at: string
+  /** Transcoding state — the list endpoint returns these alongside the URLs. */
+  status?: 'PENDING' | 'DOWNLOADING' | 'DOWNLOADED' | 'PROCESSING' | 'UPLOADING' | 'TRANSCODING' | 'READY' | 'FAILED'
+  progress?: number
+  /** The API's own field name for "this episode is free to watch in full". */
+  is_full_free?: boolean
 }
 
 export interface CreateEpisodePayload {

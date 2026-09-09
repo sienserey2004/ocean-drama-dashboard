@@ -1,16 +1,9 @@
 import { lazy, Suspense } from 'react'
 import { RouteObject } from 'react-router-dom'
-import CircularProgress from '@mui/material/CircularProgress'
-import Box from '@mui/material/Box'
+import { RouteLoader as Loader } from '@/_ocean/ui'
 
 const LoginPage    = lazy(() => import('@/app/module/shared/login/LoginPage'))
 const RegisterPage = lazy(() => import('@/app/module/shared/login/RegisterPage'))
-
-const Loader = () => (
-  <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
-    <CircularProgress />
-  </Box>
-)
 
 export const authRoutes: RouteObject[] = [
   {

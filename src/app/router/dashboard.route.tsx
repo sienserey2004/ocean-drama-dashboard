@@ -35,12 +35,12 @@ export const dashboardRoutes: RouteObject[] = [
           { path: 'videos/:videoId/episodes', element: <EpisodesPage /> },
           { path: 'earnings', element: <EarningsPage /> },
           { path: 'profile', element: <ProfilePage /> },
-          { path: 'app-studio', element: <AppStudioDashboard /> },
 
-          // Creator + Admin
+          // Creator + Admin only
           {
             element: <CreatorGuard />,
             children: [
+              { path: 'app-studio', element: <AppStudioDashboard /> },
               { path: 'videos/create', element: <CreateVideoPage /> },
             ],
           },

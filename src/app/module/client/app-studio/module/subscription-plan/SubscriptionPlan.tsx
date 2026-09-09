@@ -1,50 +1,27 @@
 import React, { useEffect, useState } from "react";
-import { 
-  Check, 
-  ShieldCheck, 
+import {
   Sparkles,
   Monitor,
   Heart,
   ChevronLeft,
-  X,
-  RefreshCw,
-  Smartphone
+  ShieldCheck
 } from "lucide-react";
-import { 
-  Box, 
-  Typography, 
-  Stack, 
-  Button, 
-  CircularProgress, 
-  IconButton,
-  Container,
-  Grid,
-  useTheme,
-  useMediaQuery,
-  Dialog,
-  DialogContent,
-  Fade,
-  Avatar,
-  Divider
-} from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { subscriptionApi } from "@/app/api/subscription.service";
 import { SubscriptionPlan as ISubscriptionPlan } from "@/app/types";
-import toast from "react-hot-toast";
+import toast from "@/app/utils/toast";
 import { useSubscriptionStore } from "@/app/stores/subscriptionStore";
+import { IconButton, Spinner } from "@/_ocean/ui";
 import PlanCard from "./components/PlanCard";
 import PaymentModal from "./components/PaymentModal";
 
 const SubscriptionPlan: React.FC = () => {
   const { subscription } = useSubscriptionStore();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
   const navigate = useNavigate();
   const [plans, setPlans] = useState<ISubscriptionPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [hoveredPlan, setHoveredPlan] = useState<number | null>(null);
-  
+
   const [paymentModal, setPaymentModal] = useState<{
     open: boolean;
     qrCode: string | null;
@@ -129,9 +106,9 @@ const SubscriptionPlan: React.FC = () => {
 
     try {
       toast.loading("Initiating Bakong payment...", { id: 'subscribe' });
-      
+
       const res = await subscriptionApi.subscribe(planId, 'bakong');
-      
+
       setPaymentModal({
         open: true,
         qrCode: res.qr_code,
@@ -150,193 +127,102 @@ const SubscriptionPlan: React.FC = () => {
 
   if (loading) {
     return (
-      <Box sx={{ 
-        minHeight: '100vh', 
-        display: 'flex', 
-        flexDirection: 'column',
-        alignItems: 'center', 
-        justifyContent: 'center',
-        gap: 2,
-        background: '#08090C'
-      }}>
-        <CircularProgress color="error" thickness={4} size={40} />
-        <Typography variant="body2" color="white/40">Loading premium plans...</Typography>
-      </Box>
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-ocean-background-light dark:bg-ocean-background-dark">
+        <Spinner size={40} className="text-primary" />
+        <p className="text-sm text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark">Loading premium plans...</p>
+      </div>
     );
   }
 
   return (
-    <Box sx={{ 
-      minHeight: '100vh', 
-      bgcolor: '#08090C', 
-      color: 'white',
-      pb: { xs: 6, md: 8 }
-    }}>
+    <div className="relative min-h-screen bg-ocean-background-light pb-16 text-ocean-text-primary-light dark:bg-ocean-background-dark dark:text-ocean-text-primary-dark md:pb-20">
       {/* Simplified Background Effects for Mobile */}
-      <Box sx={{ 
-        position: 'fixed', 
-        inset: 0, 
-        overflow: 'hidden', 
-        pointerEvents: 'none',
-        display: { xs: 'none', md: 'block' }
-      }}>
-        <Box sx={{ 
-          position: 'absolute', 
-          top: '-10%', 
-          left: '-10%', 
-          width: '40%', 
-          height: '40%', 
-          bgcolor: 'rgba(229, 9, 20, 0.1)', 
-          filter: 'blur(120px)', 
-          borderRadius: '50%',
-          animation: 'pulse 4s ease-in-out infinite'
-        }} />
-        <Box sx={{ 
-          position: 'absolute', 
-          bottom: '-10%', 
-          right: '-10%', 
-          width: '40%', 
-          height: '40%', 
-          bgcolor: 'rgba(255, 100, 0, 0.1)', 
-          filter: 'blur(120px)', 
-          borderRadius: '50%',
-          animation: 'pulse 4s ease-in-out infinite 2s'
-        }} />
-      </Box>
+      <div className="pointer-events-none fixed inset-0 hidden overflow-hidden md:block">
+        <div
+          className="absolute -left-[10%] -top-[10%] h-[40%] w-[40%] rounded-full bg-primary/10 blur-[120px]"
+          style={{ animation: 'sub-plan-pulse 4s ease-in-out infinite' }}
+        />
+        <div
+          className="absolute -bottom-[10%] -right-[10%] h-[40%] w-[40%] rounded-full bg-primary/5 blur-[120px]"
+          style={{ animation: 'sub-plan-pulse 4s ease-in-out infinite 2s' }}
+        />
+      </div>
 
-      <Container maxWidth="lg" sx={{ 
-        position: 'relative', 
-        zIndex: 1,
-        px: { xs: 2, sm: 3, md: 4 }
-      }}>
+      <div className="relative z-[1] mx-auto max-w-6xl px-4 sm:px-6 md:px-8">
         {/* Header Section */}
-        <Box sx={{ py: { xs: 3, md: 8 } }}>
-          <IconButton 
-            onClick={() => navigate(-1)}
-            sx={{ 
-              color: 'rgba(255,255,255,0.4)', 
-              mb: { xs: 2, md: 4 },
-              p: { xs: 1, md: 1.5 },
-              '&:active': { bgcolor: 'rgba(255,255,255,0.1)' },
-              '&:hover': { color: 'white', bgcolor: 'rgba(255,255,255,0.05)' }
-            }}
-          >
-            <ChevronLeft size={isMobile ? 20 : 24} />
+        <div className="py-6 md:py-16">
+          <IconButton onClick={() => navigate(-1)} className="mb-4 md:mb-8">
+            <ChevronLeft size={20} className="md:hidden" />
+            <ChevronLeft size={24} className="hidden md:block" />
           </IconButton>
 
-          <Stack spacing={{ xs: 1.5, md: 3 }} alignItems="center" textAlign="center">
-            <Box sx={{ 
-              display: 'inline-flex', 
-              alignItems: 'center', 
-              gap: 1, 
-              px: 2, 
-              py: 0.75, 
-              borderRadius: '100px', 
-              bgcolor: 'rgba(229, 9, 20, 0.1)',
-              border: '1px solid rgba(229, 9, 20, 0.2)'
-            }}>
-              <Sparkles size={14} className="text-red-500" />
-              <Typography variant="caption" sx={{ 
-                fontWeight: 800, 
-                color: '#E50914', 
-                textTransform: 'uppercase', 
-                letterSpacing: '1px',
-                fontSize: { xs: '0.7rem', md: '0.75rem' }
-              }}>
+          <div className="flex flex-col items-center gap-3 text-center md:gap-6">
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5">
+              <Sparkles size={14} className="text-primary" />
+              <span className="text-[0.7rem] font-extrabold uppercase tracking-wide text-primary md:text-xs">
                 Premium Membership
-              </Typography>
-            </Box>
+              </span>
+            </div>
 
-            <Typography variant="h2" sx={{ 
-              fontWeight: 900, 
-              letterSpacing: '-1.5px',
-              fontSize: { xs: '2rem', sm: '2.5rem', md: '3.5rem' },
-              background: 'linear-gradient(135deg, #FFFFFF 0%, rgba(255,255,255,0.7) 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              maxWidth: '800px'
-            }}>
-              {subscription?.status === 'active' 
-                ? "You're a Premium Member" 
-                : (isMobile ? "Unlock Full Access" : "Unlock Full Creative Access")}
-            </Typography>
-            
-            <Typography variant="body2" sx={{ 
-              color: 'rgba(255,255,255,0.5)', 
-              maxWidth: '500px',
-              fontSize: { xs: '0.875rem', md: '1rem' },
-              lineHeight: 1.6
-            }}>
+            <h1 className="max-w-3xl bg-gradient-to-br from-ocean-text-primary-light to-ocean-text-primary-light/70 bg-clip-text text-3xl font-black tracking-tight text-transparent dark:from-white dark:to-white/70 sm:text-4xl md:text-6xl">
+              {subscription?.status === 'active' ? (
+                "You're a Premium Member"
+              ) : (
+                <>
+                  <span className="md:hidden">Unlock Full Access</span>
+                  <span className="hidden md:inline">Unlock Full Creative Access</span>
+                </>
+              )}
+            </h1>
+
+            <p className="max-w-lg text-sm leading-relaxed text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark md:text-base">
               {subscription?.status === 'active'
                 ? `Your ${subscription.plan?.name} plan is currently active until ${new Date(subscription.endDate).toLocaleDateString()}.`
                 : "Choose your perfect plan and start growing your creative career today"}
-            </Typography>
-          </Stack>
-        </Box>
+            </p>
+          </div>
+        </div>
 
-        {/* Pricing Grid */}
-        <Grid container spacing={{ xs: 3, md: 4 }} justifyContent="center">
+        {/* Pricing Grid. The nth-child(3):last-child rule centers a 3rd/odd-one-out plan
+            card on the 2-column tablet layout (sm–lg) instead of stretching it half-width,
+            mirroring the old MUI Grid's isTablet special-case — without needing JS. */}
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:gap-8 lg:grid-cols-3 [&>*:nth-child(3):last-child]:sm:col-span-2 [&>*:nth-child(3):last-child]:sm:mx-auto [&>*:nth-child(3):last-child]:sm:w-full [&>*:nth-child(3):last-child]:sm:max-w-sm [&>*:nth-child(3):last-child]:lg:col-span-1 [&>*:nth-child(3):last-child]:lg:mx-0 [&>*:nth-child(3):last-child]:lg:max-w-none">
           {plans.map((plan, index) => (
-            <Grid 
-              item 
-              xs={12} 
-              sm={6} 
-              md={4} 
+            <PlanCard
               key={plan.planId}
-              sx={{
-                ...(isTablet && index === 2 && { sm: 'auto', width: '100%', maxWidth: '400px', mx: 'auto' })
-              }}
-            >
-              <PlanCard
-                plan={plan}
-                index={index}
-                isHovered={hoveredPlan === plan.planId}
-                onHover={setHoveredPlan}
-                onSubscribe={handleSubscribe}
-                isActive={subscription?.planId === plan.planId}
-              />
-            </Grid>
+              plan={plan}
+              index={index}
+              isHovered={hoveredPlan === plan.planId}
+              onHover={setHoveredPlan}
+              onSubscribe={handleSubscribe}
+              isActive={subscription?.planId === plan.planId}
+            />
           ))}
-        </Grid>
+        </div>
 
-        {/* Trust Section - Simplified for Mobile */}
-        <Box sx={{ 
-          mt: { xs: 6, md: 10 }, 
-          pt: { xs: 6, md: 10 }, 
-          borderTop: '1px solid rgba(255, 255, 255, 0.05)' 
-        }}>
-          <Grid container spacing={{ xs: 4, md: 6 }}>
+        {/* Trust Section */}
+        <div className="mt-16 border-t border-ocean-border-light pt-16 dark:border-white/5 md:mt-24 md:pt-24">
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-3 md:gap-12">
             {[
-              { icon: <Monitor size={isMobile ? 24 : 28} />, title: "Cross-Platform", desc: "Access on web, mobile & tablet" },
-              { icon: <ShieldCheck size={isMobile ? 24 : 28} />, title: "Secure Payments", desc: "Bank-grade encryption" },
-              { icon: <Heart size={isMobile ? 24 : 28} />, title: "Priority Support", desc: "24/7 dedicated team" }
-            ].map((item, i) => (
-              <Grid item xs={12} md={4} key={i}>
-                <Stack spacing={{ xs: 1.5, md: 2 }} alignItems="center" textAlign="center">
-                  <Box sx={{ 
-                    color: '#E50914',
-                    p: 1.5,
-                    borderRadius: '16px',
-                    bgcolor: 'rgba(229, 9, 20, 0.1)'
-                  }}>
-                    {item.icon}
-                  </Box>
-                  <Box>
-                    <Typography variant="subtitle1" fontWeight={800} gutterBottom>
-                      {item.title}
-                    </Typography>
-                    <Typography variant="caption" color="white/40" sx={{ display: 'block' }}>
-                      {item.desc}
-                    </Typography>
-                  </Box>
-                </Stack>
-              </Grid>
+              { icon: <Monitor className="h-6 w-6 md:h-7 md:w-7" />, title: "Cross-Platform", desc: "Access on web, mobile & tablet" },
+              { icon: <ShieldCheck className="h-6 w-6 md:h-7 md:w-7" />, title: "Secure Payments", desc: "Bank-grade encryption" },
+              { icon: <Heart className="h-6 w-6 md:h-7 md:w-7" />, title: "Priority Support", desc: "24/7 dedicated team" }
+            ].map((item) => (
+              <div key={item.title} className="flex flex-col items-center gap-3 text-center md:gap-4">
+                <div className="rounded-2xl bg-primary/10 p-3 text-primary">
+                  {item.icon}
+                </div>
+                <div>
+                  <p className="mb-1 text-base font-extrabold text-ocean-text-primary-light dark:text-ocean-text-primary-dark">{item.title}</p>
+                  <p className="text-xs text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark">{item.desc}</p>
+                </div>
+              </div>
             ))}
-          </Grid>
-        </Box>
-      </Container>
+          </div>
+        </div>
+      </div>
 
-      <PaymentModal 
+      <PaymentModal
         open={paymentModal.open}
         onClose={() => {
           if (paymentModal.status === 'success') {
@@ -353,13 +239,13 @@ const SubscriptionPlan: React.FC = () => {
 
       <style>
         {`
-          @keyframes pulse {
+          @keyframes sub-plan-pulse {
             0%, 100% { opacity: 0.5; transform: scale(1); }
             50% { opacity: 1; transform: scale(1.1); }
           }
         `}
       </style>
-    </Box>
+    </div>
   );
 };
 

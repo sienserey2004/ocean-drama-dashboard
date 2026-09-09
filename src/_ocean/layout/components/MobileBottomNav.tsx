@@ -1,25 +1,23 @@
 // MobileBottomNav.tsx
 import React from "react";
-import {
-  Paper,
-  BottomNavigation,
-  BottomNavigationAction,
-  Avatar,
-  Box,
-} from "@mui/material";
-import SearchIcon from "@mui/icons-material/Search";
-import HomeIcon from "@mui/icons-material/Home";
-import TravelExploreIcon from "@mui/icons-material/TravelExplore";
-import VideoLibraryIcon from "@mui/icons-material/VideoLibrary";
-import PersonIcon from "@mui/icons-material/Person";
+import { Home, Search, Compass, Library, User } from "lucide-react";
 import { NavigateFunction, Location } from "react-router-dom";
+import { Avatar } from "@/_ocean/ui";
+
+interface NavItem {
+  label: string;
+  icon: React.ReactNode;
+  path: string;
+  /** Extra path prefixes that also belong to this tab, e.g. the player under My List. */
+  match?: string[];
+}
 
 interface MobileBottomNavProps {
   user: any;
   isAuthenticated: boolean;
   location: Location;
   navigate: NavigateFunction;
-  items?: { label: string; icon: React.ReactNode; path: string }[];
+  items?: NavItem[];
 }
 
 const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
@@ -29,157 +27,99 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   navigate,
   items,
 }) => {
-  const defaultItems = [
-    { label: "Home", icon: <HomeIcon sx={{ fontSize: 24 }} />, path: "/" },
-    { label: "Explore", icon: <TravelExploreIcon sx={{ fontSize: 24 }} />, path: "/explore" },
-    { label: "Search", icon: <SearchIcon sx={{ fontSize: 24 }} />, path: "/search" },
-    { label: "My List", icon: <VideoLibraryIcon sx={{ fontSize: 24 }} />, path: "/library" },
-    { 
-      label: "Profile", 
+  const defaultItems: NavItem[] = [
+    { label: "Home", icon: <Home size={22} />, path: "/" },
+    { label: "Explore", icon: <Compass size={22} />, path: "/explore" },
+    { label: "Search", icon: <Search size={22} />, path: "/search" },
+    {
+      label: "My List",
+      icon: <Library size={22} />,
+      path: "/library",
+      // The player belongs to My List. /episodes is deliberately not claimed —
+      // it is reached from Explore, Coins and creator profiles, not the library.
+      match: ["/play"],
+    },
+    {
+      label: "Profile",
+      // No white tint on the Avatar: the bar is light in light theme, so its own
+      // primary-tinted fallback is the one that reads in both.
       icon: (
-        <Avatar
-          src={user?.profile_image || ""}
-          sx={{
-            width: 26,
-            height: 26,
-            border: "1.5px solid rgba(255,255,255,0.6)",
-            bgcolor: isAuthenticated ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.1)",
-            fontSize: 12,
-            transition: "all 0.3s ease",
-          }}
-        >
-          {user?.name?.charAt(0)?.toUpperCase() || <PersonIcon sx={{ fontSize: 16 }} />}
+        <Avatar src={user?.profile_image} size="sm" className="text-xs">
+          {user?.name?.charAt(0)?.toUpperCase() || <User size={16} />}
         </Avatar>
       ),
-      path: "/profile-screen" 
+      path: "/profile-screen",
     },
   ];
 
   const currentItems = items || defaultItems;
 
-  const getActiveValue = () => {
-    const path = location.pathname;
-    const index = currentItems.findIndex(item => path === item.path || (item.path !== '/' && path.startsWith(item.path)));
-    return index === -1 ? 0 : index;
-  };
+  // Derived from the URL during render — the previous copy in useState could
+  // disagree with the route after a back/forward or a redirect.
+  const activeIndex = (() => {
+    // The viewer routes are mounted twice: at the root and under /viewer
+    // (e.g. /search and /viewer/search). Strip the prefix so both light up the same tab.
+    const path = location.pathname.replace(/^\/viewer(?=\/|$)/, "") || "/";
+    const owns = (prefix: string) =>
+      path === prefix || (prefix !== "/" && path.startsWith(prefix + "/"));
+    // No match means no tab is active. Falling back to index 0 used to light up
+    // Home on every unmapped route, which read as "you are on the home tab".
+    return currentItems.findIndex(
+      (item) => owns(item.path) || (item.match ?? []).some(owns),
+    );
+  })();
 
-  const [activeIndex, setActiveIndex] = React.useState(getActiveValue());
-
-  React.useEffect(() => {
-    setActiveIndex(getActiveValue());
-  }, [location.pathname, items]);
-
-  const handleNav = (index: number, path: string) => {
+  const handleNav = (path: string) => {
     if (path === "/profile-screen" && !isAuthenticated) {
       navigate("/login");
       return;
     }
-    setActiveIndex(index);
     navigate(path);
   };
 
   return (
-    <Box
-      sx={{
-        position: "fixed",
-        bottom: 0,
-        left: 0,
-        right: 0,
-        display: { xs: "flex", md: "none" },
-        justifyContent: "center",
-        alignItems: "flex-end",
-        pb: "env(safe-area-inset-bottom, 20px)",
-        zIndex: 1300,
-        pointerEvents: "none",
-      }}
+    <nav
+      aria-label="Primary"
+      // Height here is the contract behind --tab-bar-h in index.css; anything
+      // that has to sit above the bar offsets by that variable. Keep them in step.
+      className="pointer-events-none fixed inset-x-0 bottom-0 z-[1300] flex justify-center px-3 pb-[env(safe-area-inset-bottom,12px)] md:hidden"
     >
-      <Paper
-        elevation={0}
-        sx={{
-          mx: 2,
-          mb: 2,
-          width: "calc(100% - 48px)",
-          maxWidth: 420,
-          borderRadius: "32px",
-          background: "rgba(30, 30, 30, 0.45)", // Lighter for better glass effect
-          backdropFilter: "blur(25px) saturate(180%)",
-          WebkitBackdropFilter: "blur(25px) saturate(180%)",
-          border: "1px solid rgba(255, 255, 255, 0.18)",
-          boxShadow: "0 20px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.2)",
-          overflow: "hidden",
-          pointerEvents: "auto",
-          position: "relative",
-        }}
-      >
-        <Box sx={{ display: "flex", position: "relative", height: 72, px: 1.5 }}>
-          {/* Sliding Indicator Pill - Clear Glass Style */}
-          <Box
-            sx={{
-              position: "absolute",
-              top: 10,
-              bottom: 10,
-              left: `${(activeIndex * 19.5) + 2}%`, // Adjusted for padding
-              width: "17%",
-              borderRadius: "20px",
-              background: "rgba(255, 255, 255, 0.12)",
-              border: "1px solid rgba(255, 255, 255, 0.15)",
-              boxShadow: "inset 0 1px 1px rgba(255,255,255,0.1)",
-              transition: "all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)",
-              zIndex: 0,
-            }}
-          />
-
-          {currentItems.map((item, index) => {
-            const isActive = activeIndex === index;
-            return (
-              <Box
-                key={index}
-                onClick={() => handleNav(index, item.path)}
-                sx={{
-                  flex: 1,
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  zIndex: 1,
-                  transition: "all 0.3s ease",
-                  transform: isActive ? "translateY(-1px)" : "none",
-                  "&:active": { transform: "scale(0.94)" },
-                }}
+      <div className="pointer-events-auto flex w-full max-w-[420px] rounded-[22px] border border-ocean-border-light bg-ocean-surface-light/90 shadow-[0_6px_24px_rgba(0,0,0,0.14)] backdrop-blur-xl backdrop-saturate-150 dark:border-white/10 dark:bg-[#14141A]/85 dark:shadow-[0_8px_28px_rgba(0,0,0,0.55)]">
+        {currentItems.map((item, index) => {
+          const isActive = activeIndex === index;
+          return (
+            <button
+              key={item.path + item.label}
+              type="button"
+              onClick={() => handleNav(item.path)}
+              aria-current={isActive ? "page" : undefined}
+              className="flex flex-1 flex-col items-center gap-1 rounded-[22px] py-2 transition-transform duration-150 active:scale-95"
+            >
+              {/* Capsule behind the icon carries the active state, so the label
+                  stays put instead of the whole row shifting on selection. */}
+              <span
+                className={`flex h-8 w-[52px] items-center justify-center rounded-full transition-colors duration-200 ${
+                  isActive
+                    ? "bg-primary/15 text-primary"
+                    : "text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark"
+                }`}
               >
-                <Box
-                  sx={{
-                    color: isActive ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.4)",
-                    transition: "all 0.3s ease",
-                    display: "flex",
-                    mb: 0.5,
-                    filter: isActive ? "drop-shadow(0 0 10px rgba(255,255,255,0.3))" : "none",
-                    transform: isActive ? "scale(1.1)" : "scale(1)",
-                  }}
-                >
-                  {item.icon}
-                </Box>
-                <Box
-                  component="span"
-                  sx={{
-                    fontSize: "10px",
-                    fontWeight: isActive ? 700 : 500,
-                    color: isActive ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.4)",
-                    transition: "all 0.3s ease",
-                    letterSpacing: "0.4px",
-                    textTransform: "uppercase", // Subtle glass refinement
-                    opacity: isActive ? 1 : 0.7,
-                  }}
-                >
-                  {item.label}
-                </Box>
-              </Box>
-            );
-          })}
-        </Box>
-      </Paper>
-    </Box>
+                {item.icon}
+              </span>
+              <span
+                className={`text-[11px] leading-none transition-colors duration-200 ${
+                  isActive
+                    ? "font-semibold text-primary"
+                    : "font-medium text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark"
+                }`}
+              >
+                {item.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </nav>
   );
 };
 

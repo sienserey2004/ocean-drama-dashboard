@@ -1,36 +1,19 @@
 import React from 'react'
-import { Box, Typography, Stack } from '@mui/material'
-import RecordVoiceOverIcon from '@mui/icons-material/RecordVoiceOver';
+import { Users } from 'lucide-react'
 
 const Following = () => {
   return (
-    <Box
-      sx={{
-        height: "100%",
-        width: "100%",
-        bgcolor: "#08090C",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <Stack alignItems="center" spacing={2} sx={{ opacity: 0.5 }}>
-        <RecordVoiceOverIcon sx={{ fontSize: 60, color: '#9CA3AF' }} />
-        <Typography
-          sx={{
-            color: "#9CA3AF",
-            fontSize: 18,
-            fontWeight: 700,
-            letterSpacing: "1px",
-          }}
-        >
+    <div className="flex h-full w-full items-center justify-center bg-[#08090C]">
+      <div className="flex flex-col items-center gap-4 opacity-50">
+        <Users size={60} className="text-[#9CA3AF]" />
+        <p className="text-lg font-bold tracking-[1px] text-[#9CA3AF]">
           Following feed is empty
-        </Typography>
-        <Typography sx={{ color: "#4B5563", fontSize: 14 }}>
+        </p>
+        <p className="text-sm text-[#4B5563]">
           Follow some creators to see their latest dramas here
-        </Typography>
-      </Stack>
-    </Box>
+        </p>
+      </div>
+    </div>
   )
 }
 

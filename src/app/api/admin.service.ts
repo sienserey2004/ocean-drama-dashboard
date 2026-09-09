@@ -1,6 +1,6 @@
 // ─── ADMIN VIDEO MANAGEMENT ───────────────────────────────────────────────────
 
-import { AnalyticsOverview, DeviceSession, PaginatedResponse, RevenueData, TopVideo, Video, User } from "@/app/types";
+import { AnalyticsOverview, DeviceSession, PaginatedResponse, RevenueData, TopVideo, VideoRess, User } from "@/app/types";
 import api from "./client";
 
 export const adminUserApi = {
@@ -22,7 +22,7 @@ export const adminUserApi = {
 
 export const adminVideoApi = {
   list: (params?: { page?: number; limit?: number; status?: string }) =>
-    api.get<PaginatedResponse<Video>>('/admin/videos', { params }).then(r => r.data),
+    api.get<PaginatedResponse<VideoRess>>('/admin/videos', { params }).then(r => r.data),
 
   approve: (video_id: number) =>
     api.patch(`/admin/videos/${video_id}/approve`).then(r => r.data),

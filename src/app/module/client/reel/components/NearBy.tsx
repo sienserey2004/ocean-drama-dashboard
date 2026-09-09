@@ -1,36 +1,19 @@
 import React from 'react'
-import { Box, Typography, Stack } from '@mui/material'
-import LocationOnIcon from '@mui/icons-material/LocationOn';
+import { MapPin } from 'lucide-react'
 
 const NearBy = () => {
   return (
-    <Box
-      sx={{
-        height: "100%",
-        width: "100%",
-        bgcolor: "#08090C",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <Stack alignItems="center" spacing={2} sx={{ opacity: 0.5 }}>
-        <LocationOnIcon sx={{ fontSize: 60, color: '#9CA3AF' }} />
-        <Typography
-          sx={{
-            color: "#9CA3AF",
-            fontSize: 18,
-            fontWeight: 700,
-            letterSpacing: "1px",
-          }}
-        >
+    <div className="flex h-full w-full items-center justify-center bg-[#08090C]">
+      <div className="flex flex-col items-center gap-4 opacity-50">
+        <MapPin size={60} className="text-[#9CA3AF]" />
+        <p className="text-lg font-bold tracking-[1px] text-[#9CA3AF]">
           No Dramas Nearby
-        </Typography>
-        <Typography sx={{ color: "#4B5563", fontSize: 14 }}>
+        </p>
+        <p className="text-sm text-[#4B5563]">
           Enable location to find trending dramas in your area
-        </Typography>
-      </Stack>
-    </Box>
+        </p>
+      </div>
+    </div>
   )
 }
 

@@ -7,9 +7,9 @@ export default function Header() {
     const navigate = useNavigate();
     return (
     <header className="flex md:hidden items-center justify-between px-5 py-4 md:py-8 sticky top-0 bg-[#08090C]/60 backdrop-blur-xl z-50 border-b border-white/5 md:border-none">
-        <div className="flex items-center gap-4 ">
+        <div className="flex items-center gap-4 " onClick={() => navigate("/profile-screen")} role="button">
             <div className="relative group cursor-pointer">
-                <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-[#E50914] to-[#B20710] flex items-center justify-center text-sm md:text-base font-bold text-white shadow-lg shadow-[#E50914]/30 transform group-hover:scale-105 transition-all">
+                <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-[#0EA5E9] to-[#0284C7] flex items-center justify-center text-sm md:text-base font-bold text-white shadow-lg shadow-[#0EA5E9]/30 transform group-hover:scale-105 transition-all">
                     {user?.profile_image ? (
                         <img
                             src={user.profile_image}
@@ -38,7 +38,7 @@ export default function Header() {
                 className="text-3xl font-black tracking-tighter text-white uppercase italic"
                 style={{
                     fontFamily: "'Bebas Neue', sans-serif",
-                    textShadow: "2px 2px 0px #E50914, 4px 4px 0px #B20710",
+                    textShadow: "2px 2px 0px #0EA5E9, 4px 4px 0px #0284C7",
                 }}
             >
                 OCEAN DRAMA
@@ -46,19 +46,24 @@ export default function Header() {
         </div>
 
         <div className="flex items-center gap-2 md:gap-4">
-            <button className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-all border border-white/5 hover:scale-110 active:scale-95 group">
+            <button
+                onClick={() => navigate("/dashboard/app-studio")}
+                className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-all border border-white/5 hover:scale-110 active:scale-95 group"
+            >
                <CircleFadingPlus
-               onClick={() => navigate("/dashboard/app-studio")}
                 size={18}
                 className="text-[#9CA3AF] group-hover:text-white"
                />
             </button>
-            <button className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-all border border-white/5 relative hover:scale-110 active:scale-95 group">
+            <button
+                onClick={() => navigate("/notifications")}
+                className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-all border border-white/5 relative hover:scale-110 active:scale-95 group"
+            >
                 <Bell
                     size={18}
                     className="text-[#9CA3AF] group-hover:text-white"
                 />
-                <span className="w-2 h-2 rounded-full bg-[#E50914] absolute top-2.5 right-2.5 ring-2 ring-[#08090C] shadow-[0_0_10px_#E50914]"></span>
+                <span className="w-2 h-2 rounded-full bg-[#0EA5E9] absolute top-2.5 right-2.5 ring-2 ring-[#08090C] shadow-[0_0_10px_#0EA5E9]"></span>
             </button>
         </div>
     </header>

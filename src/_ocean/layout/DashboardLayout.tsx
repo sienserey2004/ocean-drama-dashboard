@@ -1,66 +1,44 @@
-import { useState, useMemo } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import {
-  Box,
-  Drawer,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
-  AppBar,
-  Toolbar,
-  IconButton,
-  Typography,
-  Avatar,
-  Menu,
-  MenuItem,
-  Divider,
-  Badge,
-  Tooltip,
-  InputBase,
-  Paper,
-  Stack,
-  useTheme,
-  alpha,
-  Chip,
-  GlobalStyles,
-} from "@mui/material";
-import {
-  Menu as MenuIcon,
-  Dashboard as DashboardIcon,
-  VideoLibrary,
+  Menu as HamburgerIcon,
+  BarChart3,
   PlayCircle,
-  People,
-  RateReview,
-  Report,
-  Category,
-  BarChart,
-  Notifications,
-  Logout,
-  AttachMoney,
-  Person,
+  Library,
+  DollarSign,
+  User,
   ChevronLeft,
   ChevronRight,
   Search,
-  AutoGraph,
-  Security,
-  DarkMode, 
-  LightMode, 
-  ManageHistory,
-  WorkspacePremium
-} from "@mui/icons-material";
+  Sun,
+  Moon,
+  Bell,
+  LogOut,
+  TrendingUp,
+  Upload,
+} from "lucide-react";
+import { Crown, Coins } from "lucide-react";
 import { useAppStore } from "@/app/stores/appStore";
 import { useAuthStore } from "@/app/stores/authStore";
 import { useSubscriptionStore } from "@/app/stores/subscriptionStore";
+import { notificationApi } from "@/app/api/notification.service";
+import type { Notification } from "@/app/types";
 import MobileBottomNav from "./components/MobileBottomNav";
-import toast from "react-hot-toast";
-import { Crown, Coins } from "lucide-react";
-import { useEffect } from "react";
+import toast from "@/app/utils/toast";
+import { Avatar, Badge, Chip, IconButton, Menu, MenuItem, Divider } from "@/_ocean/ui";
+import "@/app/module/shared/adminlte/adminlte.css";
 
 const EXPANDED_WIDTH = 280;
 const COLLAPSED_WIDTH = 72;
 
+// Nested routes (e.g. /dashboard/videos/:id/episodes) should keep their parent
+// nav item highlighted. The longest matching path wins, so /dashboard/videos/create
+// lights up "Create Video" rather than "Videos".
+function matchNavPath(pathname: string, paths: string[]): string | null {
+  return paths
+    .filter((path) => pathname === path || pathname.startsWith(`${path}/`))
+    .sort((a, b) => b.length - a.length)[0] ?? null;
+}
 interface NavItem {
   label: string;
   icon: React.ReactNode;
@@ -77,65 +55,36 @@ interface NavGroup {
 
 const NAV_GROUPS: NavGroup[] = [
   {
-    title: "Analytics & Monitoring",
+    title: "Analytics",
+    items: [{ label: "Performance", icon: <BarChart3 size={20} />, path: "/dashboard/analytics" }],
+  },
+  {
+    title: "Browse",
+    items: [{ label: "All Videos", icon: <PlayCircle size={20} />, path: "/dashboard/browse" }],
+  },
+  {
+    title: "Studio",
     items: [
-      {
-        label: "Content Performance",
-        icon: <BarChart />,
-        path: "/dashboard/analytics",
-      },
+      { label: "Videos", icon: <Library size={20} />, path: "/dashboard/videos", creatorOrAdmin: true },
+      { label: "Create Video", icon: <Upload size={20} />, path: "/dashboard/videos/create", creatorOrAdmin: true },
+      { label: "Earnings", icon: <DollarSign size={20} />, path: "/dashboard/earnings", creatorOrAdmin: true },
     ],
   },
   {
-    title: "Content Governance",
-    items: [
-      {
-        label: "Global Library",
-        icon: <PlayCircle />,
-        path: "/dashboard/browse",
-      },
-    ],
+    title: "Admin",
+    items: [{ label: "App Studio", icon: <TrendingUp size={20} />, path: "/dashboard/app-studio", adminOnly: true }],
   },
   {
-    title: "My Creative Studio",
-    items: [
-      {
-        label: "My Video Assets",
-        icon: <VideoLibrary />,
-        path: "/dashboard/videos",
-        creatorOrAdmin: true,
-      },
-      {
-        label: "Earnings & Revenue",
-        icon: <AttachMoney />,
-        path: "/dashboard/earnings",
-        creatorOrAdmin: true,
-      },
-    ],
-  },
-  {
-    title: "Personal Space",
-    items: [
-      {
-        label: "Reward Center",
-        icon: <Coins size={20} />,
-        path: "/coins",
-      },
-      {
-        label: "Account Settings",
-        icon: <Person />,
-        path: "/dashboard/profile",
-      },
-    ],
+    title: "Account",
+    items: [{ label: "Settings", icon: <User size={20} />, path: "/dashboard/profile" }],
   },
 ];
 
 export default function DashboardLayout() {
   const { user, isAdmin, isCreator, logout, isAuthenticated } = useAuthStore();
   const { subscription, fetchSubscription, hasFetched, clearSubscription } = useSubscriptionStore();
-  const isViewer = user?.role === 'viewer';
+  const isViewer = user?.role === "viewer";
   const { themeMode, toggleTheme } = useAppStore();
-  const theme = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -145,388 +94,283 @@ export default function DashboardLayout() {
     }
   }, [isAuthenticated, hasFetched, fetchSubscription]);
 
-  // new tabs here
   const viewerDashboardNavItems = [
-    { label: "App Studio", icon: <AutoGraph />, path: "/dashboard/app-studio" },
+    { label: "App Studio", icon: <TrendingUp size={20} />, path: "/dashboard/app-studio" },
     { label: "Coins", icon: <Coins size={20} />, path: "/coins" },
-    { label: "My Uploads", icon: <VideoLibrary />, path: "/dashboard/videos" },
-    { label: "Revenue", icon: <AttachMoney />, path: "/dashboard/earnings" },
-    { label: "Profile", icon: <Person />, path: "/dashboard/profile" },
-    { label: "Home", icon: <PlayCircle />, path: "/" },
+    { label: "My Uploads", icon: <Library size={20} />, path: "/dashboard/videos" },
+    { label: "Revenue", icon: <DollarSign size={20} />, path: "/dashboard/earnings" },
+    { label: "Profile", icon: <User size={20} />, path: "/dashboard/profile" },
+    { label: "Home", icon: <PlayCircle size={20} />, path: "/" },
   ];
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notifItems, setNotifItems] = useState<Notification[] | null>(null);
+  const profileAnchorRef = useRef<HTMLButtonElement>(null);
+  const notifAnchorRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    notificationApi
+      .unreadCount()
+      .then((res) => setUnreadCount(res.unread_count ?? 0))
+      .catch(() => setUnreadCount(0));
+  }, [isAuthenticated]);
 
   const isDark = themeMode === "dark";
+  const navItems = NAV_GROUPS.flatMap((group) => group.items);
+  const activeNavPath = matchNavPath(location.pathname, navItems.map((item) => item.path));
+  const currentSection = navItems.find((item) => item.path === activeNavPath)?.label || "Dashboard";
+  const viewerBackground = isDark
+    ? "radial-gradient(circle at center top, rgba(14,165,233,0.15) 0%, transparent 50%), linear-gradient(to bottom, #0F172A, #020617)"
+    : "radial-gradient(circle at center top, rgba(14,165,233,0.14) 0%, transparent 40%), linear-gradient(to bottom, #F8FAFC, #EEF6FF)";
 
-  // Premium Colors
-  const azure = "#0EA5E9";
-  const sidebarBg = "#020617"; // bg-slate-950
-
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     await logout();
     clearSubscription();
-    toast.success("System session terminated");
+    toast.success("You've been logged out.");
     navigate("/login");
-  };
+  }, [logout, clearSubscription, navigate]);
 
-  const SidebarContent = useMemo(() => (
-    <Box
-      sx={{
-        height: "100%",
-        display: "flex",
-        flexDirection: "column",
-        bgcolor: sidebarBg,
-        color: "#F1F5F9",
-        overflow: "hidden"
-      }}
-    >
-      {/* Brand Logo Section */}
-      <Box
-        sx={{
-          py: 4,
-          px: 3,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: collapsed ? "center" : "flex-start",
-          mb: 2
-        }}
-      >
-        <Stack direction="row" spacing={1.5} alignItems="center">
-          <Avatar
-            variant="rounded"
-            sx={{
-              bgcolor: azure,
-              width: 40,
-              height: 40,
-              borderRadius: "12px",
-              boxShadow: `0 0 20px ${alpha(azure, 0.4)}`,
-            }}
-          >
-            <PlayCircle sx={{ fontSize: 24, color: "white" }} />
-          </Avatar>
-          {!collapsed && (
-            <Box>
-              <Typography variant="h6" sx={{ fontWeight: 900, lineHeight: 1, letterSpacing: "-1px", color: "white" }}>
-                OCEAN DRAMA APP
-              </Typography>
-              <Typography variant="caption" sx={{ color: azure, fontWeight: 800, fontSize: "0.6rem", textTransform: "uppercase", letterSpacing: "1px" }}>
-                Monitoring System
-              </Typography>
-            </Box>
-          )}
-        </Stack>
-      </Box>
+  const openNotifications = useCallback(() => {
+    setNotifOpen((prev) => !prev);
+    if (!notifItems) {
+      notificationApi
+        .list({ limit: 5 })
+        .then((res) => setNotifItems(res.data ?? []))
+        .catch(() => setNotifItems([]));
+    }
+  }, [notifItems]);
 
-      {/* Categorized Navigation */}
-      <Box sx={{ flex: 1, px: 2, overflowY: "auto", "&::-webkit-scrollbar": { width: 0 } }}>
-        {NAV_GROUPS.map((group) => {
-          const visibleItems = group.items.filter((item) => {
-            if (item.adminOnly) return isAdmin;
-            if (item.creatorOrAdmin) return isAdmin || isCreator || user?.role === 'viewer';
-            return true;
-          });
-          if (visibleItems.length === 0) return null;
+  const markAllRead = useCallback(async () => {
+    await notificationApi.markAllRead().catch(() => {});
+    setUnreadCount(0);
+    setNotifItems((items) => items?.map((n) => ({ ...n, is_read: true })) ?? items);
+  }, []);
 
-          return (
-            <Box key={group.title} sx={{ mb: 3 }}>
-              {!collapsed && (
-                <Typography variant="caption" sx={{ px: 2, mb: 1, display: "block", color: "#94A3B8", opacity: 0.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: "1.5px", fontSize: "0.55rem" }}>
-                  {group.title}
-                </Typography>
-              )}
-              <List disablePadding>
-                {visibleItems.map((item) => {
-                  const active = location.pathname === item.path;
-                  return (
-                    <ListItem key={item.label} disablePadding sx={{ mb: 0.5 }}>
-                      <ListItemButton
-                        onClick={() => {
-                          navigate(item.path);
-                          if (mobileOpen) setMobileOpen(false);
-                        }}
-                        sx={{
-                          borderRadius: "12px",
-                          minHeight: 48,
-                          px: collapsed ? 0 : 2,
-                          justifyContent: collapsed ? "center" : "flex-start",
-                          bgcolor: active ? "white" : "transparent",
-                          color: active ? "#020617" : "#94A3B8",
-                          "&:hover": {
-                            bgcolor: active ? "white" : alpha("#FFFFFF", 0.05),
-                            color: active ? "#020617" : "white",
-                          },
-                          transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-                        }}
-                      >
-                        <ListItemIcon sx={{ minWidth: collapsed ? 0 : 38, color: "inherit" }}>
-                          {item.icon}
-                        </ListItemIcon>
-                        {!collapsed && (
-                          <ListItemText
-                            primary={item.label}
-                            primaryTypographyProps={{ fontSize: "0.85rem", fontWeight: active ? 800 : 600 }}
-                          />
-                        )}
-                        {item.badge && !collapsed && (
-                          <Chip 
-                            label={item.badge} 
-                            size="small" 
-                            sx={{ 
-                              height: 18, 
-                              fontSize: "0.6rem", 
-                              fontWeight: 900, 
-                              bgcolor: active ? azure : alpha(azure, 0.2), 
-                              color: active ? "white" : azure, 
-                              border: "none" 
-                            }} 
-                          />
-                        )}
-                      </ListItemButton>
-                    </ListItem>
-                  );
-                })}
-              </List>
-            </Box>
-          );
-        })}
-      </Box>
-
-      {/* Coverage Stats Footer */}
-      <Box sx={{ p: 2, borderTop: "1px solid", borderColor: "rgba(255,255,255,0.05)" }}>
+  const sidebarBody = (
+    <div className={`lte-sidebar-inner ${collapsed ? "is-collapsed" : ""}`}>
+      <button type="button" className="brand-link" onClick={() => navigate("/dashboard")}>
+        <span className="brand-image"><PlayCircle size={24} /></span>
         {!collapsed && (
-           <Box sx={{ p: 1.5, borderRadius: "16px", bgcolor: alpha("#FFFFFF", 0.03), mb: 2 }}>
-             <Typography variant="caption" sx={{ color: "#94A3B8", display: "block", mb: 0.5, opacity: 0.7 }}>Coverage Stats</Typography>
-             <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-                <AutoGraph sx={{ fontSize: 16, color: azure }} />
-                <Typography variant="body2" sx={{ fontWeight: 800, color: "white" }}>100% Operational</Typography>
-             </Box>
-           </Box>
+          <span className="brand-copy">
+            <strong>Ocean Drama</strong>
+            <small>{isAdmin ? "Admin Console" : isCreator ? "Creator Studio" : "Dashboard"}</small>
+          </span>
         )}
-        <ListItemButton
-          onClick={handleLogout}
-          sx={{ borderRadius: "12px", color: "#EF4444", "&:hover": { bgcolor: alpha("#EF4444", 0.1) } }}
-        >
-          <ListItemIcon sx={{ color: "inherit", minWidth: collapsed ? 0 : 38 }}>
-            <Logout sx={{ fontSize: 20 }} />
-          </ListItemIcon>
-          {!collapsed && <ListItemText primary="Terminate Session" primaryTypographyProps={{ fontSize: "0.85rem", fontWeight: 700 }} />}
-        </ListItemButton>
-      </Box>
-    </Box>
-  ), [collapsed, location.pathname, isAdmin, isCreator, mobileOpen, user]);
+      </button>
+
+      <div className="lte-sidebar-content">
+        <div className="user-panel">
+          <Avatar src={user?.profile_image} alt={user?.name} size="md" className="user-panel-avatar" />
+          {!collapsed && (
+            <div className="user-panel-info">
+              <strong>{user?.name || "Account"}</strong>
+              <span><i /> {user?.role || "user"}</span>
+            </div>
+          )}
+        </div>
+
+        <nav className="lte-sidebar-nav" aria-label="Dashboard navigation">
+          {NAV_GROUPS.map((group) => {
+            const visibleItems = group.items.filter((item) => {
+              if (item.adminOnly) return isAdmin;
+              if (item.creatorOrAdmin) return isAdmin || isCreator || user?.role === "viewer";
+              return true;
+            });
+            if (visibleItems.length === 0) return null;
+
+            return (
+              <div key={group.title} className="nav-section">
+                {!collapsed && <div className="nav-header">{group.title}</div>}
+                <ul className="nav nav-pills nav-sidebar">
+                  {visibleItems.map((item) => {
+                    const active = item.path === activeNavPath;
+                    const displayLabel = item.label === "Videos" ? (isAdmin ? "Manage Videos" : "My Series") : item.label;
+                    return (
+                      <li key={item.label} className="nav-item">
+                        <button
+                          type="button"
+                          title={collapsed ? displayLabel : undefined}
+                          onClick={() => {
+                            navigate(item.path);
+                            if (mobileOpen) setMobileOpen(false);
+                          }}
+                          className={`nav-link ${active ? "active" : ""}`}
+                        >
+                          <span className="nav-icon">{item.icon}</span>
+                          {!collapsed && <span className="nav-label">{displayLabel}</span>}
+                          {item.badge && !collapsed && <span className="nav-badge">{item.badge}</span>}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            );
+          })}
+        </nav>
+      </div>
+
+      <div className="lte-sidebar-footer">
+        <button type="button" className="nav-link logout-link" onClick={handleLogout} title={collapsed ? "Log out" : undefined}>
+          <span className="nav-icon"><LogOut size={19} /></span>
+          {!collapsed && <span className="nav-label">Log Out</span>}
+        </button>
+        <button type="button" className="sidebar-collapse" onClick={() => setCollapsed(!collapsed)}>
+          {collapsed ? <ChevronRight size={18} /> : <><ChevronLeft size={18} /><span>Collapse sidebar</span></>}
+        </button>
+      </div>
+    </div>
+  );
 
   return (
-    <Box sx={{ display: "flex", minHeight: "100vh", position: "relative", overflow: "hidden" }}>
-      <GlobalStyles styles={{
-        body: {
-          background: isDark 
-            ? `radial-gradient(circle at center top, rgba(14,165,233,0.15) 0%, transparent 50%), linear-gradient(to bottom, #0F172A, #020617)`
-            : `radial-gradient(circle at center top, rgba(14,165,233,0.14) 0%, transparent 40%), linear-gradient(to bottom, #F8FAFC, #EEF6FF)`,
-          backgroundAttachment: 'fixed',
-          fontFamily: "'Roboto', 'Segoe UI', sans-serif !important"
-        }
-      }} />
-
-      {/* Sidebar Interface */}
+    <div
+      className={isViewer ? "relative flex min-h-screen overflow-hidden" : "adminlte-shell"}
+      style={isViewer ? { background: viewerBackground, backgroundAttachment: "fixed" } : undefined}
+    >
+      {/* Sidebar */}
       {!isViewer && (
-        <Box component="nav" sx={{ width: { md: collapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH }, flexShrink: { md: 0 }, transition: "width 0.3s cubic-bezier(0.4, 0, 0.2, 1)", willChange: "width" }}>
-          <Drawer
-            variant="temporary"
-            open={mobileOpen}
-            onClose={() => setMobileOpen(false)}
-            sx={{ display: { xs: "block", md: "none" }, "& .MuiDrawer-paper": { width: EXPANDED_WIDTH, border: "none" } }}
+        <>
+          {/* Mobile drawer */}
+          <div className={`lte-mobile-sidebar md:hidden ${mobileOpen ? "open" : ""}`}>
+            <div
+              className="lte-mobile-backdrop"
+              onClick={() => setMobileOpen(false)}
+            />
+            <div
+              className="lte-mobile-panel"
+              style={{ transform: mobileOpen ? "translateX(0)" : "translateX(-100%)" }}
+            >
+              {sidebarBody}
+            </div>
+          </div>
+
+          {/* Desktop permanent sidebar */}
+          <aside
+            className="lte-main-sidebar hidden md:block"
+            style={{ width: collapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH }}
           >
-            {SidebarContent}
-          </Drawer>
-          <Drawer
-            variant="permanent"
-            sx={{
-              display: { xs: "none", md: "block" },
-              "& .MuiDrawer-paper": {
-                width: collapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH,
-                border: "none",
-                borderRight: `1px solid ${isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"}`,
-                transition: "width 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                overflow: "hidden",
-                willChange: "width"
-              },
-            }}
-          >
-            {SidebarContent}
-          </Drawer>
-        </Box>
+            {sidebarBody}
+          </aside>
+        </>
       )}
 
-      {/* Main Content Area (Glassmorphic Window) */}
-      {/* Main Content Area (Glassmorphic Window) */}
-      <Box sx={{ flexGrow: 1, display: "flex", flexDirection: "column", minWidth: 0, height: "100vh", overflowY: "auto" }}>
+      {/* Main Content Area */}
+      <div className={isViewer ? "flex h-screen min-w-0 flex-1 flex-col overflow-y-auto" : "lte-main-area"}>
         {!isViewer && (
-          <AppBar
-            position="sticky"
-            elevation={0}
-            sx={{
-              top: 0,
-              zIndex: 1100,
-              bgcolor: isDark ? alpha("#0F172A", 0.9) : alpha("#F8FAFC", 0.9),
-              backdropFilter: "blur(12px)",
-              color: isDark ? "white" : "#0F172A",
-              px: { xs: 2, md: 6 },
-              py: 1,
-              borderBottom: "1px solid",
-              borderColor: "divider",
-              mb: 3
-            }}
-          >
-            <Toolbar sx={{ px: "0 !important", gap: 2 }}>
-              <IconButton
-                sx={{ display: { md: "none" }, color: "inherit" }}
-                onClick={() => setMobileOpen(true)}
-              >
-                <MenuIcon />
+          <header className="lte-main-header">
+            <div className="lte-navbar">
+              <IconButton className="lte-nav-button md:hidden" onClick={() => setMobileOpen(true)}>
+                <HamburgerIcon size={22} />
               </IconButton>
 
-              <IconButton
-                onClick={() => setCollapsed(!collapsed)}
-                sx={{
-                  display: { xs: "none", md: "flex" },
-                  bgcolor: isDark ? alpha("#FFFFFF", 0.05) : alpha("#0F172A", 0.05),
-                  borderRadius: "12px",
-                  color: "inherit"
-                }}
-              >
-                {collapsed ? <ChevronRight /> : <ChevronLeft />}
-              </IconButton>
+              <div className="lte-navbar-search">
+                <Search size={16} />
+                <span>
+                  Search
+                </span>
+                <kbd>
+                  ⌘K
+                </kbd>
+              </div>
 
-              <Paper
-                elevation={0}
-                sx={{
-                  flexGrow: 1,
-                  maxWidth: 400,
-                  display: "flex",
-                  alignItems: "center",
-                  px: 2,
-                  py: 0.5,
-                  borderRadius: "12px",
-                  bgcolor: isDark ? alpha("#FFFFFF", 0.05) : alpha("#FFFFFF", 0.8),
-                  backdropFilter: "blur(10px)",
-                  border: "1px solid",
-                  borderColor: isDark ? alpha("#FFFFFF", 0.1) : "rgba(0,0,0,0.05)"
-                }}
-              >
-                <Search sx={{ color: "text.secondary", fontSize: 20, mr: 1 }} />
-                <InputBase placeholder="System Search..." sx={{ flex: 1, fontSize: "0.85rem", fontWeight: 500 }} />
-              </Paper>
+              <div className="lte-navbar-location">
+                <button type="button" onClick={() => navigate("/dashboard")}>Home</button>
+                <span>/</span>
+                <strong>{currentSection === "Videos" && isAdmin ? "Manage Videos" : currentSection}</strong>
+              </div>
 
-              <Box sx={{ flexGrow: 1 }} />
-
-              <Stack direction="row" spacing={1} alignItems="center">
-                <IconButton onClick={toggleTheme} sx={{ color: azure }}>
-                  {isDark ? <LightMode /> : <DarkMode />}
+              <div className="lte-navbar-actions">
+                <IconButton onClick={toggleTheme} plain className="lte-nav-button" aria-label="Toggle theme">
+                  {isDark ? <Sun size={20} /> : <Moon size={20} />}
                 </IconButton>
-                
-                <Badge badgeContent={4} color="error" overlap="circular">
-                  <IconButton sx={{ color: "text.secondary" }}>
-                    <Notifications />
+
+                <div className="relative lte-navbar-menu">
+                  <IconButton ref={notifAnchorRef} className="lte-nav-button" onClick={openNotifications} aria-label="Notifications">
+                    <Badge count={unreadCount}>
+                      <Bell size={20} />
+                    </Badge>
                   </IconButton>
-                </Badge>
+                  <Menu open={notifOpen} onClose={() => setNotifOpen(false)} anchorRef={notifAnchorRef} className="w-80">
+                    <div className="flex items-center justify-between px-4 pb-2">
+                      <p className="text-sm font-bold text-ocean-text-primary-light dark:text-ocean-text-primary-dark">
+                        Notifications
+                      </p>
+                      {!!unreadCount && (
+                        <button onClick={markAllRead} className="text-xs font-semibold text-primary hover:underline">
+                          Mark all read
+                        </button>
+                      )}
+                    </div>
+                    <Divider className="mb-1" />
+                    {notifItems === null ? (
+                      <p className="px-4 py-6 text-center text-sm text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark">
+                        Loading…
+                      </p>
+                    ) : notifItems.length === 0 ? (
+                      <p className="px-4 py-6 text-center text-sm text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark">
+                        You're all caught up.
+                      </p>
+                    ) : (
+                      <ul className="max-h-80 overflow-y-auto">
+                        {notifItems.map((n) => (
+                          <li key={n.notification_id} className="px-4 py-2.5 hover:bg-ocean-background-light dark:hover:bg-ocean-background-dark">
+                            <div className="flex items-start gap-2">
+                              {!n.is_read && <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />}
+                              <div className={n.is_read ? "pl-3.5" : ""}>
+                                <p className="text-sm font-semibold text-ocean-text-primary-light dark:text-ocean-text-primary-dark">{n.title}</p>
+                                <p className="text-xs text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark">{n.message}</p>
+                              </div>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </Menu>
+                </div>
 
-                <Divider orientation="vertical" flexItem sx={{ mx: 1, height: 24, alignSelf: "center" }} />
+                <span className="lte-navbar-divider" />
 
-                <Stack direction="row" spacing={1.5} alignItems="center" sx={{ cursor: "pointer" }} onClick={(e) => setAnchorEl(e.currentTarget)}>
-                   <Avatar 
-                      src={user?.profile_image || ""} 
-                      sx={{ width: 36, height: 36, borderRadius: "10px", border: `2px solid ${azure}` }} 
-                   />
-                   <Box sx={{ display: { xs: "none", sm: "block" } }}>
-                      <Stack direction="row" spacing={1} alignItems="center">
-                         <Typography variant="body2" fontWeight={800}>{user?.name}</Typography>
-                         {subscription?.status === 'active' && (
-                            <Chip 
-                               label="PREMIUM" 
-                               size="small" 
-                               icon={<Crown size={10} />}
-                               sx={{ 
-                                  height: 16, 
-                                  fontSize: "0.55rem", 
-                                  fontWeight: 900, 
-                                  bgcolor: "rgba(234, 179, 8, 0.1)", 
-                                  color: "#EAB308",
-                                  border: "1px solid rgba(234, 179, 8, 0.2)",
-                                  "& .MuiChip-icon": { color: "inherit" }
-                               }} 
-                            />
-                         )}
-                      </Stack>
-                      <Typography variant="caption" color="text.secondary" sx={{ textTransform: "uppercase", fontSize: "0.6rem", fontWeight: 900 }}>{user?.role}</Typography>
-                   </Box>
-                </Stack>
-              </Stack>
-            </Toolbar>
-          </AppBar>
+                <div className="relative lte-navbar-menu">
+                  <button ref={profileAnchorRef} className="lte-user-menu-button" onClick={() => setProfileMenuOpen((v) => !v)}>
+                    <Avatar src={user?.profile_image} alt={user?.name} size="md" className="lte-navbar-avatar" />
+                    <div className="lte-user-menu-copy">
+                      <div className="lte-user-menu-name">
+                        <span>{user?.name || "Account"}</span>
+                        {subscription?.status === "active" && (
+                          <Chip label="PREMIUM" size="sm" icon={<Crown size={10} />} className="!bg-yellow-500/10 !text-yellow-500" />
+                        )}
+                      </div>
+                      <small>{user?.role?.toUpperCase()}</small>
+                    </div>
+                  </button>
+                  <Menu open={profileMenuOpen} onClose={() => setProfileMenuOpen(false)} anchorRef={profileAnchorRef}>
+                    <MenuItem onClick={() => { navigate("/dashboard/profile"); setProfileMenuOpen(false); }}>
+                      <User size={16} /> Profile
+                    </MenuItem>
+                    <Divider className="my-1" />
+                    <MenuItem danger onClick={handleLogout}>
+                      <LogOut size={16} /> Logout
+                    </MenuItem>
+                  </Menu>
+                </div>
+              </div>
+            </div>
+          </header>
         )}
 
-        <Box
-          component="main"
-          sx={{
-            flexGrow: 1,
-            borderRadius: isViewer ? 0 : "32px",
-            bgcolor: isViewer ? "transparent" : (isDark ? alpha("#0F172A", 0.75) : alpha("#FFFFFF", 0.75)),
-            backdropFilter: isViewer ? "none" : "blur(8px) saturate(140%)",
-            willChange: "width, margin, padding",
-            border: isViewer ? "none" : "1px solid",
-            borderColor: isDark ? alpha("#FFFFFF", 0.1) : alpha("#0EA5E9", 0.1),
-            mx: isViewer ? 0 : { xs: 1, md: 3 },
-            mb: isViewer ? 0 : { xs: 1, md: 3 },
-            p: isViewer ? 0 : { xs: 2, md: 4 },
-            boxShadow: isViewer ? "none" : (isDark ? "0 20px 60px -15px rgba(0,0,0,0.4)" : "0 20px 60px -15px rgba(14,165,233,0.1)"),
-            transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-            pb: isViewer ? 12 : 0 // Space for bottom nav
-          }}
-        >
+        <main className={isViewer ? "flex-1 p-0" : "lte-content-wrapper"}>
           <Outlet />
-        </Box>
+        </main>
 
         {isViewer && (
-          <MobileBottomNav
-            user={user}
-            isAuthenticated={isAuthenticated}
-            location={location}
-            navigate={navigate}
-            items={viewerDashboardNavItems}
-          />
+          <MobileBottomNav user={user} isAuthenticated={isAuthenticated} location={location} navigate={navigate} items={viewerDashboardNavItems} />
         )}
-
-        <Menu
-          anchorEl={anchorEl}
-          open={Boolean(anchorEl)}
-          onClose={() => setAnchorEl(null)}
-          PaperProps={{
-            elevation: 0,
-            sx: {
-              mt: 1.5,
-              borderRadius: "16px",
-              minWidth: 200,
-              bgcolor: isDark ? "#1E293B" : "white",
-              border: "1px solid",
-              borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)",
-              boxShadow: "0 20px 40px -10px rgba(0,0,0,0.2)"
-            }
-          }}
-        >
-          <MenuItem onClick={() => { navigate("/dashboard/profile"); setAnchorEl(null); }}>
-             <ListItemIcon><Person fontSize="small" /></ListItemIcon>
-             Profile
-          </MenuItem>
-          <Divider />
-          <MenuItem onClick={handleLogout} sx={{ color: "error.main" }}>
-             <ListItemIcon><Logout fontSize="small" color="error" /></ListItemIcon>
-             Logout
-          </MenuItem>
-        </Menu>
-      </Box>
-    </Box>
+      </div>
+    </div>
   );
 }

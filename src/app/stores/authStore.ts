@@ -158,7 +158,8 @@ export const useAuthStore = create<AuthState>()(
             role: user.role,
           })
         } catch {
-          get().clearAuth()
+          // Transient/network error fetching the profile — leave the
+          // existing session alone rather than logging the user out.
         }
       },
 

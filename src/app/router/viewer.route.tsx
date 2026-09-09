@@ -1,7 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { Navigate, RouteObject, Outlet, useLocation } from 'react-router-dom'
-import CircularProgress from '@mui/material/CircularProgress'
-import Box from '@mui/material/Box'
+import { RouteLoader as Loader } from '@/_ocean/ui'
 import { useAuthStore } from '@/app/stores/authStore'
 import { ViewerGuard } from './guards/ViewerGuard'
 import EpisodeListPage from '../module/client/episode-list/EpisodeListPage'
@@ -16,15 +15,13 @@ const ViewerLayout      = lazy(() => import('@/_ocean/layout/ViewerLayout'))
 const ClientProfilePage = lazy(() => import('../module/client/profile/ClientProfilePage'))
 const ViewerSeriesDetail = lazy(() => import('../module/client/library/components/SeriesDetail'))
 const SeriesPlayerPage = lazy(() => import('../module/client/library/components/SeriesPlayerPage'))
-const AppStudioDashboard = lazy(() => import('../module/client/app-studio/module/dasboard/Dashboard'))
 const SubscriptionPlan = lazy(() => import('../module/client/app-studio/module/subscription-plan/SubscriptionPlan'))
 const CoinsPage = lazy(() => import('../module/client/Coins/CoinsPage'))
-
-const Loader = () => (
-  <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
-    <CircularProgress />
-  </Box>
-)
+const FavoritesPage = lazy(() => import('../module/client/favorites/FavoritesPage'))
+const FollowingPage = lazy(() => import('../module/client/following/FollowingPage'))
+const WatchHistoryPage = lazy(() => import('../module/client/watch-history/WatchHistoryPage'))
+const CreatorProfilePage = lazy(() => import('../module/client/creator-profile/CreatorProfilePage'))
+const NotificationsPage = lazy(() => import('../module/client/notifications/NotificationsPage'))
 
 /**
  * Layout for the root / path.
@@ -66,6 +63,11 @@ export const viewerRoutes: RouteObject[] = [
           { path: 'search', element: <SearchVideo /> },
           { path: 'subscription-plan', element: <SubscriptionPlan /> },
           { path: 'coins', element: <CoinsPage /> },
+          { path: 'favorites', element: <FavoritesPage /> },
+          { path: 'following', element: <FollowingPage /> },
+          { path: 'watch-history', element: <WatchHistoryPage /> },
+          { path: 'creator/:creatorId', element: <CreatorProfilePage /> },
+          { path: 'notifications', element: <NotificationsPage /> },
         ],
       },
     ],

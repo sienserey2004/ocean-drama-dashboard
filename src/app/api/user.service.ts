@@ -10,13 +10,20 @@ export const userApi = {
       return response.data;
     } catch (error: any) {
       console.error("Failed to fetch user profile:", error);
-      return null;
+      // Only a real auth rejection means "not logged in" — network/5xx errors
+      // shouldn't be treated the same, or refreshUser() will log the user out.
+      if (error?.response?.status === 401 || error?.response?.status === 404) {
+        return null;
+      }
+      throw error;
     }
   },
 
-  updateMe: async (data: { name?: string; phone?: string; profile_image?: string }): Promise<{ message: string; user: User } | null> => {
+  updateMe: async (data: { name?: string; phone?: string; profile_image?: string } | FormData): Promise<{ message: string; user: User } | null> => {
     try {
-      const response = await api.put<{ message: string; user: User }>('/users/me', data);
+      const response = await api.put<{ message: string; user: User }>('/users/me', data, data instanceof FormData
+        ? { headers: { 'Content-Type': 'multipart/form-data' } }
+        : undefined);
       return response.data;
     } catch (error: any) {
       console.error("Failed to update profile:", error);

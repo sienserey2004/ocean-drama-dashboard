@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Backdrop, Fade, Box } from '@mui/material';
 import { videoApi } from '@/app/api/video.service';
 import { categoryApi } from '@/app/api/categoryTag.service';
 import { Video, Category } from '@/app/types';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import SearchHeader from './components/SearchHeader';
 import SearchBar from './components/SearchBar';
 import CategoryTabs from './components/CategoryTabs';
@@ -15,7 +14,13 @@ interface SearchVideoProps {
 }
 
 const SearchVideo: React.FC<SearchVideoProps> = ({ open = true, onClose }) => {
-  const [q, setQ] = useState('');
+  // Rendered two ways: as a modal over the reel feed (ReelMain passes onClose),
+  // and as the /search route page. Only the modal may cover the layout chrome —
+  // as a page it has to stay in flow so the navbar and bottom tab bar show.
+  const isModal = typeof onClose === 'function';
+  const [searchParams] = useSearchParams();
+  const initialCategoryName = searchParams.get('category') || '';
+  const [q, setQ] = useState(searchParams.get('q') || '');
   const [results, setResults] = useState<Video[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [activeCategory, setActiveCategory] = useState<number | null>(null);
@@ -24,12 +29,15 @@ const SearchVideo: React.FC<SearchVideoProps> = ({ open = true, onClose }) => {
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Resolve a ?category=<name> deep-link once categories have loaded
+  useEffect(() => {
+    if (!initialCategoryName || activeCategory !== null || categories.length === 0) return;
+    const match = categories.find((c) => c.name === initialCategoryName);
+    if (match) setActiveCategory(match.category_id);
+  }, [categories, initialCategoryName, activeCategory]);
+
   const handleClose = () => {
-    if (onClose) {
-      onClose();
-    } else {
-      navigate(-1);
-    }
+    onClose?.();
   };
 
   // Fetch categories on mount
@@ -88,43 +96,41 @@ const SearchVideo: React.FC<SearchVideoProps> = ({ open = true, onClose }) => {
     navigate(`/viewer/library/${video.video_id}`);
   };
 
+  if (!open) return null;
+
   return (
-    <Backdrop
-      open={open}
-      sx={{
-        zIndex: 2000,
-        backgroundColor: '#0F1014',
-        backdropFilter: 'blur(20px)',
-        display: 'block',
-        overflowY: 'auto'
-      }}
+    <div
+      className={
+        isModal
+          ? 'animate-fade-in fixed inset-0 z-[2000] block overflow-y-auto bg-ocean-background-light/95 backdrop-blur-xl dark:bg-ocean-background-dark/95'
+          : 'animate-fade-in min-h-full w-full bg-ocean-background-light dark:bg-ocean-background-dark'
+      }
     >
-      <Fade in={open}>
-        <Box sx={{ width: '100%', minHeight: '100vh', pb: 10 }}>
-          <Box sx={{ maxWidth: 800, mx: 'auto', px: 2, pt: 2 }}>
-            <SearchHeader onClose={handleClose} />
-            <SearchBar 
-              q={q} 
-              setQ={setQ} 
-              inputRef={inputRef} 
-              loading={loading} 
-            />
-            <CategoryTabs 
-              categories={categories} 
-              activeCategory={activeCategory} 
-              setActiveCategory={setActiveCategory}
-              loading={loadingCategories}
-            />
-            <ActionButtons />
-            <DramaGrid 
-              results={results} 
-              loading={loading} 
-              onSelect={handleSelectVideo} 
-            />
-          </Box>
-        </Box>
-      </Fade>
-    </Backdrop>
+      {/* Extra bottom padding on mobile clears the floating tab bar. */}
+      <div className={isModal ? 'min-h-screen w-full pb-20' : 'w-full pb-32 md:pb-10'}>
+        <div className="mx-auto max-w-[800px] px-4 pt-4">
+          <SearchHeader onClose={isModal ? handleClose : undefined} />
+          <SearchBar
+            q={q}
+            setQ={setQ}
+            inputRef={inputRef}
+            loading={loading}
+          />
+          <CategoryTabs
+            categories={categories}
+            activeCategory={activeCategory}
+            setActiveCategory={setActiveCategory}
+            loading={loadingCategories}
+          />
+          <ActionButtons />
+          <DramaGrid
+            results={results}
+            loading={loading}
+            onSelect={handleSelectVideo}
+          />
+        </div>
+      </div>
+    </div>
   );
 };
 

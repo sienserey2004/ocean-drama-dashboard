@@ -1,6 +1,5 @@
 // ViewerLayout.tsx
 import React from 'react';
-import Box from '@mui/material/Box';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/app/stores/authStore';
 import DesktopNavbar from './components/DesktopNavbar';
@@ -19,15 +18,7 @@ const ViewerLayout: React.FC = () => {
   }, [refreshUser, isAuthenticated]);
 
   return (
-    <Box
-      sx={{
-        height: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        bgcolor: '#000',
-        color: 'white',
-      }}
-    >
+    <div className="flex h-screen flex-col bg-black text-white">
       <DesktopNavbar
         user={user}
         isAuthenticated={isAuthenticated}
@@ -36,9 +27,9 @@ const ViewerLayout: React.FC = () => {
       />
 
       {/* Main content area */}
-      <Box sx={{ flex: 1, overflow: 'auto', position: 'relative' }}>
+      <div className="relative flex-1 overflow-auto">
         <Outlet />
-      </Box>
+      </div>
 
       {(!location.pathname.startsWith('/app-studio') && !location.pathname.startsWith('/subscription-plan')) && (
         <MobileBottomNav
@@ -48,7 +39,7 @@ const ViewerLayout: React.FC = () => {
           navigate={navigate}
         />
       )}
-    </Box>
+    </div>
   );
 };
 

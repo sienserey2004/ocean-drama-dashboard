@@ -1,26 +1,18 @@
 import React, { useEffect, useRef, useState } from "react";
 import Hls, { Level } from "hls.js";
 import {
-  Box,
-  Divider,
-  IconButton,
-  Slider,
-  Stack,
-  Typography,
-  Menu,
-  MenuItem,
-  Fade,
-  CircularProgress,
-} from "@mui/material";
-import PlayArrowIcon from "@mui/icons-material/PlayArrow";
-import PauseIcon from "@mui/icons-material/Pause";
-import FullscreenIcon from "@mui/icons-material/Fullscreen";
-import VolumeUpIcon from "@mui/icons-material/VolumeUp";
-import VolumeOffIcon from "@mui/icons-material/VolumeOff";
-import SettingsIcon from "@mui/icons-material/Settings";
-import FastForwardIcon from "@mui/icons-material/FastForward";
-import FastRewindIcon from "@mui/icons-material/FastRewind";
-import CheckIcon from "@mui/icons-material/Check";
+  Play,
+  Pause,
+  FastForward,
+  Rewind,
+  Volume2,
+  VolumeX,
+  Volume1,
+  Maximize,
+  Settings,
+  Check,
+} from "lucide-react";
+import { IconButton, Spinner } from "@/_ocean/ui";
 
 import { episodeApi } from "@/app/api/episode.service";
 
@@ -38,6 +30,7 @@ interface HLSPlayerProps {
   playing?: boolean;
   muted?: boolean;
   volume?: number;
+  loop?: boolean;
 }
 
 /** A single selectable quality level in the menu */
@@ -61,6 +54,7 @@ const HLSPlayer: React.FC<HLSPlayerProps> = ({
   playing,
   muted: externalMuted,
   volume: externalVolume,
+  loop = false,
 }) => {
   const [url, setUrl] = useState<string | undefined>(initialUrl);
   const [startTime, setStartTime] = useState(initialStartTime);
@@ -78,7 +72,9 @@ const HLSPlayer: React.FC<HLSPlayerProps> = ({
   const [playbackRate, setPlaybackRate] = useState(1);
 
   // Settings menu
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsBtnRef = useRef<HTMLButtonElement>(null);
+  const settingsPanelRef = useRef<HTMLDivElement>(null);
   // "speed" | "quality" — which sub-panel is shown
   const [settingsView, setSettingsView] = useState<"main" | "speed" | "quality">("main");
 
@@ -87,7 +83,6 @@ const HLSPlayer: React.FC<HLSPlayerProps> = ({
   const [selectedLevel, setSelectedLevel] = useState<number>(-1); // -1 = Auto
 
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastUrlRef = useRef<string>("");
 
   // ─── Fetch stream URL when episodeId is provided ─────────────────────────
   useEffect(() => {
@@ -102,7 +97,7 @@ const HLSPlayer: React.FC<HLSPlayerProps> = ({
         console.log(`📽️ Fetching stream URL for episode ${episodeId} (${type})...`);
         const streamData = await episodeApi.getStreamUrl(episodeId);
         const ep = await episodeApi.getById(episodeId);
-        const binaryUrl = episodeApi.getBinaryStreamUrl(ep, type);
+        const binaryUrl = await episodeApi.getBinaryStreamUrl(ep, type);
         console.log("📽️ Stream URL acquired:", binaryUrl);
         setUrl(binaryUrl);
         if (initialStartTime === 0 && streamData.resume_at) {
@@ -123,13 +118,7 @@ const HLSPlayer: React.FC<HLSPlayerProps> = ({
     const video = videoRef.current;
     if (!video || !url) return;
 
-    if (lastUrlRef.current === url) {
-      console.log("📽️ Source already set for URL, skipping re-init:", url);
-      return;
-    }
-
     console.log("HLSPlayer init source:", { url, startTime, autoPlay });
-    lastUrlRef.current = url;
 
     // Destroy any previous HLS instance
     if (hlsRef.current) {
@@ -237,6 +226,8 @@ const HLSPlayer: React.FC<HLSPlayerProps> = ({
       return () => {
         video.removeEventListener("loadedmetadata", onLoadedMetadata);
         video.removeEventListener("error", handleVideoError);
+        video.removeAttribute("src");
+        video.load();
       };
     }
 
@@ -292,6 +283,19 @@ const HLSPlayer: React.FC<HLSPlayerProps> = ({
     }
   }, [isMuted, volume]);
 
+  // ─── Close settings menu on outside click ─────────────────────────────────
+  useEffect(() => {
+    if (!settingsOpen) return;
+    const onClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (settingsPanelRef.current?.contains(target)) return;
+      if (settingsBtnRef.current?.contains(target)) return;
+      closeSettings();
+    };
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, [settingsOpen]);
+
   // ─── Handlers ────────────────────────────────────────────────────────────
   const togglePlay = () => {
     const video = videoRef.current;
@@ -320,10 +324,10 @@ const HLSPlayer: React.FC<HLSPlayerProps> = ({
     }
   };
 
-  const handleSeek = (_: Event, value: number | number[]) => {
+  const handleSeek = (value: number) => {
     if (videoRef.current) {
-      videoRef.current.currentTime = value as number;
-      setCurrentTime(value as number);
+      videoRef.current.currentTime = value;
+      setCurrentTime(value);
     }
   };
 
@@ -367,13 +371,13 @@ const HLSPlayer: React.FC<HLSPlayerProps> = ({
     closeSettings();
   };
 
-  const openSettings = (e: React.MouseEvent<HTMLButtonElement>) => {
-    setAnchorEl(e.currentTarget);
+  const openSettings = () => {
+    setSettingsOpen(true);
     setSettingsView("main");
   };
 
   const closeSettings = () => {
-    setAnchorEl(null);
+    setSettingsOpen(false);
     setSettingsView("main");
   };
 
@@ -384,23 +388,24 @@ const HLSPlayer: React.FC<HLSPlayerProps> = ({
     return found ? found.label : "Auto";
   };
 
+  // Shared look for the seek/volume range inputs — a thin translucent track with a
+  // small solid thumb, styled directly since there's no shared slider primitive yet.
+  const rangeTrackClass =
+    "h-1 cursor-pointer appearance-none rounded-full bg-white/25 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0";
+
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
-    <Box
+    <div
       ref={containerRef}
       onMouseMove={handleMouseMove}
-      sx={{
-        position: "relative",
-        width: "100%",
-        height: "100%",
-        bgcolor: "black",
-        overflow: "hidden",
-        cursor: showControls && !hideControls ? "default" : "none",
-      }}
+      className={`relative h-full w-full overflow-hidden bg-black ${
+        showControls && !hideControls ? "cursor-default" : "cursor-none"
+      }`}
     >
       <video
         ref={videoRef}
-        style={{ width: "100%", height: "100%", outline: "none", objectFit }}
+        className={`h-full w-full outline-none ${objectFit === "cover" ? "object-cover" : "object-contain"}`}
+        loop={loop}
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
         onEnded={onEnded}
@@ -410,196 +415,173 @@ const HLSPlayer: React.FC<HLSPlayerProps> = ({
       />
 
       {loading && (
-        <Box
-          sx={{
-            position: "absolute",
-            inset: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            bgcolor: "rgba(0,0,0,0.5)",
-            zIndex: 5,
-          }}
-        >
-          <CircularProgress sx={{ color: "#FE2C55" }} />
-        </Box>
+        <div className="absolute inset-0 z-[5] flex items-center justify-center bg-black/50">
+          <Spinner size={40} className="text-primary" />
+        </div>
       )}
 
-      <Fade in={showControls && !hideControls}>
-        <Box
-          sx={{
-            position: "absolute",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            p: 2,
-            background: "linear-gradient(transparent, rgba(0,0,0,0.8))",
-            zIndex: 10,
-          }}
+      {!hideControls && (
+        <div
+          className={`absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/80 to-transparent p-4 transition-opacity duration-300 ${
+            showControls ? "opacity-100" : "pointer-events-none opacity-0"
+          }`}
         >
-          {/* Progress Bar */}
-          <Slider
-            size="small"
-            value={currentTime}
-            max={duration}
-            onChange={handleSeek}
-            sx={{
-              color: "#FE2C55",
-              mb: 1,
-              "& .MuiSlider-thumb": { width: 12, height: 12 },
-              "& .MuiSlider-rail": { opacity: 0.3 },
-            }}
-          />
+        {/* Progress Bar */}
+        <input
+          type="range"
+          aria-label="Seek"
+          min={0}
+          max={duration || 0}
+          step={0.1}
+          value={currentTime}
+          onChange={(e) => handleSeek(Number(e.target.value))}
+          className={`mb-2 w-full accent-primary ${rangeTrackClass} [&::-webkit-slider-thumb]:bg-primary [&::-moz-range-thumb]:bg-primary`}
+        />
 
-          <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={2}>
-            {/* Left controls */}
-            <Stack direction="row" alignItems="center" spacing={1}>
-              <IconButton onClick={togglePlay} sx={{ color: "white" }}>
-                {isPlaying ? <PauseIcon /> : <PlayArrowIcon />}
+        <div className="flex items-center justify-between gap-2">
+          {/* Left controls */}
+          <div className="flex items-center gap-0.5">
+            <IconButton plain className="text-white hover:bg-white/10" onClick={togglePlay}>
+              {isPlaying ? <Pause size={20} /> : <Play size={20} />}
+            </IconButton>
+
+            <IconButton
+              plain
+              className="text-white hover:bg-white/10"
+              onClick={() => {
+                if (videoRef.current) videoRef.current.currentTime -= 10;
+              }}
+            >
+              <Rewind size={20} />
+            </IconButton>
+
+            <IconButton
+              plain
+              className="text-white hover:bg-white/10"
+              onClick={() => {
+                if (videoRef.current) videoRef.current.currentTime += 10;
+              }}
+            >
+              <FastForward size={20} />
+            </IconButton>
+
+            <div className="ml-2 flex items-center gap-1">
+              <IconButton plain className="text-white hover:bg-white/10" onClick={() => setIsMuted(!isMuted)}>
+                {isMuted || volume === 0 ? <VolumeX size={20} /> : volume < 0.5 ? <Volume1 size={20} /> : <Volume2 size={20} />}
+              </IconButton>
+              <input
+                type="range"
+                aria-label="Volume"
+                min={0}
+                max={1}
+                step={0.1}
+                value={isMuted ? 0 : volume}
+                onChange={(e) => setVolume(Number(e.target.value))}
+                className={`w-20 accent-white ${rangeTrackClass} [&::-webkit-slider-thumb]:bg-white [&::-moz-range-thumb]:bg-white`}
+              />
+            </div>
+
+            <span className="ml-2 hidden text-xs font-bold text-white sm:inline">
+              {formatTime(currentTime)} / {formatTime(duration)}
+            </span>
+          </div>
+
+          {/* Right controls */}
+          <div className="flex items-center gap-0.5">
+            <div className="relative">
+              <IconButton ref={settingsBtnRef} plain className="text-white hover:bg-white/10" onClick={openSettings}>
+                <Settings size={20} />
               </IconButton>
 
-              <IconButton
-                onClick={() => { if (videoRef.current) videoRef.current.currentTime -= 10; }}
-                sx={{ color: "white" }}
-              >
-                <FastRewindIcon />
-              </IconButton>
-
-              <IconButton
-                onClick={() => { if (videoRef.current) videoRef.current.currentTime += 10; }}
-                sx={{ color: "white" }}
-              >
-                <FastForwardIcon />
-              </IconButton>
-
-              <Stack direction="row" alignItems="center" spacing={1} sx={{ ml: 2 }}>
-                <IconButton onClick={() => setIsMuted(!isMuted)} sx={{ color: "white" }}>
-                  {isMuted || volume === 0 ? <VolumeOffIcon /> : <VolumeUpIcon />}
-                </IconButton>
-                <Slider
-                  size="small"
-                  value={isMuted ? 0 : volume}
-                  min={0}
-                  max={1}
-                  step={0.1}
-                  onChange={(_, val) => setVolume(val as number)}
-                  sx={{ width: 80, color: "white" }}
-                />
-              </Stack>
-
-              <Typography variant="caption" sx={{ color: "white", ml: 2, fontWeight: "bold" }}>
-                {formatTime(currentTime)} / {formatTime(duration)}
-              </Typography>
-            </Stack>
-
-            {/* Right controls */}
-            <Stack direction="row" alignItems="center" spacing={1}>
-              <IconButton onClick={openSettings} sx={{ color: "white" }}>
-                <SettingsIcon />
-              </IconButton>
-              <IconButton onClick={toggleFullscreen} sx={{ color: "white" }}>
-                <FullscreenIcon />
-              </IconButton>
-            </Stack>
-          </Stack>
-        </Box>
-      </Fade>
-
-      {/* ── Settings Menu ─────────────────────────────────────────────────── */}
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={closeSettings}
-        anchorOrigin={{ vertical: "top", horizontal: "center" }}
-        transformOrigin={{ vertical: "bottom", horizontal: "center" }}
-        PaperProps={{
-          sx: {
-            bgcolor: "rgba(20,20,20,0.97)",
-            color: "white",
-            minWidth: 200,
-            backdropFilter: "blur(12px)",
-            border: "1px solid rgba(255,255,255,0.08)",
-            borderRadius: 2,
-          },
-        }}
-      >
-        {/* ── Main view ───────────────────────────────────────────────── */}
-        {settingsView === "main" && [
-          <MenuItem
-            key="speed-row"
-            onClick={() => setSettingsView("speed")}
-            sx={{ justifyContent: "space-between", py: 1.25 }}
-          >
-            <Typography variant="body2">Playback Speed</Typography>
-            <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.5)" }}>
-              {playbackRate}x ›
-            </Typography>
-          </MenuItem>,
-
-          ...(qualityLevels.length > 0
-            ? [
-                <Divider key="divider" sx={{ borderColor: "rgba(255,255,255,0.08)" }} />,
-                <MenuItem
-                  key="quality-row"
-                  onClick={() => setSettingsView("quality")}
-                  sx={{ justifyContent: "space-between", py: 1.25 }}
+              {/* ── Settings Menu ─────────────────────────────────────────── */}
+              {settingsOpen && (
+                <div
+                  ref={settingsPanelRef}
+                  className="absolute bottom-full right-0 z-20 mb-2 w-56 overflow-hidden rounded-2xl border border-white/10 bg-[rgba(20,20,20,0.97)] py-1.5 text-white shadow-soft backdrop-blur-md"
                 >
-                  <Typography variant="body2">Quality</Typography>
-                  <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.5)" }}>
-                    {currentQualityLabel()} ›
-                  </Typography>
-                </MenuItem>,
-              ]
-            : []),
-        ]}
+                  {/* ── Main view ───────────────────────────────────────── */}
+                  {settingsView === "main" && (
+                    <>
+                      <button
+                        onClick={() => setSettingsView("speed")}
+                        className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm hover:bg-white/10"
+                      >
+                        <span>Playback Speed</span>
+                        <span className="text-white/50">{playbackRate}x ›</span>
+                      </button>
 
-        {/* ── Playback Speed sub-panel ─────────────────────────────────── */}
-        {settingsView === "speed" && [
-          <MenuItem
-            key="back-speed"
-            onClick={() => setSettingsView("main")}
-            sx={{ color: "#FE2C55", py: 1 }}
-          >
-            ← Playback Speed
-          </MenuItem>,
-          <Divider key="d1" sx={{ borderColor: "rgba(255,255,255,0.08)" }} />,
-          ...[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => (
-            <MenuItem
-              key={rate}
-              onClick={() => handlePlaybackRateChange(rate)}
-              sx={{ justifyContent: "space-between", py: 1.1 }}
-            >
-              <Typography variant="body2">{rate}x</Typography>
-              {playbackRate === rate && <CheckIcon sx={{ fontSize: 16, color: "#FE2C55" }} />}
-            </MenuItem>
-          )),
-        ]}
+                      {qualityLevels.length > 0 && (
+                        <>
+                          <div className="my-1 border-t border-white/10" />
+                          <button
+                            onClick={() => setSettingsView("quality")}
+                            className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm hover:bg-white/10"
+                          >
+                            <span>Quality</span>
+                            <span className="text-white/50">{currentQualityLabel()} ›</span>
+                          </button>
+                        </>
+                      )}
+                    </>
+                  )}
 
-        {/* ── Quality sub-panel ────────────────────────────────────────── */}
-        {settingsView === "quality" && [
-          <MenuItem
-            key="back-quality"
-            onClick={() => setSettingsView("main")}
-            sx={{ color: "#FE2C55", py: 1 }}
-          >
-            ← Quality
-          </MenuItem>,
-          <Divider key="d2" sx={{ borderColor: "rgba(255,255,255,0.08)" }} />,
-          ...qualityLevels.map((lvl) => (
-            <MenuItem
-              key={lvl.index}
-              onClick={() => handleQualityChange(lvl.index)}
-              sx={{ justifyContent: "space-between", py: 1.1 }}
-            >
-              <Typography variant="body2">{lvl.label}</Typography>
-              {selectedLevel === lvl.index && (
-                <CheckIcon sx={{ fontSize: 16, color: "#FE2C55" }} />
+                  {/* ── Playback Speed sub-panel ─────────────────────────── */}
+                  {settingsView === "speed" && (
+                    <>
+                      <button
+                        onClick={() => setSettingsView("main")}
+                        className="w-full px-4 py-2 text-left text-sm font-semibold text-primary hover:bg-white/10"
+                      >
+                        ← Playback Speed
+                      </button>
+                      <div className="my-1 border-t border-white/10" />
+                      {[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => (
+                        <button
+                          key={rate}
+                          onClick={() => handlePlaybackRateChange(rate)}
+                          className="flex w-full items-center justify-between px-4 py-2 text-left text-sm hover:bg-white/10"
+                        >
+                          <span>{rate}x</span>
+                          {playbackRate === rate && <Check size={16} className="text-primary" />}
+                        </button>
+                      ))}
+                    </>
+                  )}
+
+                  {/* ── Quality sub-panel ────────────────────────────────── */}
+                  {settingsView === "quality" && (
+                    <>
+                      <button
+                        onClick={() => setSettingsView("main")}
+                        className="w-full px-4 py-2 text-left text-sm font-semibold text-primary hover:bg-white/10"
+                      >
+                        ← Quality
+                      </button>
+                      <div className="my-1 border-t border-white/10" />
+                      {qualityLevels.map((lvl) => (
+                        <button
+                          key={lvl.index}
+                          onClick={() => handleQualityChange(lvl.index)}
+                          className="flex w-full items-center justify-between px-4 py-2 text-left text-sm hover:bg-white/10"
+                        >
+                          <span>{lvl.label}</span>
+                          {selectedLevel === lvl.index && <Check size={16} className="text-primary" />}
+                        </button>
+                      ))}
+                    </>
+                  )}
+                </div>
               )}
-            </MenuItem>
-          )),
-        ]}
-      </Menu>
-    </Box>
+            </div>
+
+            <IconButton plain className="text-white hover:bg-white/10" onClick={toggleFullscreen}>
+              <Maximize size={20} />
+            </IconButton>
+          </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 

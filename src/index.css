@@ -8,22 +8,75 @@
   box-sizing: border-box;
 }
 
+:root {
+  /*
+   * Total footprint of the floating mobile tab bar (MobileBottomNav): its own
+   * height plus the safe-area padding it sits on. Anything that must clear the
+   * bar offsets by this instead of restating the numbers, so the bar can be
+   * resized in one place. The bar is md:hidden, so md: overrides drop back to 0.
+   */
+  --tab-bar-h: calc(64px + env(safe-area-inset-bottom, 12px));
+}
+
+/*
+ * Tailwind's preflight reset is disabled (see corePlugins.preflight in
+ * tailwind.config.js) until the MUI removal finishes, so native element
+ * chrome/margins aren't stripped by default. Components that want a border,
+ * background or margin already set it via Tailwind utilities (compiled
+ * !important under #root), which still win over this plain reset — this only
+ * fills the gap for elements that don't set those explicitly, e.g. bare
+ * <button>s picking up the browser's default border/background (the mobile
+ * tab bar's "boxy" look) and <p>/<h#> tags carrying default margins that blow
+ * up spacing between stacked icon+label rows (reel action buttons, comments,
+ * profile stats).
+ */
+button {
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+p, h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+}
+ul, ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
 html, body, #root {
   height: 100%;
   margin: 0;
   padding: 0;
 }
 
+:root {
+  --color-bg: #F9FAFB;
+  --color-text: #111827;
+  --color-glow: rgba(14, 165, 233, 0.10);
+}
+
+.dark {
+  --color-bg: #0B0B0F;
+  --color-text: #FFFFFF;
+  --color-glow: rgba(14, 165, 233, 0.15);
+}
+
 body {
   font-family: 'Poppins', 'Inter', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #0B0B0F;
-  color: #FFFFFF;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 #root {
-  background-image: radial-gradient(circle at top, rgba(255, 45, 45, 0.15), transparent 70%);
+  background-image: radial-gradient(circle at top, var(--color-glow), transparent 70%);
   background-attachment: fixed;
 }
 
@@ -64,6 +117,24 @@ body {
   }
   .animate-zoom-in {
     animation: zoom-in 0.2s ease-out forwards;
+  }
+  @keyframes float-up {
+    0% { transform: translateY(0); opacity: 0; }
+    20% { transform: translateY(-10px); opacity: 1; }
+    80% { transform: translateY(-20px); opacity: 0.8; }
+    100% { transform: translateY(-30px); opacity: 0; }
+  }
+  .animate-float-up {
+    animation: float-up 1.5s ease-out forwards;
+  }
+  @keyframes heart-pop {
+    0% { transform: scale(0) rotate(-20deg); opacity: 0; }
+    20% { transform: scale(1.2) rotate(0deg); opacity: 1; }
+    80% { transform: scale(1) rotate(0deg); opacity: 0.8; }
+    100% { transform: scale(1.5) rotate(20deg); opacity: 0; }
+  }
+  .animate-heart-pop {
+    animation: heart-pop 0.8s ease-out forwards;
   }
 }
 

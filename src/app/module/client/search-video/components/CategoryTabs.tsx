@@ -1,6 +1,6 @@
 import React from 'react';
-import { Box, CircularProgress } from '@mui/material';
 import { Category } from '@/app/types';
+import { Chip, Spinner } from '@/_ocean/ui';
 
 interface CategoryTabsProps {
   categories: Category[];
@@ -9,67 +9,46 @@ interface CategoryTabsProps {
   loading: boolean;
 }
 
-const CategoryTabs: React.FC<CategoryTabsProps> = ({ 
-  categories, 
-  activeCategory, 
-  setActiveCategory, 
-  loading 
+const CategoryTabs: React.FC<CategoryTabsProps> = ({
+  categories,
+  activeCategory,
+  setActiveCategory,
+  loading,
 }) => {
   return (
-    <Box sx={{ 
-      display: 'flex', 
-      overflowX: 'auto', 
-      gap: 1.5, 
-      mb: 4, 
-      pb: 1,
-      '&::-webkit-scrollbar': { display: 'none' },
-      msOverflowStyle: 'none',
-      scrollbarWidth: 'none',
-    }}>
-      <CategoryTab 
-        label="All" 
-        active={activeCategory === null} 
-        onClick={() => setActiveCategory(null)} 
+    <div className="no-scrollbar mb-8 flex gap-3 overflow-x-auto pb-2">
+      <CategoryTab
+        label="All"
+        active={activeCategory === null}
+        onClick={() => setActiveCategory(null)}
       />
       {loading ? (
-        <CircularProgress size={24} sx={{ color: 'rgba(255,255,255,0.2)' }} />
+        <Spinner
+          size={24}
+          className="text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark"
+        />
       ) : (
         categories.map((cat) => (
-          <CategoryTab 
+          <CategoryTab
             key={cat.category_id}
-            label={cat.name} 
-            active={activeCategory === cat.category_id} 
-            onClick={() => setActiveCategory(cat.category_id)} 
+            label={cat.name}
+            active={activeCategory === cat.category_id}
+            onClick={() => setActiveCategory(cat.category_id)}
           />
         ))
       )}
-    </Box>
+    </div>
   );
 };
 
-const CategoryTab: React.FC<{ label: string; active: boolean; onClick: () => void }> = ({ 
-  label, 
-  active, 
-  onClick 
+const CategoryTab: React.FC<{ label: string; active: boolean; onClick: () => void }> = ({
+  label,
+  active,
+  onClick,
 }) => (
-  <Box
-    onClick={onClick}
-    sx={{
-      px: 3,
-      py: 1,
-      borderRadius: '20px',
-      cursor: 'pointer',
-      whiteSpace: 'nowrap',
-      transition: 'all 0.3s ease',
-      bgcolor: active ? 'rgba(255,255,255,0.1)' : 'transparent',
-      color: active ? 'white' : 'rgba(255,255,255,0.5)',
-      fontWeight: active ? 700 : 500,
-      fontSize: '14px',
-      '&:hover': { color: 'white', bgcolor: 'rgba(255,255,255,0.05)' }
-    }}
-  >
-    {label}
-  </Box>
+  <button type="button" onClick={onClick} className="shrink-0 whitespace-nowrap bg-transparent p-0">
+    <Chip label={label} color={active ? 'primary' : 'default'} className="cursor-pointer transition-colors" />
+  </button>
 );
 
 export default CategoryTabs;

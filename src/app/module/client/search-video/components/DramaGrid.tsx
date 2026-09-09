@@ -1,7 +1,7 @@
 import React from 'react';
-import { Grid, Box, Typography, CircularProgress } from '@mui/material';
 import { Video } from '@/app/types';
 import DramaCard from './DramaCard';
+import { Spinner } from '@/_ocean/ui';
 
 interface DramaGridProps {
   results: Video[];
@@ -12,30 +12,28 @@ interface DramaGridProps {
 const DramaGrid: React.FC<DramaGridProps> = ({ results, loading, onSelect }) => {
   if (loading && results.length === 0) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 10 }}>
-        <CircularProgress sx={{ color: '#E50914' }} />
-      </Box>
+      <div className="mt-20 flex justify-center">
+        <Spinner size={32} className="text-primary" />
+      </div>
     );
   }
 
   if (results.length === 0) {
     return (
-      <Box sx={{ textAlign: 'center', mt: 10 }}>
-        <Typography sx={{ color: 'rgba(255,255,255,0.3)', fontWeight: 600 }}>
+      <div className="mt-20 text-center">
+        <p className="font-semibold text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark">
           Search for your favorite drama
-        </Typography>
-      </Box>
+        </p>
+      </div>
     );
   }
 
   return (
-    <Grid container spacing={2}>
+    <div className="grid grid-cols-2 gap-4">
       {results.map((video) => (
-        <Grid item xs={6} key={video.video_id}>
-          <DramaCard video={video} onClick={() => onSelect(video)} />
-        </Grid>
+        <DramaCard key={video.video_id} video={video} onClick={() => onSelect(video)} />
       ))}
-    </Grid>
+    </div>
   );
 };
 

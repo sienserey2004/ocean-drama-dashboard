@@ -1,4 +1,4 @@
-import { PaginatedResponse, Video, CreateVideoPayload, UpdateVideoPayload, PaginationParams, Episode } from "@/app/types";
+import { PaginatedResponse, Video, VideoRess, CreateVideoPayload, UpdateVideoPayload, PaginationParams, Episode } from "@/app/types";
 import api from "./client";
 
 // ─── CACHE & DE-DUPLICATION ──────────────────────────────────────────────────
@@ -89,7 +89,7 @@ export const videoApi = {
     api.get<PaginatedResponse<Video>>('/videos', { params }).then(r => r.data),
 
   getMyVideos: (params?: { page?: number; limit?: number; status?: string }) =>
-    api.get<PaginatedResponse<Video>>('/videos/me', { params }).then(r => r.data),
+    api.get<PaginatedResponse<VideoRess>>('/videos/me', { params }).then(r => r.data),
 
   search: (params: { q?: string; category?: string; tag?: string; page?: number; limit?: number }) =>
     api.get<PaginatedResponse<Video>>('/videos/search', { params }).then(r => r.data),

@@ -1,7 +1,7 @@
 import React from 'react';
-import { Box, Typography, Stack } from '@mui/material';
-import { Visibility } from '@mui/icons-material';
+import { Eye } from 'lucide-react';
 import { Video } from '@/app/types';
+import { Card, Chip } from '@/_ocean/ui';
 
 interface DramaCardProps {
   video: Video;
@@ -9,107 +9,54 @@ interface DramaCardProps {
 }
 
 const DramaCard: React.FC<DramaCardProps> = ({ video, onClick }) => {
-  const isNewToday = video.created_at && 
+  const isNewToday = video.created_at &&
     new Date(video.created_at).toDateString() === new Date().toDateString();
 
   return (
-    <Box 
-      onClick={onClick}
-      sx={{ 
-        position: 'relative', 
-        cursor: 'pointer',
-        transition: 'transform 0.3s ease',
-        '&:hover': { transform: 'translateY(-4px)' }
-      }}
-    >
-      <DramaImage src={video.thumbnail_url || ''} alt={video.title} />
+    <div onClick={onClick} className="cursor-pointer">
+      <Card hoverable className="relative mb-3 aspect-[2/3] overflow-hidden">
+        <DramaImage src={video.thumbnail_url || ''} alt={video.title} />
+        {isNewToday && (
+          <div className="absolute right-2.5 top-2.5">
+            <Chip label="New today" color="primary" size="sm" className="uppercase shadow-glow" />
+          </div>
+        )}
+      </Card>
       <DramaOverlayText title={video.title} />
-      <DramaMeta 
-        views={video.view_count || 0} 
-        tag={(video as any).categories?.[0]?.name || 'Drama'} 
+      <DramaMeta
+        views={video.view_count || 0}
+        tag={(video as any).categories?.[0]?.name || 'Drama'}
       />
-      {isNewToday && (
-        <Box sx={{ position: 'absolute', top: 10, right: 10 }}>
-          <NewBadge label="New today" />
-        </Box>
-      )}
-    </Box>
+    </div>
   );
 };
 
 const DramaImage: React.FC<{ src: string; alt: string }> = ({ src, alt }) => (
-  <Box sx={{ 
-    width: '100%', 
-    aspectRatio: '2/3', 
-    borderRadius: '16px', 
-    overflow: 'hidden',
-    position: 'relative',
-    mb: 1.5,
-    bgcolor: '#1A1A22'
-  }}>
-    <img 
-      src={src} 
-      alt={alt} 
-      style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-    />
-    <Box sx={{
-      position: 'absolute',
-      inset: 0,
-      background: 'linear-gradient(to top, rgba(15,16,20,0.9), transparent 50%)'
-    }} />
-  </Box>
+  <>
+    <img src={src} alt={alt} className="h-full w-full object-cover" />
+    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+  </>
 );
 
 const DramaOverlayText: React.FC<{ title: string }> = ({ title }) => (
-  <Typography sx={{ 
-    color: 'white', 
-    fontWeight: 700, 
-    fontSize: '14px', 
-    lineHeight: 1.2,
-    mb: 0.5,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    display: '-webkit-box',
-    WebkitLineClamp: 2,
-    WebkitBoxOrient: 'vertical',
-  }}>
+  <p className="mb-1 line-clamp-2 text-sm font-bold leading-tight text-ocean-text-primary-light dark:text-ocean-text-primary-dark">
     {title}
-  </Typography>
+  </p>
 );
 
 const DramaMeta: React.FC<{ views: number; tag: string }> = ({ views, tag }) => (
-  <Stack direction="row" spacing={1} alignItems="center">
-    <Stack direction="row" spacing={0.5} alignItems="center" sx={{ color: 'rgba(255,255,255,0.4)' }}>
-      <Visibility sx={{ fontSize: 12 }} />
-      <Typography sx={{ fontSize: '11px', fontWeight: 600 }}>
-        {views > 1000 ? `${(views/1000).toFixed(1)}k` : views}
-      </Typography>
-    </Stack>
-    <Box sx={{ width: 3, height: 3, borderRadius: '50%', bgcolor: 'rgba(255,255,255,0.2)' }} />
-    <Typography sx={{ 
-      fontSize: '11px', 
-      color: 'rgba(255,255,255,0.4)', 
-      fontWeight: 600 
-    }}>
+  <div className="flex items-center gap-2">
+    <div className="flex items-center gap-1 text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark">
+      <Eye size={12} />
+      <span className="text-[11px] font-semibold">
+        {views > 1000 ? `${(views / 1000).toFixed(1)}k` : views}
+      </span>
+    </div>
+    <div className="h-[3px] w-[3px] rounded-full bg-ocean-border-light dark:bg-ocean-border-dark" />
+    <span className="text-[11px] font-semibold text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark">
       {tag}
-    </Typography>
-  </Stack>
-);
-
-const NewBadge: React.FC<{ label: string }> = ({ label }) => (
-  <Box sx={{ 
-    bgcolor: '#E50914', 
-    color: 'white', 
-    px: 1, 
-    py: 0.25, 
-    borderRadius: '4px',
-    fontSize: '9px',
-    fontWeight: 900,
-    textTransform: 'uppercase',
-    boxShadow: '0 4px 10px rgba(229, 9, 20, 0.4)'
-  }}>
-    {label}
-  </Box>
+    </span>
+  </div>
 );
 
 export default DramaCard;

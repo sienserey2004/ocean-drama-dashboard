@@ -1,5 +1,5 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
-import toast from 'react-hot-toast'
+import toast from '@/app/utils/toast'
 
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:4000/api',
@@ -20,8 +20,10 @@ api.interceptors.response.use(
   (res) => res,
   async (error: AxiosError<{ message?: string }>) => {
     const status = error.response?.status
+    const url = error.config?.url || ''
+    const isAuthEndpoint = /\/auth\/(login|login\/google|register|refresh-token)$/.test(url)
 
-    if (status === 401) {
+    if (status === 401 && !isAuthEndpoint) {
       // Use the store instance to get current state
       const { refreshToken, setTokens, clearAuth } = (await import('@/app/stores/authStore')).useAuthStore.getState()
       const refresh = refreshToken || localStorage.getItem('refresh_token')
@@ -52,7 +54,15 @@ api.interceptors.response.use(
     }
 
     const msg = error.response?.data?.message || 'Something went wrong'
-    if (status !== 401) toast.error(msg)
+    const isCompletedCheckIn = msg.trim().toLowerCase().replace(/[!.]+$/, '') === 'already checked in today'
+
+    if (status !== 401) {
+      if (isCompletedCheckIn) {
+        toast(msg, { icon: '✓', id: 'daily-checkin:already-complete' })
+      } else {
+        toast.error(msg)
+      }
+    }
     return Promise.reject(error)
   }
 )

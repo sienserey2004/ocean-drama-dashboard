@@ -1,17 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
-  Box, Typography, Chip, Avatar, IconButton, Button, Divider,
-  CircularProgress, Tooltip, Card, CardContent, Grid, List,
-  ListItem, ListItemAvatar, ListItemText, Stack, Paper
-} from '@mui/material'
-import {
-  ArrowBack, ThumbUp, ThumbUpOutlined, Favorite, FavoriteBorder,
-  Visibility, PlayArrow, LockOpen, Lock as LockIcon, Person,
-  CalendarToday, Category, LocalOffer, Share, Star, Info
-} from '@mui/icons-material'
+  ArrowLeft, ThumbsUp, Heart, Eye, Play, Unlock, Lock, User,
+  Calendar, Share2, Star, Info
+} from 'lucide-react'
+import { Button, IconButton, Avatar, Card, CardContent, Chip, Divider, Tooltip, Spinner } from '@/_ocean/ui'
 import type { Video, Episode } from '@/app/types'
-import toast from 'react-hot-toast'
+import toast from '@/app/utils/toast'
 import { videoApi } from '@/app/api/video.service'
 import { episodeApi } from '@/app/api/episode.service'
 
@@ -93,195 +88,178 @@ export default function VideoDetailPage() {
   }
 
   if (loading) return (
-    <Box sx={{ display: 'flex', justifyContent: 'center', py: 12 }}>
-      <CircularProgress thickness={5} />
-    </Box>
+    <div className="flex justify-center py-24">
+      <Spinner size={40} className="text-primary" />
+    </div>
   )
 
   if (!video) return (
-    <Box textAlign="center" py={12}>
-      <Typography variant="h5" fontWeight={800} color="text.secondary">Content missing or unavailable.</Typography>
-      <Button variant="contained" onClick={() => navigate('/dashboard/browse')} sx={{ mt: 3, borderRadius: '10px' }}>
+    <div className="text-center py-24">
+      <h2 className="text-xl font-extrabold text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark">Content missing or unavailable.</h2>
+      <Button color="primary" className="mt-6" onClick={() => navigate('/dashboard/browse')}>
         Return to Catalog
       </Button>
-    </Box>
+    </div>
   )
 
   const categoryNames = (video.categories || []).map((c: any) => typeof c === 'string' ? c : c.name)
 
   return (
-    <Box>
+    <div>
       {/* SaaS Navigation */}
-      <Box sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 2 }}>
-        <IconButton 
-           onClick={() => navigate(-1)} 
-           sx={{ bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: '12px' }}
+      <div className="mb-6 flex items-center gap-3">
+        <IconButton
+          plain
+          onClick={() => navigate(-1)}
+          className="border border-ocean-border-light dark:border-ocean-border-dark bg-ocean-surface-light dark:bg-ocean-surface-dark text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark hover:bg-ocean-card-light dark:hover:bg-ocean-card-dark"
         >
-          <ArrowBack fontSize="small" />
+          <ArrowLeft size={18} />
         </IconButton>
-        <Typography variant="subtitle2" color="text.secondary" fontWeight={700}>Return to Library</Typography>
-      </Box>
+        <span className="text-sm font-bold text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark">Return to Library</span>
+      </div>
 
-      <Grid container spacing={4}>
-        <Grid item xs={12} lg={8}>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="lg:col-span-8">
           {/* Main Hero Media */}
-          <Paper elevation={0} sx={{ borderRadius: '32px', overflow: 'hidden', border: '1px solid', borderColor: 'divider', mb: 4, position: 'relative' }}>
-             <Box
-                component="img"
-                src={video.thumbnail_url || `https://picsum.photos/seed/${video.video_id}/1200/675`}
-                alt={video.title}
-                sx={{ width: '100%', aspectRatio: '16/9', objectFit: 'cover' }}
-             />
-             <Box sx={{ 
-                position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', 
-                background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 50%)',
-                display: 'flex', alignItems: 'flex-end', p: 4
-             }}>
-                <Stack spacing={1}>
-                  <Stack direction="row" spacing={1} mb={1}>
-                    {categoryNames.map(name => (
-                      <Chip key={name} label={name} size="small" sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 800, backdropFilter: 'blur(10px)', border: 'none' }} />
-                    ))}
-                  </Stack>
-                  <Typography variant="h2" sx={{ color: 'white', fontWeight: 900, letterSpacing: '-2px', textShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>
-                    {video.title}
-                  </Typography>
-                </Stack>
-             </Box>
-          </Paper>
+          <div className="relative rounded-[32px] overflow-hidden border border-ocean-border-light dark:border-ocean-border-dark mb-6">
+            <img
+              src={video.thumbnail_url || `https://picsum.photos/seed/${video.video_id}/1200/675`}
+              alt={video.title}
+              className="w-full aspect-video object-cover"
+            />
+            <div className="absolute inset-0 flex items-end p-6 bg-gradient-to-t from-black/80 to-transparent">
+              <div className="space-y-2">
+                <div className="flex gap-2 flex-wrap">
+                  {categoryNames.map(name => (
+                    <span
+                      key={name}
+                      className="px-2.5 py-1 rounded-sm text-[11px] font-extrabold uppercase tracking-wide text-white bg-white/20 backdrop-blur-md"
+                    >
+                      {name}
+                    </span>
+                  ))}
+                </div>
+                <h1 className="text-3xl sm:text-5xl font-black text-white tracking-tight drop-shadow-lg">
+                  {video.title}
+                </h1>
+              </div>
+            </div>
+          </div>
 
           {/* Social & Stats Row */}
-          <Paper elevation={0} sx={{ p: 3, borderRadius: '24px', border: '1px solid', borderColor: 'divider', mb: 4 }}>
-             <Stack direction="row" spacing={3} alignItems="center" flexWrap="wrap">
-                <Stack direction="row" spacing={1} alignItems="center">
-                   <Tooltip title={liked ? 'Unlike' : 'Give a Like'}>
-                      <span>
-                        <IconButton onClick={handleLike} disabled={likeLoading} sx={{ bgcolor: liked ? 'primary.lighter' : 'action.hover', color: liked ? 'primary.main' : 'text.disabled' }}>
-                          {liked ? <ThumbUp fontSize="small" /> : <ThumbUpOutlined fontSize="small" />}
-                        </IconButton>
-                      </span>
-                   </Tooltip>
-                   <Typography variant="caption" fontWeight={800}>{likeCount.toLocaleString()}</Typography>
-                </Stack>
+          <div className="p-4 sm:p-6 rounded-3xl border border-ocean-border-light dark:border-ocean-border-dark mb-6 bg-ocean-surface-light dark:bg-ocean-surface-dark">
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Tooltip title={liked ? 'Unlike' : 'Give a Like'}>
+                  <IconButton
+                    plain
+                    onClick={handleLike}
+                    disabled={likeLoading}
+                    className={liked
+                      ? 'bg-primary/10 text-primary'
+                      : 'bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-ocean-text-secondary-dark hover:bg-slate-200 dark:hover:bg-white/10'}
+                  >
+                    <ThumbsUp size={16} fill={liked ? 'currentColor' : 'none'} />
+                  </IconButton>
+                </Tooltip>
+                <span className="text-xs font-extrabold text-ocean-text-primary-light dark:text-ocean-text-primary-dark">{likeCount.toLocaleString()}</span>
+              </div>
 
-                <Stack direction="row" spacing={1} alignItems="center">
-                   <Tooltip title={favorited ? 'Unsave' : 'Save for Later'}>
-                      <span>
-                        <IconButton onClick={handleFavorite} disabled={favLoading} sx={{ bgcolor: favorited ? 'error.lighter' : 'action.hover', color: favorited ? 'error.main' : 'text.disabled' }}>
-                          {favorited ? <Favorite fontSize="small" /> : <FavoriteBorder fontSize="small" />}
-                        </IconButton>
-                      </span>
-                   </Tooltip>
-                   <Typography variant="caption" fontWeight={800}>Save</Typography>
-                </Stack>
+              <div className="flex items-center gap-2">
+                <Tooltip title={favorited ? 'Unsave' : 'Save for Later'}>
+                  <IconButton
+                    plain
+                    onClick={handleFavorite}
+                    disabled={favLoading}
+                    className={favorited
+                      ? 'bg-primary/10 text-primary'
+                      : 'bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-ocean-text-secondary-dark hover:bg-slate-200 dark:hover:bg-white/10'}
+                  >
+                    <Heart size={16} fill={favorited ? 'currentColor' : 'none'} />
+                  </IconButton>
+                </Tooltip>
+                <span className="text-xs font-extrabold text-ocean-text-primary-light dark:text-ocean-text-primary-dark">Save</span>
+              </div>
 
-                <Divider orientation="vertical" flexItem sx={{ height: 24, alignSelf: 'center' }} />
+              <Divider vertical className="h-6" />
 
-                <Stack direction="row" spacing={2.5}>
-                   <Stack direction="row" spacing={0.5} alignItems="center">
-                      <Visibility sx={{ fontSize: 16, color: 'text.secondary' }} />
-                      <Typography variant="caption" fontWeight={700} color="text.secondary">{(video.view_count || 0).toLocaleString()} Views</Typography>
-                   </Stack>
-                   <Stack direction="row" spacing={0.5} alignItems="center">
-                      <Star sx={{ fontSize: 16, color: '#facc15' }} />
-                      <Typography variant="caption" fontWeight={700} color="text.secondary">4.8 Rating</Typography>
-                   </Stack>
-                   <Stack direction="row" spacing={0.5} alignItems="center">
-                      <CalendarToday sx={{ fontSize: 13, color: 'text.secondary' }} />
-                      <Typography variant="caption" fontWeight={700} color="text.secondary">
-                        {new Date(video.created_at).toLocaleDateString()}
-                      </Typography>
-                   </Stack>
-                </Stack>
+              <div className="flex items-center gap-4">
+                <span className="flex items-center gap-1 text-xs font-bold text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark">
+                  <Eye size={16} /> {(video.view_count || 0).toLocaleString()} Views
+                </span>
+                <span className="flex items-center gap-1 text-xs font-bold text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark">
+                  <Star size={16} className="text-yellow-400" /> 4.8 Rating
+                </span>
+                <span className="flex items-center gap-1 text-xs font-bold text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark">
+                  <Calendar size={13} /> {new Date(video.created_at).toLocaleDateString()}
+                </span>
+              </div>
 
-                <Box sx={{ flexGrow: 1 }} />
-                <Button variant="contained" startIcon={<Share />} sx={{ borderRadius: '10px', fontWeight: 800, px: 3 }}>Release</Button>
-             </Stack>
-          </Paper>
+              <div className="flex-1" />
+              <Button color="primary" startIcon={<Share2 size={16} />} className="px-6">Release</Button>
+            </div>
+          </div>
 
           {/* Description Card */}
-          <Typography variant="h5" fontWeight={800} mb={2} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-             <Info color="primary" /> Synopsis
-          </Typography>
-          <Paper elevation={0} sx={{ p: 4, borderRadius: '24px', border: '1px solid', borderColor: 'divider', bgcolor: 'transparent' }}>
-             <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.8, fontSize: '1.05rem' }}>
-                {video.description || 'No detailed overview available for this series.'}
-             </Typography>
-          </Paper>
-        </Grid>
+          <h2 className="text-xl font-extrabold mb-4 flex items-center gap-2 text-ocean-text-primary-light dark:text-ocean-text-primary-dark">
+            <Info className="text-primary" size={22} /> Synopsis
+          </h2>
+          <div className="p-6 sm:p-8 rounded-3xl border border-ocean-border-light dark:border-ocean-border-dark">
+            <p className="text-[1.05rem] leading-relaxed text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark">
+              {video.description || 'No detailed overview available for this series.'}
+            </p>
+          </div>
+        </div>
 
-        <Grid item xs={12} lg={4}>
-          <Stack spacing={4}>
-             {/* Producer Identity */}
-             <Card elevation={0} sx={{ borderRadius: '24px', border: '1px solid', borderColor: 'divider' }}>
-                <CardContent sx={{ p: 3 }}>
-                   <Typography variant="caption" fontWeight={800} color="text.secondary" sx={{ textTransform: 'uppercase', mb: 2, display: 'block' }}>Produced By</Typography>
-                   <Stack direction="row" spacing={2} alignItems="center">
-                      <Avatar 
-                         src={(video.creator as any)?.profile_image}
-                         sx={{ width: 60, height: 60, borderRadius: '16px', border: '3px solid', borderColor: 'secondary.lighter', bgcolor: 'secondary.light', color: 'secondary.main', fontWeight: 800 }}
-                      >
-                         {((video.creator as any)?.name || 'S').charAt(0)}
-                      </Avatar>
-                      <Box>
-                         <Typography variant="subtitle1" fontWeight={800}>{(video.creator as any)?.name || 'Premium Studio'}</Typography>
-                         <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <Person sx={{ fontSize: 14 }} /> 12.5k Followers
-                         </Typography>
-                      </Box>
-                   </Stack>
-                   <Button fullWidth variant="outlined" sx={{ mt: 3, borderRadius: '10px', fontWeight: 700 }}>View Portfolio</Button>
-                </CardContent>
-             </Card>
+        <div className="lg:col-span-4">
+          <div className="flex flex-col gap-8">
+            {/* Producer Identity */}
+            <Card>
+              <CardContent className="p-6">
+                <p className="text-xs font-extrabold uppercase tracking-wide text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark mb-4">Produced By</p>
+                <div className="flex items-center gap-3">
+                  <Avatar src={(video.creator as any)?.profile_image} size="xl" className="border-2 border-primary/20">
+                    {((video.creator as any)?.name || 'S').charAt(0)}
+                  </Avatar>
+                  <div>
+                    <p className="text-base font-extrabold text-ocean-text-primary-light dark:text-ocean-text-primary-dark">{(video.creator as any)?.name || 'Premium Studio'}</p>
+                    <p className="text-xs flex items-center gap-1 text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark">
+                      <User size={14} /> 12.5k Followers
+                    </p>
+                  </div>
+                </div>
+                <Button variant="outlined" color="primary" fullWidth className="mt-4">View Portfolio</Button>
+              </CardContent>
+            </Card>
 
-             {/* Content Navigation */}
-             <Card elevation={0} sx={{ borderRadius: '24px', border: '1px solid', borderColor: 'divider' }}>
-                <CardContent sx={{ p: 3 }}>
-                   <Typography variant="h6" fontWeight={800} mb={3}>Episodes Library</Typography>
-                   <List sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                      {episodes.map((ep) => (
-                         <ListItem 
-                            key={ep.episode_id} 
-                            disablePadding
-                            sx={{ 
-                               borderRadius: '16px', 
-                               overflow: 'hidden',
-                               bgcolor: 'action.hover',
-                               transition: 'all 0.2s',
-                               cursor: 'pointer',
-                               border: '1px solid transparent',
-                               '&:hover': { bgcolor: 'background.paper', borderColor: 'primary.light', transform: 'translateX(4px)', boxShadow: 2 }
-                            }}
-                         >
-                            <ListItemAvatar sx={{ minWidth: 60, p: 1 }}>
-                               <Paper elevation={0} sx={{ 
-                                  width: 44, height: 44, borderRadius: '12px', 
-                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                  bgcolor: ep.has_access ? 'success.lighter' : 'background.paper',
-                                  color: ep.has_access ? 'success.main' : 'text.disabled'
-                               }}>
-                                  {ep.has_access ? <PlayArrow /> : <LockIcon sx={{ fontSize: 18 }} />}
-                               </Paper>
-                            </ListItemAvatar>
-                            <ListItemText 
-                               primary={<Typography variant="body2" fontWeight={800}>{ep.title}</Typography>}
-                               secondary={
-                                  <Stack direction="row" spacing={1} alignItems="center" mt={0.5}>
-                                     <Typography variant="caption" fontWeight={700} color="text.secondary">{fmtDuration(ep.duration)}</Typography>
-                                     <Chip label={ep.has_access ? 'Free' : 'Locked'} size="small" sx={{ height: 16, fontSize: '0.6rem', fontWeight: 900, borderRadius: '4px' }} color={ep.has_access ? 'success' : 'default'} />
-                                  </Stack>
-                               }
-                               primaryTypographyProps={{ component: 'div' }}
-                               secondaryTypographyProps={{ component: 'div' }}
-                            />
-                         </ListItem>
-                      ))}
-                   </List>
-                </CardContent>
-             </Card>
-          </Stack>
-        </Grid>
-      </Grid>
-    </Box>
+            {/* Content Navigation */}
+            <Card>
+              <CardContent className="p-6">
+                <h3 className="text-lg font-extrabold mb-4 text-ocean-text-primary-light dark:text-ocean-text-primary-dark">Episodes Library</h3>
+                <div className="flex flex-col gap-2">
+                  {episodes.map((ep) => (
+                    <div
+                      key={ep.episode_id}
+                      className="flex items-center gap-3 p-2 rounded-2xl border border-transparent bg-ocean-background-light dark:bg-ocean-background-dark hover:bg-white dark:hover:bg-ocean-card-dark hover:border-primary/30 hover:translate-x-1 transition-all cursor-pointer"
+                    >
+                      <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${ep.has_access ? 'bg-success/10 text-success' : 'bg-ocean-surface-light dark:bg-ocean-surface-dark text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark'}`}>
+                        {ep.has_access ? <Play size={20} /> : <Lock size={18} />}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-extrabold text-ocean-text-primary-light dark:text-ocean-text-primary-dark truncate">{ep.title}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-xs font-bold text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark">{fmtDuration(ep.duration)}</span>
+                          <Chip label={ep.has_access ? 'Free' : 'Locked'} color={ep.has_access ? 'success' : 'default'} size="sm" />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }

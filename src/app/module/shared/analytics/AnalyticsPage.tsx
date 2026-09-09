@@ -1,74 +1,17 @@
 import { useEffect, useState } from 'react'
 import {
-  Grid, Card, CardContent, Typography, Box, Chip, CircularProgress,
-  Table, TableBody, TableCell, TableHead, TableRow, Paper, Avatar, Stack,
-  Divider,
-  TableContainer,
-  useTheme,
-  alpha,
-  LinearProgress
-} from '@mui/material'
-import {
-  People, VideoLibrary, AttachMoney, ShoppingCart,
-  Visibility, ThumbUp, Comment, TrendingUp, TrendingDown, ShowChart,
-  AccessTime, Share, Bookmark, Percent, PlayCircle
-} from '@mui/icons-material'
+  Users, DollarSign, ShoppingCart, Eye, ThumbsUp, MessageCircle,
+  TrendingUp, LineChart, Clock, Share2, Bookmark, Percent, PlayCircle, Lightbulb,
+} from 'lucide-react'
+import { RouteLoader } from '@/_ocean/ui'
 import { useAuthStore } from '@/app/stores/authStore'
 import type { AnalyticsOverview, EarningsSummary } from '@/app/types'
 import { paymentApi } from '@/app/api/payment.service'
 import { analyticsApi } from '@/app/api/admin.service'
-
-function StatCard({ icon, label, value, sub, color = 'primary.main', trend = 'up', progress }: {
-  icon: React.ReactNode; label: string; value: string | number; sub?: string; color?: string; trend?: 'up' | 'down'; progress?: number
-}) {
-  return (
-    <Card elevation={0} sx={{ height: '100%', borderRadius: '24px', border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', transition: 'transform 0.2s', '&:hover': { transform: 'translateY(-5px)' } }}>
-      <CardContent sx={{ p: 3 }}>
-        <Stack spacing={2.5}>
-           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <Avatar variant="rounded" sx={{ bgcolor: alpha(color, 0.1), color: color, borderRadius: '16px', width: 48, height: 48 }}>
-                 {icon}
-              </Avatar>
-              {sub && (
-                 <Chip 
-                    label={sub} 
-                    size="small" 
-                    icon={trend === 'up' ? <TrendingUp sx={{ fontSize: '14px !important' }} /> : <TrendingDown sx={{ fontSize: '14px !important' }} />}
-                    sx={{ 
-                       fontWeight: 800, 
-                       bgcolor: trend === 'up' ? 'success.lighter' : 'error.lighter',
-                       color: trend === 'up' ? 'success.dark' : 'error.dark',
-                       borderRadius: '10px',
-                       border: 'none',
-                       height: '24px'
-                    }} 
-                 />
-              )}
-           </Box>
-           <Box>
-              <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', fontSize: '0.65rem', mb: 0.5 }}>
-                 {label}
-              </Typography>
-              <Typography variant="h4" sx={{ fontWeight: 900, letterSpacing: '-1px' }}>{value}</Typography>
-           </Box>
-           {progress !== undefined && (
-             <Box pt={1}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                  <Typography variant="caption" color="text.secondary" fontWeight={700}>Target Progress</Typography>
-                  <Typography variant="caption" fontWeight={800}>{progress}%</Typography>
-                </Box>
-                <LinearProgress variant="determinate" value={progress} sx={{ height: 6, borderRadius: 3, bgcolor: alpha(color, 0.1), '& .MuiLinearProgress-bar': { bgcolor: color, borderRadius: 3 } }} />
-             </Box>
-           )}
-        </Stack>
-      </CardContent>
-    </Card>
-  )
-}
+import { AdminLTE, ContentHeader, SmallBox, InfoBox, AdminCard, LteBadge, ProgressBar } from '../adminlte'
 
 export default function AnalyticsPage() {
   const { isAdmin } = useAuthStore()
-  const theme = useTheme()
   const [overview, setOverview] = useState<AnalyticsOverview | null>(null)
   const [insights, setInsights] = useState<any>(null)
   const [earnings, setEarnings] = useState<EarningsSummary | null>(null)
@@ -99,181 +42,196 @@ export default function AnalyticsPage() {
     load()
   }, [isAdmin])
 
-  if (loading) return (
-    <Box sx={{ display: 'flex', height: '60vh', alignItems: 'center', justifyContent: 'center' }}>
-      <CircularProgress thickness={6} size={48} sx={{ borderRadius: '50%' }} />
-    </Box>
-  )
+  if (loading) return <RouteLoader />
 
   const perf = insights?.performance
   const eng = insights?.engagement
 
+  // The wrapper bleeds over DashboardLayout's glass-panel padding so AdminLTE's
+  // flat #f4f6f9 body reads as the page background; the radius tracks that
+  // panel's inner curve until the shell itself is converted.
   return (
-    <Box sx={{ pb: 8 }}>
-      {/* SaaS Header */}
-      <Box sx={{ mb: 6, display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { md: 'center' }, gap: 3 }}>
-        <Box>
-          <Typography variant="h3" sx={{ fontWeight: 900, letterSpacing: '-2px', mb: 1, color: 'text.primary' }}>
-            Platform Insights
-          </Typography>
-          <Typography color="text.secondary" variant="body1" sx={{ fontWeight: 500 }}>
-            Real-time analysis of platform performance and audience engagement.
-          </Typography>
-        </Box>
-        <Stack direction="row" spacing={2}>
-           <Paper variant="outlined" sx={{ px: 2, py: 1, borderRadius: '12px', display: 'flex', alignItems: 'center', gap: 1.5, borderColor: 'divider', bgcolor: 'background.paper' }}>
-              <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'success.main', animation: 'pulse 2s infinite' }} />
-              <Typography variant="body2" fontWeight={800} color="text.secondary">Live Monitoring</Typography>
-           </Paper>
-        </Stack>
-      </Box>
+    <AdminLTE className="-m-2 min-h-full rounded-[24px] p-3 md:-m-4 md:rounded-[18px] md:p-5">
+      <ContentHeader
+        title={isAdmin ? 'Platform Insights' : 'Content Performance'}
+        description={
+          isAdmin
+            ? 'Real-time analysis of platform performance and audience engagement.'
+            : 'Your earnings and content performance at a glance.'
+        }
+        breadcrumb={[{ label: 'Home', to: '/dashboard' }, { label: 'Dashboard' }]}
+        actions={
+          isAdmin ? (
+            <span className="flex items-center gap-2">
+              <span className="h-2 w-2 animate-pulse rounded-full" style={{ background: '#28a745' }} />
+              <span className="text-sm lte-text-muted">Live Monitoring</span>
+            </span>
+          ) : undefined
+        }
+      />
 
       {isAdmin && insights && (
         <>
-          {/* 📈 1. Performance Metrics */}
-          <Typography variant="h5" sx={{ fontWeight: 800, mb: 3, display: 'flex', alignItems: 'center', gap: 1.5 }}>
-             <ShowChart color="primary" /> Platform Performance
-          </Typography>
-          <Grid container spacing={3} mb={6}>
-            <Grid item xs={12} sm={6} md={3}>
-              <StatCard icon={<People />} label="Total Users" value={perf?.total_users?.toLocaleString()} color={theme.palette.primary.main} progress={85} />
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <StatCard icon={<Visibility />} label="Total Video Views" value={perf?.total_views?.toLocaleString()} color="#8b5cf6" sub="+12.5%" />
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <StatCard icon={<AttachMoney />} label="Total Revenue" value={`$${perf?.total_revenue?.toLocaleString()}`} color="#10b981" sub="Gross" />
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <StatCard icon={<AccessTime />} label="Total Watch Time" value={`${Math.round(perf?.total_watch_time / 3600).toLocaleString()}h`} color="#f59e0b" />
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-               <StatCard icon={<PlayCircle />} label="Daily Active Users" value={perf?.dau?.toLocaleString()} color="#ef4444" sub="DAU" />
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-               <StatCard icon={<People />} label="Monthly Active Users" value={perf?.mau?.toLocaleString()} color="#ec4899" sub="MAU" trend="up" />
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-               <StatCard icon={<Percent />} label="Conversion Rate" value={`${(eng?.conversion_rate * 100).toFixed(1)}%`} color="#6366f1" sub="Views → Sales" />
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-               <StatCard icon={<TrendingUp />} label="Completion Rate" value={`${(eng?.avg_completion_rate * 100).toFixed(1)}%`} color="#8b5cf6" sub="Watch Avg" />
-            </Grid>
-          </Grid>
+          {/* Headline KPIs — AdminLTE small-boxes */}
+          <div className="grid grid-cols-1 gap-x-4 sm:grid-cols-2 lg:grid-cols-4">
+            <SmallBox
+              color="info"
+              value={perf?.total_users?.toLocaleString()}
+              label="Total Users"
+              icon={<Users size={70} />}
+              footerText="Manage users"
+              to="/dashboard/profile"
+            />
+            <SmallBox
+              color="success"
+              value={`$${perf?.total_revenue?.toLocaleString()}`}
+              label="Gross Revenue"
+              icon={<DollarSign size={70} />}
+              footerText="View earnings"
+              to="/dashboard/earnings"
+            />
+            <SmallBox
+              color="warning"
+              value={perf?.total_views?.toLocaleString()}
+              label="Total Video Views"
+              icon={<Eye size={70} />}
+              footerText="Browse videos"
+              to="/dashboard/browse"
+            />
+            <SmallBox
+              color="danger"
+              value={`${Math.round(perf?.total_watch_time / 3600).toLocaleString()}h`}
+              label="Total Watch Time"
+              icon={<Clock size={70} />}
+              footerText="All content"
+              to="/dashboard/videos"
+            />
+          </div>
 
-          {/* 👀 2. Engagement Metrics */}
-          <Grid container spacing={4} mb={6}>
-             <Grid item xs={12} md={7}>
-                <Card elevation={0} sx={{ borderRadius: '28px', border: '1px solid', borderColor: 'divider', height: '100%', bgcolor: 'background.paper' }}>
-                   <CardContent sx={{ p: 4 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-                         <Typography variant="h6" fontWeight={900}>Top Content Performance</Typography>
-                         <Chip label="Per Episode" size="small" sx={{ fontWeight: 800, borderRadius: '8px' }} />
-                      </Box>
-                      <TableContainer>
-                        <Table sx={{ minWidth: 500 }}>
-                          <TableHead>
-                            <TableRow>
-                              <TableCell sx={{ fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', color: 'text.secondary', borderBottom: '2px solid', borderColor: 'divider' }}>Episode Title</TableCell>
-                              <TableCell align="right" sx={{ fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', color: 'text.secondary', borderBottom: '2px solid', borderColor: 'divider' }}>Views</TableCell>
-                              <TableCell align="right" sx={{ fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', color: 'text.secondary', borderBottom: '2px solid', borderColor: 'divider' }}>Completion</TableCell>
-                            </TableRow>
-                          </TableHead>
-                          <TableBody>
-                            {insights.content.top_episodes.map((ep: any, i: number) => (
-                              <TableRow key={ep.episode_id} sx={{ '&:last-child td': { border: 0 }, '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.02) } }}>
-                                <TableCell>
-                                   <Stack spacing={0.5}>
-                                      <Typography variant="body2" fontWeight={800}>{ep.title}</Typography>
-                                      <Typography variant="caption" color="text.secondary" fontWeight={600}>{ep.video_title}</Typography>
-                                   </Stack>
-                                </TableCell>
-                                <TableCell align="right" sx={{ fontWeight: 700 }}>{ep.view_count.toLocaleString()}</TableCell>
-                                <TableCell align="right">
-                                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 1 }}>
-                                      <Typography variant="caption" fontWeight={800}>{Math.round(ep.completion_rate * 100)}%</Typography>
-                                      <Box sx={{ width: 40, height: 6, borderRadius: 3, bgcolor: 'divider', overflow: 'hidden' }}>
-                                         <Box sx={{ width: `${ep.completion_rate * 100}%`, height: '100%', bgcolor: ep.completion_rate > 0.7 ? 'success.main' : 'warning.main' }} />
-                                      </Box>
-                                   </Box>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </TableContainer>
-                   </CardContent>
-                </Card>
-             </Grid>
-             <Grid item xs={12} md={5}>
-                <Card elevation={0} sx={{ borderRadius: '28px', border: '1px solid', borderColor: 'divider', height: '100%', bgcolor: 'background.paper' }}>
-                   <CardContent sx={{ p: 4 }}>
-                      <Typography variant="h6" fontWeight={900} mb={4}>Social Engagement</Typography>
-                      <Stack spacing={4}>
-                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Stack direction="row" spacing={2.5} alignItems="center">
-                               <Avatar sx={{ bgcolor: alpha(theme.palette.error.main, 0.1), color: 'error.main', borderRadius: '14px' }}><ThumbUp /></Avatar>
-                               <Typography variant="body2" fontWeight={800}>Total Likes</Typography>
-                            </Stack>
-                            <Typography variant="subtitle1" fontWeight={900}>{eng?.likes?.toLocaleString()}</Typography>
-                         </Box>
-                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Stack direction="row" spacing={2.5} alignItems="center">
-                               <Avatar sx={{ bgcolor: alpha(theme.palette.success.main, 0.1), color: 'success.main', borderRadius: '14px' }}><Comment /></Avatar>
-                               <Typography variant="body2" fontWeight={800}>Member Comments</Typography>
-                            </Stack>
-                            <Typography variant="subtitle1" fontWeight={900}>{eng?.comments?.toLocaleString()}</Typography>
-                         </Box>
-                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Stack direction="row" spacing={2.5} alignItems="center">
-                               <Avatar sx={{ bgcolor: alpha(theme.palette.info.main, 0.1), color: 'info.main', borderRadius: '14px' }}><Share /></Avatar>
-                               <Typography variant="body2" fontWeight={800}>Video Shares</Typography>
-                            </Stack>
-                            <Typography variant="subtitle1" fontWeight={900}>{eng?.shares?.toLocaleString()}</Typography>
-                         </Box>
-                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Stack direction="row" spacing={2.5} alignItems="center">
-                               <Avatar sx={{ bgcolor: alpha(theme.palette.warning.main, 0.1), color: 'warning.main', borderRadius: '14px' }}><Bookmark /></Avatar>
-                               <Typography variant="body2" fontWeight={800}>Favorites/Saves</Typography>
-                            </Stack>
-                            <Typography variant="subtitle1" fontWeight={900}>{eng?.favorites?.toLocaleString()}</Typography>
-                         </Box>
-                      </Stack>
-                      
-                      <Divider sx={{ my: 4 }} />
-                      
-                      <Box sx={{ p: 2.5, borderRadius: '20px', bgcolor: 'action.hover', border: '1px dashed', borderColor: 'divider' }}>
-                         <Typography variant="body2" fontWeight={800} mb={1}>💡 Performance Tip</Typography>
-                         <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ lineHeight: 1.6 }}>
-                            Users are dropping off around the 2-minute mark in free previews. Consider moving your "hooks" earlier in the episode.
-                         </Typography>
-                      </Box>
-                   </CardContent>
-                </Card>
-             </Grid>
-          </Grid>
+          {/* Secondary metrics — info-boxes */}
+          <div className="grid grid-cols-1 gap-x-4 sm:grid-cols-2 lg:grid-cols-4">
+            <InfoBox
+              color="purple"
+              icon={<PlayCircle size={30} />}
+              text="Daily Active Users"
+              number={perf?.dau?.toLocaleString()}
+            />
+            <InfoBox
+              color="maroon"
+              icon={<Users size={30} />}
+              text="Monthly Active Users"
+              number={perf?.mau?.toLocaleString()}
+            />
+            <InfoBox
+              color="indigo"
+              icon={<Percent size={30} />}
+              text="Conversion Rate"
+              number={`${(eng?.conversion_rate * 100).toFixed(1)}%`}
+              progress={eng?.conversion_rate * 100}
+              progressDescription="Views → Sales"
+            />
+            <InfoBox
+              color="teal"
+              icon={<TrendingUp size={30} />}
+              text="Completion Rate"
+              number={`${(eng?.avg_completion_rate * 100).toFixed(1)}%`}
+              progress={eng?.avg_completion_rate * 100}
+              progressDescription="Average watch depth"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-x-4 lg:grid-cols-12">
+            {/* Top content table */}
+            <div className="lg:col-span-7">
+              <AdminCard
+                outline="primary"
+                icon={<LineChart size={18} />}
+                title="Top Content Performance"
+                tools={<LteBadge color="secondary">Per Episode</LteBadge>}
+                bodyClassName="p-0"
+              >
+                <div className="table-responsive">
+                  <table className="table table-striped table-hover">
+                    <thead>
+                      <tr>
+                        <th>Episode Title</th>
+                        <th style={{ textAlign: 'right' }}>Views</th>
+                        <th style={{ width: 160 }}>Completion</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {insights.content.top_episodes.map((ep: any) => (
+                        <tr key={ep.episode_id}>
+                          <td>
+                            <span className="text-bold">{ep.title}</span>
+                            <br />
+                            <small className="lte-text-muted">{ep.video_title}</small>
+                          </td>
+                          <td style={{ textAlign: 'right' }}>{ep.view_count.toLocaleString()}</td>
+                          <td>
+                            <ProgressBar
+                              value={ep.completion_rate * 100}
+                              color={ep.completion_rate > 0.7 ? 'success' : 'warning'}
+                              size="xs"
+                            />
+                            <small className="lte-text-muted">{Math.round(ep.completion_rate * 100)}% completion</small>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </AdminCard>
+            </div>
+
+            {/* Social engagement */}
+            <div className="lg:col-span-5">
+              <AdminCard
+                outline="info"
+                icon={<ThumbsUp size={18} />}
+                title="Social Engagement"
+                footer={
+                  <div className="flex items-start gap-2">
+                    <Lightbulb size={16} className="lte-text-warning shrink-0" style={{ marginTop: 2 }} />
+                    <small className="lte-text-muted">
+                      Users are dropping off around the 2-minute mark in free previews. Consider moving your
+                      &ldquo;hooks&rdquo; earlier in the episode.
+                    </small>
+                  </div>
+                }
+              >
+                <InfoBox color="danger" icon={<ThumbsUp size={30} />} text="Total Likes" number={eng?.likes?.toLocaleString()} />
+                <InfoBox color="success" icon={<MessageCircle size={30} />} text="Member Comments" number={eng?.comments?.toLocaleString()} />
+                <InfoBox color="primary" icon={<Share2 size={30} />} text="Video Shares" number={eng?.shares?.toLocaleString()} />
+                <InfoBox color="warning" icon={<Bookmark size={30} />} text="Favorites / Saves" number={eng?.favorites?.toLocaleString()} />
+              </AdminCard>
+            </div>
+          </div>
         </>
       )}
 
-      {/* Creator View Financials */}
+      {/* Creator financials */}
       {earnings?.summary && (
-        <Box sx={{ mt: 4 }}>
-          <Typography variant="h5" sx={{ fontWeight: 900, mb: 3, color: 'text.secondary', display: 'flex', alignItems: 'center', gap: 1.5 }}>
-             <AttachMoney /> Creator Financial Performance
-          </Typography>
-          <Grid container spacing={3}>
-            <Grid item xs={12} sm={4}>
-              <StatCard icon={<AttachMoney />} label="Portfolio Balance" value={`$${earnings.summary.total_net.toLocaleString()}`} color="#10b981" sub="Available" />
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <StatCard icon={<TrendingUp />} label="Projected Sales" value={`$${earnings.summary.total_gross.toLocaleString()}`} color="#6366f1" />
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <StatCard icon={<ShoppingCart />} label="Paid Conversions" value={earnings.summary.total_purchases} color="#8b5cf6" />
-            </Grid>
-          </Grid>
-        </Box>
+        <AdminCard outline="success" icon={<DollarSign size={18} />} title="Creator Financial Performance">
+          <div className="grid grid-cols-1 sm:grid-cols-3">
+            <div className="description-block">
+              <h5 className="description-header">${earnings.summary.total_net.toLocaleString()}</h5>
+              <span className="description-text">Portfolio Balance</span>
+            </div>
+            <div className="description-block">
+              <h5 className="description-header">${earnings.summary.total_gross.toLocaleString()}</h5>
+              <span className="description-text">Projected Sales</span>
+            </div>
+            <div className="description-block">
+              <h5 className="description-header">
+                <ShoppingCart size={16} className="mr-1 inline" />
+                {earnings.summary.total_purchases}
+              </h5>
+              <span className="description-text">Paid Conversions</span>
+            </div>
+          </div>
+        </AdminCard>
       )}
-    </Box>
+    </AdminLTE>
   )
 }

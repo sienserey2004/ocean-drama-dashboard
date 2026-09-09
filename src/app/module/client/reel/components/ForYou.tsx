@@ -1,8 +1,5 @@
 import React, { useRef, useState, useEffect } from "react";
-import Box from "@mui/material/Box";
-import Typography from "@mui/material/Typography";
-import Stack from "@mui/material/Stack";
-import CircularProgress from "@mui/material/CircularProgress";
+import { Spinner } from "@/_ocean/ui";
 import CoinProgressDisplay from "./CoinProgressDisplay";
 import { videoApi, FeedPreviewItem } from "@/app/api/video.service";
 import { userApi } from "@/app/api/user.service";
@@ -165,80 +162,35 @@ const ForYou: React.FC<ForYouProps> = ({ muted, volume }) => {
 
   if (loading) {
     return (
-      <Box
-        sx={{
-          height: "100%",
-          width: "100%",
-          bgcolor: "#08090C",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <Stack alignItems="center" spacing={2}>
-          <CircularProgress sx={{ color: "#E50914" }} size={48} />
-          <Typography
-            sx={{
-              color: "#9CA3AF",
-              fontSize: 14,
-              fontWeight: 700,
-              letterSpacing: "1px",
-            }}
-          >
+      <div className="flex h-full w-full items-center justify-center bg-[#08090C]">
+        <div className="flex flex-col items-center gap-4">
+          <Spinner size={48} className="text-primary" />
+          <p className="text-sm font-bold tracking-[1px] text-[#9CA3AF]">
             Diving into the ocean...
-          </Typography>
-        </Stack>
-      </Box>
+          </p>
+        </div>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <Box
-        sx={{
-          height: "100%",
-          width: "100%",
-          bgcolor: "#08090C",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <Stack alignItems="center" spacing={2}>
-          <Typography
-            sx={{
-              color: "#E50914",
-              fontWeight: 900,
-              fontSize: 24,
-              fontStyle: "italic",
-            }}
-          >
-            Oops!
-          </Typography>
-          <Typography sx={{ color: "#9CA3AF", fontSize: 14 }}>
-            {error}
-          </Typography>
-        </Stack>
-      </Box>
+      <div className="flex h-full w-full items-center justify-center bg-[#08090C]">
+        <div className="flex flex-col items-center gap-4">
+          <p className="text-2xl font-black italic text-danger">Oops!</p>
+          <p className="text-sm text-[#9CA3AF]">{error}</p>
+        </div>
+      </div>
     );
   }
 
   if (feedItems.length === 0) {
     return (
-      <Box
-        sx={{
-          height: "100%",
-          width: "100%",
-          bgcolor: "#08090C",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <Typography sx={{ color: "#9CA3AF", fontSize: 16, fontWeight: 700 }}>
+      <div className="flex h-full w-full items-center justify-center bg-[#08090C]">
+        <p className="text-base font-bold text-[#9CA3AF]">
           No dramas found in this ocean
-        </Typography>
-      </Box>
+        </p>
+      </div>
     );
   }
 

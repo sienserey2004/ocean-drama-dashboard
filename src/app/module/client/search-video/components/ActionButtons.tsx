@@ -1,48 +1,31 @@
 import React from 'react';
-import { Stack, Button } from '@mui/material';
-import {
-  Tune as FilterIcon,
-  TrendingUp as RankingIcon,
-  FiberNew as NewIcon,
-  EventNote as ReserveIcon,
-} from '@mui/icons-material';
+import { Filter, TrendingUp, Sparkles, CalendarClock } from 'lucide-react';
+import { Button } from '@/_ocean/ui';
 
 const actions = [
-  { icon: <FilterIcon sx={{ fontSize: 18 }} />, label: 'Filter' },
-  { icon: <RankingIcon sx={{ fontSize: 18 }} />, label: 'Ranking' },
-  { icon: <NewIcon sx={{ fontSize: 18 }} />, label: 'New' },
-  { icon: <ReserveIcon sx={{ fontSize: 18 }} />, label: 'Reserve' },
+  { icon: <Filter size={16} />, label: 'Filter' },
+  { icon: <TrendingUp size={16} />, label: 'Ranking' },
+  { icon: <Sparkles size={16} />, label: 'New' },
+  { icon: <CalendarClock size={16} />, label: 'Reserve' },
 ];
 
 const ActionButtons: React.FC = () => {
   return (
-    <Stack direction="row" spacing={1.5} sx={{ mb: 4, overflowX: 'auto', pb: 1 }}>
+    <div className="no-scrollbar mb-8 flex gap-3 overflow-x-auto pb-2">
       {actions.map((action, index) => (
-        <ActionButton key={index} icon={action.icon} label={action.label} />
+        <Button
+          key={index}
+          variant="outlined"
+          color="default"
+          size="sm"
+          startIcon={action.icon}
+          className="shrink-0 whitespace-nowrap"
+        >
+          {action.label}
+        </Button>
       ))}
-    </Stack>
+    </div>
   );
 };
-
-const ActionButton: React.FC<{ icon: React.ReactNode; label: string }> = ({ icon, label }) => (
-  <Button
-    startIcon={icon}
-    sx={{
-      bgcolor: 'rgba(255,255,255,0.05)',
-      color: 'white',
-      borderRadius: '99px',
-      px: 2.5,
-      py: 1,
-      textTransform: 'none',
-      fontSize: '13px',
-      fontWeight: 600,
-      whiteSpace: 'nowrap',
-      border: '1px solid rgba(255,255,255,0.1)',
-      '&:hover': { bgcolor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)' }
-    }}
-  >
-    {label}
-  </Button>
-);
 
 export default ActionButtons;

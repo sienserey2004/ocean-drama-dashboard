@@ -1,289 +1,441 @@
-import { useState } from 'react'
-import {
-  Box, Card, CardContent, Typography, TextField, Button, Avatar,
-  Divider, Grid, Alert, Chip, Dialog, DialogTitle, DialogContent, DialogActions,
-  LinearProgress, Stack, Paper, IconButton
-} from '@mui/material'
-import { Edit, Lock, Logout, DeleteForever, PhotoCamera, Security, VerifiedUser, Star, Visibility, Favorite, History } from '@mui/icons-material'
+import { useEffect, useState, type ChangeEvent } from 'react'
 import { useForm } from 'react-hook-form'
 import { useNavigate } from 'react-router-dom'
-import axios from 'axios'
+import {
+  ArrowLeft,
+  CalendarDays,
+  Camera,
+  CheckCircle2,
+  Clock3,
+  Eye,
+  FileText,
+  Heart,
+  History,
+  KeyRound,
+  Laptop,
+  Library,
+  LockKeyhole,
+  LogOut,
+  Mail,
+  Pencil,
+  Phone,
+  ShieldCheck,
+  Trash2,
+  UploadCloud,
+  UserRound,
+  Users,
+} from 'lucide-react'
+import toast from '@/app/utils/toast'
 import { useAuthStore } from '@/app/stores/authStore'
-import toast from 'react-hot-toast'
 import { authApi } from '@/app/api/authApi.service'
 import { userApi } from '@/app/api/user.service'
+import {
+  AdminCard,
+  AdminLTE,
+  ContentHeader,
+  InfoBox,
+  LteBadge,
+  LteDialog,
+  SmallBox,
+  type LteColor,
+} from '@/app/module/shared/adminlte'
+
+type ProfileFormData = {
+  name: string
+  phone: string
+}
+
+type PasswordFormData = {
+  current_password: string
+  new_password: string
+  confirm_password: string
+}
+
+type DeleteFormData = {
+  password: string
+}
+
+const formatDate = (date?: string) => {
+  if (!date) return 'Not available'
+  const parsed = new Date(date)
+  if (Number.isNaN(parsed.getTime())) return 'Not available'
+  return parsed.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })
+}
+
+const getInitials = (name?: string) => {
+  const initials = (name || 'User')
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(part => part[0])
+    .join('')
+  return initials.toUpperCase()
+}
+
+const getDeviceName = () => {
+  if (typeof navigator === 'undefined') return 'Current browser session'
+  const browser = /Edg\//.test(navigator.userAgent)
+    ? 'Edge'
+    : /Chrome\//.test(navigator.userAgent)
+      ? 'Chrome'
+      : /Firefox\//.test(navigator.userAgent)
+        ? 'Firefox'
+        : 'Browser'
+  const platform = /Mac/.test(navigator.userAgent) ? 'macOS' : /Win/.test(navigator.userAgent) ? 'Windows' : 'device'
+  return `${browser} on ${platform}`
+}
 
 export default function ProfilePage() {
-  const { user, refreshUser, logout, isAdmin, isCreator } = useAuthStore()
+  const { user, refreshUser, logout, isAdmin, isCreator, role } = useAuthStore()
   const navigate = useNavigate()
-  const [editMode, setEditMode] = useState(false)
-  const [changePwOpen, setChangePwOpen] = useState(false)
-  const [deleteOpen, setDeleteOpen] = useState(false)
-  const [saving, setSaving] = useState(false)
-  
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
-  const [progress, setProgress] = useState(0);
+  const isViewer = role === 'viewer'
 
-  const { register, handleSubmit, reset, setValue } = useForm<{ name: string; phone: string; profile_image: string }>({
-    defaultValues: { name: user?.name || '', phone: user?.phone || '', profile_image: user?.profile_image || '' },
+  const [editMode, setEditMode] = useState(false)
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false)
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [photoFile, setPhotoFile] = useState<File | null>(null)
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors: profileErrors },
+  } = useForm<ProfileFormData>({
+    defaultValues: { name: user?.name || '', phone: user?.phone || '' },
   })
 
-  const { register: regPw, handleSubmit: hsPw, reset: resetPw } = useForm<{
-    current_password: string; new_password: string; confirm_password: string
-  }>()
+  const {
+    register: registerPassword,
+    handleSubmit: handlePasswordSubmit,
+    reset: resetPassword,
+    getValues,
+    formState: { errors: passwordErrors },
+  } = useForm<PasswordFormData>()
 
-  const { register: regDel, handleSubmit: hsDel } = useForm<{ password: string }>()
+  const {
+    register: registerDelete,
+    handleSubmit: handleDeleteSubmit,
+    formState: { errors: deleteErrors },
+  } = useForm<DeleteFormData>()
 
-  const handleChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files?.length) return;
-    const selected = e.target.files[0];
-    setFile(selected);
-    setPreview(URL.createObjectURL(selected));
-    
-    const formData = new FormData();
-    formData.append("photo", selected);
-    
-    try {
-      const resp = await axios.post("http://localhost:3000/api/upload-photo", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-        onUploadProgress: (ev) => {
-          if (ev.total) setProgress(Math.round((ev.loaded * 100) / ev.total));
-        },
-      });
-      const url = resp.data?.url || resp.data?.path || resp.data?.file || (typeof resp.data === 'string' ? resp.data : null);
-      if (url) setValue('profile_image', url , { shouldValidate: true });
-      toast.success("Profile photo uploaded");
-    } catch {
-      toast.error("Upload failed");
-      setProgress(0);
+  useEffect(() => {
+    return () => {
+      if (photoPreview?.startsWith('blob:')) URL.revokeObjectURL(photoPreview)
     }
-  };
-
-  const onSaveProfile = async (data: any) => {
-    setSaving(true)
-    try {
-      await userApi.updateMe(data)
-      await refreshUser()
-      toast.success('Changes saved')
-      setEditMode(false)
-    } catch {}
-    setSaving(false)
-  }
-
-  const onChangePw = async (data: any) => {
-    try {
-      await authApi.changePassword(data)
-      toast.success('Security password updated')
-      setChangePwOpen(false)
-      resetPw()
-    } catch {}
-  }
-
-  const onDeleteAccount = async (data: any) => {
-    try {
-      await userApi.deleteMe(data.password)
-      toast.success('Account terminated')
-      await logout()
-      navigate('/login')
-    } catch {}
-  }
+  }, [photoPreview])
 
   if (!user) return null
 
+  const stats = user.stats || {
+    purchases_count: 0,
+    favorites_count: 0,
+    following_count: 0,
+    watch_history_count: 0,
+  }
+
+  const profileFields = [user.name, user.email, user.phone, user.profile_image]
+  const profileCompletion = Math.round((profileFields.filter(Boolean).length / profileFields.length) * 100)
+  const membershipLabel = isAdmin ? 'Administrator' : isCreator ? 'Creator' : 'Viewer'
+  const membershipDescription = isAdmin
+    ? 'You have full access to platform management tools.'
+    : isCreator
+      ? 'Your creator workspace is ready for publishing and earnings.'
+      : 'Save series, follow creators, and keep your watch history in sync.'
+
+  const startEditing = () => {
+    reset({ name: user.name || '', phone: user.phone || '' })
+    setPhotoFile(null)
+    setPhotoPreview(null)
+    setEditMode(true)
+  }
+
+  const cancelEditing = () => {
+    reset({ name: user.name || '', phone: user.phone || '' })
+    setPhotoFile(null)
+    setPhotoPreview(null)
+    setEditMode(false)
+  }
+
+  const selectPhoto = (event: ChangeEvent<HTMLInputElement>) => {
+    const selected = event.target.files?.[0]
+    if (!selected) return
+    if (!selected.type.startsWith('image/')) {
+      toast.error('Please choose an image file.')
+      return
+    }
+    if (selected.size > 8 * 1024 * 1024) {
+      toast.error('Profile photos must be smaller than 8 MB.')
+      return
+    }
+    setPhotoFile(selected)
+    setPhotoPreview(URL.createObjectURL(selected))
+  }
+
+  const saveProfile = async (data: ProfileFormData) => {
+    setSaving(true)
+    try {
+      let payload: FormData | ProfileFormData = data
+      if (photoFile) {
+        const formData = new FormData()
+        formData.append('name', data.name)
+        formData.append('phone', data.phone)
+        formData.append('profile_image', photoFile)
+        payload = formData
+      }
+
+      const response = await userApi.updateMe(payload)
+      if (!response) throw new Error('Profile update failed')
+      await refreshUser()
+      toast.success('Profile updated successfully')
+      setEditMode(false)
+      setPhotoFile(null)
+      setPhotoPreview(null)
+    } catch {
+      toast.error('Unable to save your profile. Please try again.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const changePassword = async (data: PasswordFormData) => {
+    if (data.new_password !== data.confirm_password) {
+      toast.error('New passwords do not match.')
+      return
+    }
+    try {
+      await authApi.changePassword(data)
+      toast.success('Password updated successfully')
+      setChangePasswordOpen(false)
+      resetPassword()
+    } catch {
+      // The API client already surfaces the server error; keep the dialog open.
+    }
+  }
+
+  const deleteAccount = async (data: DeleteFormData) => {
+    try {
+      const response = await userApi.deleteMe(data.password)
+      if (!response) throw new Error('Account deletion failed')
+      toast.success('Account deleted')
+      await logout()
+      navigate('/login')
+    } catch {
+      toast.error('Unable to delete your account. Check your password and try again.')
+    }
+  }
+
+  const avatarSource = photoPreview || user.profile_image || ''
+  const roleColor: LteColor = isAdmin ? 'danger' : isCreator ? 'purple' : 'info'
+
   return (
-    <Box sx={{ maxWidth: 800 }}>
-      {/* SaaS Header */}
-      <Box sx={{ mb: 6 }}>
-        <Typography variant="h3" sx={{ fontWeight: 800, letterSpacing: '-1.5px', mb: 1.5 }}>
-          Account Settings
-        </Typography>
-        <Typography color="text.secondary" variant="body1">
-          Manage your personal information, security preferences, and account activity.
-        </Typography>
-      </Box>
+    <AdminLTE className="profile-page -m-2 min-h-full rounded-[24px] p-3 md:-m-4 md:rounded-[18px] md:p-5">
+      <ContentHeader
+        title="My Profile"
+        description="Manage your account details, security, and viewing activity."
+        breadcrumb={[{ label: 'Dashboard', to: '/dashboard' }, { label: 'Profile' }]}
+        actions={
+          <div className="profile-header-actions">
+            {isViewer && (
+              <button type="button" className="btn btn-default btn-sm" onClick={() => navigate(-1)}>
+                <ArrowLeft size={15} /> Back
+              </button>
+            )}
+            <button type="button" className="btn btn-primary btn-sm" onClick={editMode ? cancelEditing : startEditing}>
+              <Pencil size={15} /> {editMode ? 'Cancel editing' : 'Edit profile'}
+            </button>
+          </div>
+        }
+      />
 
-      {/* Main Profile Identity Card */}
-      <Card elevation={0} sx={{ borderRadius: '24px', border: '1px solid', borderColor: 'divider', mb: 4, overflow: 'hidden' }}>
-        <Box sx={{ height: 120, bgcolor: 'primary.main', position: 'relative' }}>
-           <IconButton 
-              sx={{ position: 'absolute', top: 16, right: 16, bgcolor: 'rgba(255,255,255,0.2)', color: 'white', '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' } }}
-              onClick={() => { setEditMode(!editMode); reset({ name: user.name, phone: user.phone || '', profile_image: user.profile_image || '' }); }}
-           >
-              <Edit fontSize="small" />
-           </IconButton>
-        </Box>
-        <CardContent sx={{ pt: 0, px: 4, pb: 4 }}>
-          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'center', sm: 'flex-end' }, gap: 3, mt: -6, mb: 4 }}>
-            <Avatar 
-              src={editMode ? (preview || user.profile_image || '') : (user.profile_image || '')} 
-              sx={{ 
-                width: 120, height: 120, 
-                border: '6px solid white', 
-                boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
-                bgcolor: 'primary.light',
-                fontSize: '3rem',
-                fontWeight: 800
-              }}
-            >
-              {!user.profile_image && !preview && user.name?.charAt(0).toUpperCase()}
-            </Avatar>
-            <Box sx={{ flex: 1, textAlign: { xs: 'center', sm: 'left' } }}>
-               <Stack direction="row" spacing={1} alignItems="center" justifyContent={{ xs: 'center', sm: 'flex-start' }}>
-                  <Typography variant="h4" fontWeight={800}>{user.name}</Typography>
-                  <VerifiedUser sx={{ color: 'primary.main', fontSize: 24 }} />
-               </Stack>
-               <Typography color="text.secondary" variant="body2" sx={{ fontWeight: 600 }}>{user.email}</Typography>
-               <Stack direction="row" spacing={1} mt={1.5} justifyContent={{ xs: 'center', sm: 'flex-start' }}>
-                 <Chip label={user.role} size="small" sx={{ fontWeight: 800, textTransform: 'uppercase', borderRadius: '8px', bgcolor: 'primary.lighter', color: 'primary.dark' }} />
-                 <Chip label={user.status} size="small" color="success" sx={{ fontWeight: 800, borderRadius: '8px' }} />
-               </Stack>
-            </Box>
-          </Box>
+      <div className="profile-stat-grid">
+        <SmallBox color="info" value={stats.purchases_count} label="Series in library" icon={<Library size={66} />} footerText="Open library" to="/library" />
+        <SmallBox color="danger" value={stats.favorites_count} label="Saved favorites" icon={<Heart size={66} />} footerText="View favorites" to="/favorites" />
+        <SmallBox color="success" value={stats.following_count} label="Creators following" icon={<Users size={66} />} footerText="View following" to="/following" />
+        <SmallBox color="warning" value={stats.watch_history_count} label="Watched recently" icon={<History size={66} />} footerText="Open history" to="/watch-history" />
+      </div>
 
-          {editMode ? (
-            <Box component="form" onSubmit={handleSubmit(onSaveProfile)}>
-               <Stack spacing={4}>
-                  <Box>
-                    <Typography variant="subtitle2" fontWeight={800} mb={1.5}>Update Profile Photo</Typography>
-                    <Stack direction="row" spacing={2} alignItems="center">
-                       <Button variant="outlined" component="label" startIcon={<PhotoCamera />} sx={{ borderRadius: '12px' }} disabled={progress > 0 && progress < 100}>
-                          {progress > 0 && progress < 100 ? 'Uploading...' : 'Choose File'}
-                          <input type="file" hidden accept="image/*" onChange={handleChange} />
-                       </Button>
-                       <Typography variant="caption" color="text.secondary">PNG, JPG or GIF. Max 2MB.</Typography>
-                    </Stack>
-                    {progress > 0 && progress < 100 && <LinearProgress variant="determinate" value={progress} sx={{ mt: 2, borderRadius: 1 }} />}
-                  </Box>
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} sm={6}>
-                       <TextField label="Full Name" fullWidth {...register('name')} sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }} />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                       <TextField label="Phone Number" fullWidth {...register('phone')} sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }} />
-                    </Grid>
-                  </Grid>
-                  <Stack direction="row" spacing={2} justifyContent="flex-end">
-                    <Button onClick={() => setEditMode(false)} sx={{ fontWeight: 700 }}>Discard</Button>
-                    <Button type="submit" variant="contained" disabled={saving || (progress > 0 && progress < 100)} sx={{ borderRadius: '10px', px: 4, fontWeight: 800 }}>
-                       {saving ? 'Syncing...' : 'Save Profile'}
-                    </Button>
-                  </Stack>
-               </Stack>
-            </Box>
-          ) : (
-            <Grid container spacing={4}>
-              {[
-                { label: 'Role Identifier', value: user.role, icon: <Security /> },
-                { label: 'Contact Number', value: user.phone || 'Not specified', icon: <VerifiedUser /> },
-                { label: 'Account Created', value: new Date(user.created_at).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }), icon: <History /> },
-                { label: 'Login Method', value: user.login_provider || 'Email / Password', icon: <Lock /> },
-              ].map(({ label, value }) => (
-                <Grid item xs={12} sm={6} key={label}>
-                  <Typography variant="caption" color="text.secondary" fontWeight={800} sx={{ textTransform: 'uppercase', display: 'block', mb: 0.5 }}>{label}</Typography>
-                  <Typography variant="body1" fontWeight={700}>{value}</Typography>
-                </Grid>
-              ))}
-            </Grid>
+      <div className="profile-layout">
+        <div className="profile-main-column">
+          <AdminCard
+            title="Profile information"
+            icon={<UserRound size={18} />}
+            outline="primary"
+            tools={
+              <button type="button" className="btn-tool" onClick={editMode ? cancelEditing : startEditing} aria-label={editMode ? 'Cancel editing' : 'Edit profile'}>
+                {editMode ? 'Cancel' : <><Pencil size={15} /> Edit</>}
+              </button>
+            }
+          >
+            <div className="profile-cover">
+              <div className="profile-cover-art" aria-hidden="true"><FileText size={82} /></div>
+              <div className="profile-cover-copy">
+                <span>Ocean Drama account</span>
+                <small>Your personal information is private to your account.</small>
+              </div>
+              <ShieldCheck size={34} className="profile-cover-shield" />
+            </div>
+
+            <div className="profile-identity">
+              <div className="profile-avatar">
+                {avatarSource ? <img src={avatarSource} alt={user.name} /> : <span>{getInitials(user.name)}</span>}
+                <span className="profile-avatar-status" title="Active account" />
+              </div>
+              <div className="profile-identity-copy">
+                <div className="profile-name-row">
+                  <h2>{user.name || 'Account holder'}</h2>
+                  <CheckCircle2 size={18} className="lte-text-primary" aria-label="Verified account" />
+                </div>
+                <p><Mail size={14} /> {user.email}</p>
+                <div className="profile-badges">
+                  <LteBadge color={roleColor}>{membershipLabel}</LteBadge>
+                  <LteBadge color="success">{user.status}</LteBadge>
+                </div>
+              </div>
+              <div className="profile-identity-note">
+                <span>Member since</span>
+                <strong>{formatDate(user.created_at)}</strong>
+              </div>
+            </div>
+
+            {editMode ? (
+              <form className="profile-form" onSubmit={handleSubmit(saveProfile)}>
+                <div className="profile-form-grid">
+                  <div className="form-group">
+                    <label htmlFor="profile-name">Full name</label>
+                    <input id="profile-name" className={`form-control ${profileErrors.name ? 'is-invalid' : ''}`} {...register('name', { required: 'Full name is required' })} />
+                    {profileErrors.name && <small className="invalid-feedback">{profileErrors.name.message}</small>}
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="profile-phone">Phone number</label>
+                    <input id="profile-phone" className="form-control" placeholder="Add a contact number" {...register('phone')} />
+                  </div>
+                </div>
+
+                <div className="form-group profile-photo-field">
+                  <label>Profile photo</label>
+                  <div className="profile-photo-row">
+                    <label className="profile-photo-picker">
+                      <Camera size={17} />
+                      <span>Choose image</span>
+                      <input type="file" accept="image/*" onChange={selectPhoto} />
+                    </label>
+                    <small className="lte-text-muted">JPG, PNG, GIF or WEBP. Maximum 8 MB.</small>
+                  </div>
+                  {photoFile && (
+                    <div className="profile-photo-ready">
+                      <UploadCloud size={16} />
+                      <span>{photoFile.name}</span>
+                      <small>Ready to upload when you save</small>
+                    </div>
+                  )}
+                </div>
+
+                <div className="profile-form-actions">
+                  <button type="button" className="btn btn-default" onClick={cancelEditing}>Discard changes</button>
+                  <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving...' : 'Save profile'}</button>
+                </div>
+              </form>
+            ) : (
+              <dl className="profile-details-grid">
+                <div className="profile-detail-item"><dt><UserRound size={15} /> Role</dt><dd>{membershipLabel}</dd></div>
+                <div className="profile-detail-item"><dt><Phone size={15} /> Contact number</dt><dd>{user.phone || 'Not specified'}</dd></div>
+                <div className="profile-detail-item"><dt><CalendarDays size={15} /> Account created</dt><dd>{formatDate(user.created_at)}</dd></div>
+                <div className="profile-detail-item"><dt><KeyRound size={15} /> Login method</dt><dd>{user.login_provider || 'Email / Password'}</dd></div>
+              </dl>
+            )}
+          </AdminCard>
+
+          <AdminCard title="Security & access" icon={<LockKeyhole size={18} />} outline="info">
+            <div className="profile-action-list">
+              <div className="profile-action-row">
+                <span className="profile-action-icon lte-bg-info"><KeyRound size={18} /></span>
+                <div><strong>Account password</strong><small>Keep your account protected with a strong password.</small></div>
+                <button type="button" className="btn btn-outline-primary btn-sm" onClick={() => setChangePasswordOpen(true)}>Update</button>
+              </div>
+              <div className="profile-action-row">
+                <span className="profile-action-icon lte-bg-success"><Laptop size={18} /></span>
+                <div><strong>Current session</strong><small>{getDeviceName()} · Active now</small></div>
+                <button type="button" className="btn btn-default btn-sm" onClick={async () => { await logout(); navigate('/login') }}><LogOut size={14} /> Sign out</button>
+              </div>
+            </div>
+          </AdminCard>
+        </div>
+
+        <aside className="profile-side-column">
+          <AdminCard title="Account snapshot" icon={<ShieldCheck size={18} />} outline="success">
+            <InfoBox color="success" icon={<CheckCircle2 size={28} />} text="Profile completeness" number={`${profileCompletion}%`} progress={profileCompletion} progressDescription={profileCompletion === 100 ? 'Everything is up to date' : 'Add details to finish your profile'} />
+            <div className="profile-snapshot-list">
+              <div><span>Email address</span><LteBadge color="success">Verified</LteBadge></div>
+              <div><span>Account status</span><LteBadge color={user.status === 'active' ? 'success' : 'warning'}>{user.status}</LteBadge></div>
+              <div><span>Login provider</span><strong>{user.login_provider || 'Email'}</strong></div>
+            </div>
+          </AdminCard>
+
+          <AdminCard title="Membership" icon={<Eye size={18} />} outline="warning">
+            <div className="profile-membership">
+              <div className="profile-membership-icon"><Eye size={22} /></div>
+              <div><strong>{membershipLabel} account</strong><p>{membershipDescription}</p></div>
+            </div>
+            {!isAdmin && <button type="button" className="btn btn-outline-primary btn-sm profile-full-button" onClick={() => navigate('/subscription-plan')}>Explore membership plans</button>}
+          </AdminCard>
+
+          <AdminCard title="Quick navigation" icon={<Clock3 size={18} />}>
+            <div className="profile-quick-links">
+              <button type="button" onClick={() => navigate('/library')}><Library size={16} /> My library</button>
+              <button type="button" onClick={() => navigate('/favorites')}><Heart size={16} /> Favorites</button>
+              <button type="button" onClick={() => navigate('/watch-history')}><History size={16} /> Watch history</button>
+            </div>
+          </AdminCard>
+
+          {!isAdmin && (
+            <AdminCard title="Danger zone" icon={<Trash2 size={18} />} outline="danger" className="profile-danger-card">
+              <p className="profile-danger-copy">Deleting your account permanently removes your profile, library, and viewing history.</p>
+              <button type="button" className="btn btn-danger btn-sm" onClick={() => setDeleteAccountOpen(true)}><Trash2 size={15} /> Delete account</button>
+            </AdminCard>
           )}
-        </CardContent>
-      </Card>
+        </aside>
+      </div>
 
-      {/* Activity Tracker */}
-      {user.stats && (
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          {[
-            { label: 'Orders', value: user.stats.purchases_count ?? 0, icon: <Star />, color: '#6366f1' },
-            { label: 'Favorites', value: user.stats.favorites_count ?? 0, icon: <Favorite />, color: '#ec4899' },
-            { label: 'Watching', value: user.stats.following_count ?? 0, icon: <Visibility />, color: '#444' },
-            { label: 'History',   value: user.stats.watch_history_count ?? 0, icon: <History />, color: '#10b981' },
-          ].map(({ label, value, icon, color }) => (
-            <Grid item xs={6} sm={3} key={label}>
-              <Paper elevation={0} sx={{ textAlign: 'center', p: 3, borderRadius: '20px', border: '1px solid', borderColor: 'divider' }}>
-                <Avatar sx={{ mx: 'auto', mb: 1.5, bgcolor: `${color}15`, color, width: 44, height: 44 }}>{icon}</Avatar>
-                <Typography variant="h4" fontWeight={800}>{value}</Typography>
-                <Typography variant="caption" color="text.secondary" fontWeight={700}>{label}</Typography>
-              </Paper>
-            </Grid>
-          ))}
-        </Grid>
-      )}
+      <LteDialog open={changePasswordOpen} title="Update password" icon={<KeyRound size={19} />} onClose={() => setChangePasswordOpen(false)}>
+        <form onSubmit={handlePasswordSubmit(changePassword)}>
+          <div className="form-group">
+            <label htmlFor="current-password">Current password</label>
+            <input id="current-password" type="password" className={`form-control ${passwordErrors.current_password ? 'is-invalid' : ''}`} {...registerPassword('current_password', { required: 'Current password is required' })} />
+            {passwordErrors.current_password && <small className="invalid-feedback">{passwordErrors.current_password.message}</small>}
+          </div>
+          <div className="form-group">
+            <label htmlFor="new-password">New password</label>
+            <input id="new-password" type="password" className={`form-control ${passwordErrors.new_password ? 'is-invalid' : ''}`} {...registerPassword('new_password', { required: 'New password is required', minLength: { value: 6, message: 'Use at least 6 characters' } })} />
+            {passwordErrors.new_password && <small className="invalid-feedback">{passwordErrors.new_password.message}</small>}
+          </div>
+          <div className="form-group">
+            <label htmlFor="confirm-password">Confirm new password</label>
+            <input id="confirm-password" type="password" className={`form-control ${passwordErrors.confirm_password ? 'is-invalid' : ''}`} {...registerPassword('confirm_password', { required: 'Please confirm your new password', validate: value => value === getValues('new_password') || 'Passwords do not match' })} />
+            {passwordErrors.confirm_password && <small className="invalid-feedback">{passwordErrors.confirm_password.message}</small>}
+          </div>
+          <div className="modal-footer">
+            <button type="button" className="btn btn-default" onClick={() => setChangePasswordOpen(false)}>Cancel</button>
+            <button type="submit" className="btn btn-primary">Save password</button>
+          </div>
+        </form>
+      </LteDialog>
 
-      {/* Security & Access Section */}
-      <Stack spacing={3} sx={{ mb: 4 }}>
-        <Typography variant="h5" sx={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: 1.5 }}>
-           <Lock color="primary" /> Security Center
-        </Typography>
-        <Paper elevation={0} sx={{ borderRadius: '24px', border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
-          <Box sx={{ p: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid', borderColor: 'divider' }}>
-            <Box>
-              <Typography variant="subtitle1" fontWeight={800}>Account Password</Typography>
-              <Typography variant="body2" color="text.secondary">Last changed: 3 months ago</Typography>
-            </Box>
-            <Button variant="contained" size="small" onClick={() => setChangePwOpen(true)} sx={{ borderRadius: '8px', fontWeight: 700 }}>Update</Button>
-          </Box>
-          <Box sx={{ p: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Box>
-              <Typography variant="subtitle1" fontWeight={800}>Active Session</Typography>
-              <Typography variant="body2" color="text.secondary">Current device: Chrome on Windows</Typography>
-            </Box>
-            <Button variant="outlined" color="warning" size="small" onClick={async () => { await logout(); navigate('/login') }} sx={{ borderRadius: '8px', fontWeight: 700 }}>Sign Out</Button>
-          </Box>
-        </Paper>
-      </Stack>
-
-      {/* Danger Zone */}
-      {!isAdmin && (
-        <Card elevation={0} sx={{ borderRadius: '24px', border: '1px solid', borderColor: 'error.light', bgcolor: 'error.lighter' }}>
-          <CardContent sx={{ p: 4 }}>
-            <Typography variant="h5" color="error.dark" sx={{ fontWeight: 800, mb: 2 }}>Terminate Account</Typography>
-            <Typography variant="body2" color="error.main" mb={3} fontWeight={500}>
-              Once you delete your account, there is no going back. Please be certain. All subscription data and history will be permanently wiped.
-            </Typography>
-            <Button variant="contained" color="error" startIcon={<DeleteForever />} onClick={() => setDeleteOpen(true)} sx={{ borderRadius: '10px', px: 3, fontWeight: 800 }}>
-              Permanently Delete Everything
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Security Dialogs */}
-      <Dialog 
-        open={changePwOpen} 
-        onClose={() => setChangePwOpen(false)} 
-        maxWidth="xs" 
-        fullWidth
-        PaperProps={{ sx: { borderRadius: '24px', p: 1 } }}
-      >
-        <DialogTitle component="div" sx={{ fontWeight: 800 }}>Update Security Password</DialogTitle>
-        <Box component="form" onSubmit={hsPw(onChangePw)}>
-          <DialogContent>
-            <Stack spacing={2.5} sx={{ mt: 1 }}>
-              <TextField label="Current Master Password" type="password" fullWidth {...regPw('current_password', { required: true })} />
-              <TextField label="New Secure Password" type="password" fullWidth {...regPw('new_password', { required: true, minLength: 6 })} />
-              <TextField label="Verify New Password" type="password" fullWidth {...regPw('confirm_password', { required: true })} />
-            </Stack>
-          </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 4, gap: 1 }}>
-            <Button onClick={() => setChangePwOpen(false)} sx={{ fontWeight: 700 }}>Cancel</Button>
-            <Button type="submit" variant="contained" sx={{ borderRadius: '10px', px: 4, fontWeight: 800 }}>Apply Change</Button>
-          </DialogActions>
-        </Box>
-      </Dialog>
-
-      <Dialog open={deleteOpen} onClose={() => setDeleteOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: '24px' } }}>
-        <DialogTitle component="div" sx={{ color: 'error.main', fontWeight: 800 }}>Final Confirmation</DialogTitle>
-        <Box component="form" onSubmit={hsDel(onDeleteAccount)}>
-          <DialogContent sx={{ pt: 1 }}>
-            <Alert severity="error" sx={{ mb: 3, borderRadius: '12px' }}>This action is absolutely final and irreversible.</Alert>
-            <TextField label="Enter Password to Confirm" type="password" fullWidth {...regDel('password', { required: true })} />
-          </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 4, gap: 1 }}>
-            <Button onClick={() => setDeleteOpen(false)} sx={{ fontWeight: 700 }}>Abort</Button>
-            <Button type="submit" variant="contained" color="error" sx={{ borderRadius: '10px', px: 4, fontWeight: 800 }}>Terminate Account</Button>
-          </DialogActions>
-        </Box>
-      </Dialog>
-    </Box>
+      <LteDialog open={deleteAccountOpen} title="Delete account" icon={<Trash2 size={19} />} onClose={() => setDeleteAccountOpen(false)}>
+        <form onSubmit={handleDeleteSubmit(deleteAccount)}>
+          <div className="callout callout-danger">This action is permanent. Your profile, library, favorites, and watch history cannot be restored.</div>
+          <div className="form-group">
+            <label htmlFor="delete-password">Enter your password to continue</label>
+            <input id="delete-password" type="password" className={`form-control ${deleteErrors.password ? 'is-invalid' : ''}`} {...registerDelete('password', { required: 'Password is required' })} />
+            {deleteErrors.password && <small className="invalid-feedback">{deleteErrors.password.message}</small>}
+          </div>
+          <div className="modal-footer">
+            <button type="button" className="btn btn-default" onClick={() => setDeleteAccountOpen(false)}>Keep account</button>
+            <button type="submit" className="btn btn-danger">Delete permanently</button>
+          </div>
+        </form>
+      </LteDialog>
+    </AdminLTE>
   )
 }

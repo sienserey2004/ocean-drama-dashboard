@@ -3,13 +3,10 @@ import { useNavigate, Link as RouterLink } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import {
-  Box, Card, CardContent, TextField, Button, Typography,
-  Alert, InputAdornment, IconButton, Link,
-} from '@mui/material'
-import { Visibility, VisibilityOff, PlayCircle } from '@mui/icons-material'
+import { Eye, EyeOff, PlayCircle } from 'lucide-react'
 import { useAuthStore } from '@/app/stores/authStore'
-import toast from 'react-hot-toast'
+import toast from '@/app/utils/toast'
+import { Button, Card, CardContent, TextField, IconButton } from '@/_ocean/ui'
 
 const schema = z.object({
   name: z.string().min(2, 'Name is too short'),
@@ -45,93 +42,66 @@ export default function RegisterPage() {
   }
 
   return (
-    <Box sx={{
-      minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      bgcolor: 'background.default', p: 2,
-    }}>
-      <Card sx={{ width: '100%', maxWidth: 420 }}>
-        <CardContent sx={{ p: 4 }}>
+    <div className="flex min-h-screen items-center justify-center bg-ocean-background-light dark:bg-ocean-background-dark p-4">
+      <Card className="w-full max-w-[420px]">
+        <CardContent className="p-8">
           {/* Logo */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 4 }}>
-            <Box sx={{ width: 40, height: 40, borderRadius: 2, bgcolor: 'primary.main', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <PlayCircle sx={{ color: '#fff', fontSize: 22 }} />
-            </Box>
-            <Box>
-              <Typography variant="h5" fontWeight={700} color="primary">DramaStream</Typography>
-              <Typography variant="caption" color="text.secondary">Dashboard Portal</Typography>
-            </Box>
-          </Box>
+          <div className="mb-8 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary">
+              <PlayCircle size={22} className="text-white" />
+            </div>
+            <div>
+              <p className="text-xl font-bold text-primary">Ocean Drama</p>
+              <p className="text-xs text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark">Create your account</p>
+            </div>
+          </div>
 
-          <Typography variant="h6" mb={0.5}>Create account</Typography>
-          <Typography variant="body2" color="text.secondary" mb={3}>
+          <p className="mb-1 text-lg font-semibold text-ocean-text-primary-light dark:text-ocean-text-primary-dark">Create account</p>
+          <p className="mb-6 text-sm text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark">
             Join the creator dashboard to manage your content
-          </Typography>
+          </p>
 
-          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+          {error && (
+            <div className="mb-4 rounded-xl bg-danger/10 px-4 py-3 text-sm text-danger">{error}</div>
+          )}
 
-          <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <TextField
-              label="Full Name"
-              fullWidth
-              {...register('name')}
-              error={!!errors.name}
-              helperText={errors.name?.message}
-            />
-            <TextField
-              label="Email address"
-              type="email"
-              fullWidth
-              {...register('email')}
-              error={!!errors.email}
-              helperText={errors.email?.message}
-            />
+          <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+            <TextField label="Full Name" fullWidth {...register('name')} error={errors.name?.message} />
+            <TextField label="Email address" type="email" fullWidth {...register('email')} error={errors.email?.message} />
             <TextField
               label="Password"
               type={showPass ? 'text' : 'password'}
               fullWidth
               {...register('password')}
-              error={!!errors.password}
-              helperText={errors.password?.message}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton onClick={() => setShowPass(!showPass)} edge="end">
-                      {showPass ? <VisibilityOff /> : <Visibility />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
+              error={errors.password?.message}
+              endAdornment={
+                <IconButton size="sm" plain onClick={() => setShowPass(!showPass)}>
+                  {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
+                </IconButton>
+              }
             />
             <TextField
               label="Confirm Password"
               type={showPass ? 'text' : 'password'}
               fullWidth
               {...register('confirmPassword')}
-              error={!!errors.confirmPassword}
-              helperText={errors.confirmPassword?.message}
+              error={errors.confirmPassword?.message}
             />
-            <Button
-              type="submit"
-              variant="contained"
-              fullWidth
-              size="large"
-              disabled={isLoading}
-              sx={{ mt: 1, py: 1.25 }}
-            >
+            <Button type="submit" fullWidth size="lg" disabled={isLoading} className="mt-1">
               {isLoading ? 'Creating account...' : 'Create Account'}
             </Button>
-          </Box>
+          </form>
 
-          <Box sx={{ mt: 3, textAlign: 'center' }}>
-            <Typography variant="body2" color="text.secondary">
+          <div className="mt-6 text-center">
+            <p className="text-sm text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark">
               Already have an account?{' '}
-              <Link component={RouterLink} to="/login" fontWeight={600}>
+              <RouterLink to="/login" className="font-semibold text-primary hover:underline">
                 Sign in
-              </Link>
-            </Typography>
-          </Box>
+              </RouterLink>
+            </p>
+          </div>
         </CardContent>
       </Card>
-    </Box>
+    </div>
   )
 }

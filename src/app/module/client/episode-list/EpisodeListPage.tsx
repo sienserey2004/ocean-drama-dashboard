@@ -1,44 +1,26 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import {
-  Box,
-  Typography,
-  Stack,
-  IconButton,
-  Tabs,
-  Tab,
-  Button,
-  CircularProgress,
-  Dialog,
-  Avatar,
-  DialogContent,
-  DialogActions,
-  Paper,
-} from "@mui/material";
-import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
-import IosShareIcon from "@mui/icons-material/IosShare";
-import PlayCircleOutlineIcon from "@mui/icons-material/PlayCircleOutline";
-import LockIcon from "@mui/icons-material/Lock";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import toast from "react-hot-toast";
+import { ArrowLeft, Share2, PlayCircle, Lock, CheckCircle, Coins } from "lucide-react";
+import toast from "@/app/utils/toast";
 import { episodeApi } from "@/app/api/episode.service";
 import { videoApi } from "@/app/api/video.service";
 import { paymentApi } from "@/app/api/payment.service";
 import { Episode } from "@/app/types";
 import QRPaymentCard from "../../shared/QRPaymentCard";
 import HLSPlayer from "../library/components/HLSPlayer";
-import VisibilityIcon from '@mui/icons-material/Visibility';
 import { useAuthStore } from "@/app/stores/authStore";
 import { coinApi } from "@/app/api/coin.service";
 import { coinsBalance } from "../Coins/services/balance.service";
-import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
+import { Button, IconButton, Card, CardContent, Spinner, Modal, ModalBody } from "@/_ocean/ui";
 
 interface EpisodeListPageProps {
   videoIdProp?: string;
   onClose?: () => void;
+  /** Skip the episode list and jump straight into the purchase modal (used by the reel's "Buy Full Season" button) */
+  autoOpenPurchase?: boolean;
 }
 
-const EpisodeListPage: React.FC<EpisodeListPageProps> = ({ videoIdProp, onClose }) => {
+const EpisodeListPage: React.FC<EpisodeListPageProps> = ({ videoIdProp, onClose, autoOpenPurchase }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { videoId: paramVideoId } = useParams();
@@ -56,7 +38,7 @@ const EpisodeListPage: React.FC<EpisodeListPageProps> = ({ videoIdProp, onClose 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tabIndex, setTabIndex] = useState(0);
-  const [modalOpen, setModalOpen] = useState(false);
+  const [modalOpen, setModalOpen] = useState(!!autoOpenPurchase);
   const [purchasing, setPurchasing] = useState(false);
 
   // Full screen player state
@@ -83,7 +65,7 @@ const EpisodeListPage: React.FC<EpisodeListPageProps> = ({ videoIdProp, onClose 
   const fetchEpisodes = async (id: number) => {
     if (!id) {
       console.error("videoId is missing");
-      return;
+      return [];
     }
     const res = await episodeApi.list(id, { page: 1, limit: 100 });
     const sortedEpisodes = [...res.data].sort(
@@ -91,6 +73,7 @@ const EpisodeListPage: React.FC<EpisodeListPageProps> = ({ videoIdProp, onClose 
     );
     setEpisodes(sortedEpisodes);
     console.log("Episodes fetched:", sortedEpisodes);
+    return sortedEpisodes;
   };
 
   useEffect(() => {
@@ -118,7 +101,11 @@ const EpisodeListPage: React.FC<EpisodeListPageProps> = ({ videoIdProp, onClose 
           }
         }
 
-        await fetchEpisodes(numericVideoId);
+        const fetched = await fetchEpisodes(numericVideoId);
+        if (autoOpenPurchase && fetched.length > 0 && fetched.every((ep) => ep.has_access)) {
+          // Nothing left to buy — series is already fully unlocked
+          setModalOpen(false);
+        }
       } catch (err: any) {
         console.error("Failed to fetch episodes", err);
         setError("Could not load episodes. Please try again.");
@@ -234,7 +221,7 @@ const EpisodeListPage: React.FC<EpisodeListPageProps> = ({ videoIdProp, onClose 
     }
 
     const coinPrice = Math.round((Number(video.price) || 0) * 10000);
-    
+
     if (userCoins < coinPrice) {
       toast.error(`Insufficient coins! You need ${coinPrice.toLocaleString()} coins.`);
       return;
@@ -246,17 +233,17 @@ const EpisodeListPage: React.FC<EpisodeListPageProps> = ({ videoIdProp, onClose 
       setPurchasing(true);
       const res = await coinApi.unlockVideo(numericVideoId, coinPrice);
       toast.success(res.data?.message || "Video unlocked successfully!");
-      
+
       // Update local state
       setEpisodes(prev => prev.map(ep => ({ ...ep, has_access: true })));
       videoApi.clearCache();
-      
+
       // Refresh balance
       const balance = await coinsBalance();
       if (balance) setUserCoins(balance.coins);
-      
+
       setModalOpen(false);
-      
+
       // Redirect or refresh
       setTimeout(() => {
         navigate(`/viewer/library/${numericVideoId}`, { replace: true });
@@ -269,712 +256,309 @@ const EpisodeListPage: React.FC<EpisodeListPageProps> = ({ videoIdProp, onClose 
     }
   };
 
+  const closePurchaseModal = () => {
+    if (pollingRef.current) clearInterval(pollingRef.current);
+    setModalOpen(false);
+    setPaymentInfo(null);
+  };
+
   if (!video) return null;
 
   return (
-    <Box
-      sx={{
-        bgcolor: "#0B0B0F",
-        minHeight: "100vh",
-        color: "white",
-        pb: 14, // Extra padding for the sticky bottom button
-        backgroundImage:
-          "radial-gradient(circle at top, rgba(255,45,45,0.25), transparent 70%)",
-        backgroundAttachment: "fixed",
-        fontFamily: "'Inter', 'Poppins', sans-serif",
-      }}
-    >
+    <div className="min-h-screen bg-ocean-background-light dark:bg-ocean-background-dark bg-ocean-radial bg-fixed pb-[calc(var(--tab-bar-h)+112px)] text-ocean-text-primary-light dark:text-ocean-text-primary-dark md:pb-28">
       {/* ── Header ────────────────────────────────────────────── */}
-      <Box
-        sx={{
-          position: "sticky",
-          top: 0,
-          zIndex: 100,
-          bgcolor: "rgba(11,11,15,0.85)",
-          backdropFilter: "blur(24px)",
-          borderBottom: "1px solid #2A2A35",
-          transition: "all 300ms ease",
-        }}
-      >
-        <Stack
-          direction="row"
-          alignItems="center"
-          justifyContent="space-between"
-          sx={{ p: 2 }}
-        >
+      <div className="sticky top-0 z-[100] border-b border-ocean-border-light dark:border-ocean-border-dark bg-ocean-background-light/85 dark:bg-ocean-background-dark/85 backdrop-blur-2xl transition-all duration-300">
+        <div className="flex items-center justify-between p-4">
           <IconButton
-            onClick={() => onClose ? onClose() : navigate(-1)}
-            sx={{
-              color: "white",
-              bgcolor: "rgba(255,255,255,0.08)",
-              borderRadius: "12px",
-              transition: "all 300ms ease",
-             
-            }}
+            plain
+            onClick={() => (onClose ? onClose() : navigate(-1))}
+            className="rounded-xl bg-black/5 text-ocean-text-primary-light dark:bg-white/10 dark:text-ocean-text-primary-dark"
           >
-            <ArrowBackIosNewIcon sx={{ fontSize: 18 }} />
+            <ArrowLeft size={18} />
           </IconButton>
 
-          <Box sx={{ flex: 1, textAlign: "center", px: 2 }}>
-            <Typography
-              sx={{
-                fontSize: 14,
-                fontWeight: 800,
-                fontFamily: "'Oswald', sans-serif",
-                textTransform: "uppercase",
-                color: "white",
-                textShadow:
-                  "2px 2px 0px #FF2D2D, 4px 4px 10px rgba(255,45,45,0.4)",
-                letterSpacing: "1px",
-              }}
+          <div className="flex-1 px-2 text-center">
+            <p
+              className="text-sm font-extrabold uppercase tracking-wide text-ocean-text-primary-light [text-shadow:2px_2px_0px_#0EA5E9] dark:text-ocean-text-primary-dark"
+              style={{ fontFamily: "'Oswald', sans-serif" }}
             >
               OCEAN DRAMA
-            </Typography>
-            <Typography
-              variant="caption"
-              sx={{
-                color: "#A1A1AA",
-                fontWeight: 600,
-                fontSize: 11,
-                display: "block",
-                mt: 0.2,
-                opacity: 0.8,
-              }}
-              noWrap
-            >
+            </p>
+            <p className="mt-0.5 truncate text-[11px] font-semibold text-ocean-text-secondary-light opacity-80 dark:text-ocean-text-secondary-dark">
               {video.title}
-            </Typography>
-          </Box>
+            </p>
+          </div>
 
           <IconButton
-            sx={{
-              color: "white",
-              bgcolor: "rgba(255,255,255,0.08)",
-              borderRadius: "12px",
-              transition: "all 300ms ease",
-             
-            }}
+            plain
+            className="rounded-xl bg-black/5 text-ocean-text-primary-light dark:bg-white/10 dark:text-ocean-text-primary-dark"
           >
-            <IosShareIcon sx={{ fontSize: 20 }} />
+            <Share2 size={18} />
           </IconButton>
-        </Stack>
-      </Box>
+        </div>
+      </div>
 
       {/* ── Series Info Card ──────────────────────────────────── */}
-      <Box sx={{ p: 3 }}>
-        <Paper
-          elevation={0}
-          sx={{
-            p: 2.5,
-            borderRadius: "20px",
-            bgcolor: "rgba(20,20,26,0.7)",
-            backdropFilter: "blur(16px)",
-            border: "1px solid rgba(255,255,255,0.08)",
-            boxShadow: "0 10px 40px rgba(0,0,0,0.4)",
-            position: "relative",
-            overflow: "hidden",
-            "&::before": {
-              content: '""',
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              height: "2px",
-              background:
-                "linear-gradient(90deg, transparent, rgba(255,45,45,0.5), transparent)",
-            },
-          }}
-        >
-          <Stack direction="row" spacing={3} alignItems="flex-start">
-            <Avatar
-              src={video.thumbnail_url || video.thumbnailUrl || undefined}
-              variant="rounded"
-              sx={{
-                width: 110,
-                height: 154,
-                borderRadius: "16px",
-                boxShadow: "0 8px 30px rgba(0,0,0,0.6)",
-                border: "1px solid rgba(255,255,255,0.12)",
-                transition: "transform 300ms ease",
-                "&:hover": { transform: "scale(1.05)" },
-              }}
-            />
-            <Box sx={{ flex: 1 }}>
-              <Typography
-                variant="h5"
-                sx={{
-                  fontWeight: 800,
-                  lineHeight: 1.2,
-                  mb: 1,
-                  fontFamily: "'Poppins', sans-serif",
-                  letterSpacing: "-0.5px",
-                }}
-              >
+      <div className="p-3">
+        <Card>
+          <CardContent className="flex items-start gap-4">
+            <div className="h-[154px] w-[110px] shrink-0 overflow-hidden rounded-2xl border border-ocean-border-light dark:border-ocean-border-dark bg-ocean-background-light dark:bg-ocean-background-dark shadow-soft">
+              {(video.thumbnail_url || video.thumbnailUrl) && (
+                <img
+                  src={video.thumbnail_url || video.thumbnailUrl}
+                  alt={video.title}
+                  className="h-full w-full object-cover"
+                />
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <h1 className="mb-1 text-xl font-extrabold leading-tight tracking-tight text-ocean-text-primary-light dark:text-ocean-text-primary-dark">
                 {video.title}
-              </Typography>
-              <Stack
-                direction="row"
-                alignItems="center"
-                spacing={1}
-                sx={{ mb: 1.5 }}
-              >
-                <Typography
-                  variant="body2"
-                  sx={{ fontWeight: 700, color: "#A1A1AA" }}
-                >
+              </h1>
+              <div className="mb-1.5 flex items-center gap-1.5">
+                <span className="text-sm font-bold text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark">
                   {video.creator?.name || "OceanDrama Creator"}
-                </Typography>
-                <CheckCircleIcon sx={{ fontSize: 16, color: "#FF2D2D" }} />
-              </Stack>
-              <Stack
-                direction="row"
-                alignItems="baseline"
-                spacing={1}
-                sx={{ mb: 1.5 }}
-              >
-                <Typography
-                  variant="h4"
-                  sx={{
-                    color: "#FF2D2D",
-                    fontWeight: 900,
-                    textShadow: "0 0 15px rgba(255,45,45,0.3)",
-                  }}
-                >
+                </span>
+                <CheckCircle size={16} className="text-primary" />
+              </div>
+              <div className="mb-1.5 flex items-baseline gap-1.5">
+                <span className="text-3xl font-black text-primary [text-shadow:0_0_15px_rgba(14,165,233,0.3)]">
                   {video.price > 0 ? `$${video.price}` : "Free"}
-                </Typography>
+                </span>
                 {video.price > 0 && (
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      color: "#A1A1AA",
-                      fontWeight: 700,
-                      letterSpacing: "0.5px",
-                    }}
-                  >
+                  <span className="text-[11px] font-bold tracking-wide text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark">
                     USD · LIFETIME ACCESS
-                  </Typography>
+                  </span>
                 )}
-              </Stack>
-              <Typography
-                variant="caption"
-                sx={{
-                  color: "#A1A1AA",
-                  display: "block",
-                  lineHeight: 1.5,
-                  fontSize: 12,
-                  opacity: 0.9,
-                }}
-              >
+              </div>
+              <p className="text-xs leading-relaxed text-ocean-text-secondary-light opacity-90 dark:text-ocean-text-secondary-dark">
                 Get unlimited access to the entire series with no hidden fees.
-              </Typography>
-            </Box>
-          </Stack>
-        </Paper>
-      </Box>
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* ── Tabs ──────────────────────────────────────────────── */}
-      <Box sx={{ px: 2, mb: 1 }}>
-        <Tabs
-          value={tabIndex}
-          onChange={(_, v) => setTabIndex(v)}
-          variant="fullWidth"
-          sx={{
-            minHeight: 48,
-            bgcolor: "rgba(20,20,26,0.5)",
-            borderRadius: "12px",
-            p: 0.5,
-            "& .MuiTabs-indicator": {
-              display: "none",
-            },
-            "& .MuiTab-root": {
-              color: "#A1A1AA",
-              textTransform: "none",
-              fontWeight: 700,
-              fontSize: 14,
-              minHeight: 40,
-              borderRadius: "10px",
-              transition: "all 300ms ease",
-              "&.Mui-selected": {
-                color: "#fff !important",
-                bgcolor: "#FF2D2D",
-                boxShadow: "0 0 15px rgba(255,45,45,0.4)",
-              },
-            },
-          }}
-        >
-          <Tab label={`All (${episodes.length || 0})`} disableRipple />
-          <Tab label="Free" disableRipple />
-          <Tab label="Locked" disableRipple />
-        </Tabs>
-      </Box>
+      <div className="mb-1 px-4">
+        <div className="flex gap-1 rounded-xl bg-ocean-card-light dark:bg-ocean-card-dark p-1">
+          {[`All (${episodes.length || 0})`, "Free", "Locked"].map((label, idx) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => setTabIndex(idx)}
+              className={`flex-1 rounded-lg py-2.5 text-sm font-bold transition-all duration-300 ${
+                tabIndex === idx
+                  ? "bg-primary text-white shadow-glow"
+                  : "text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* ── Episode List ──────────────────────────────────────── */}
-      <Box sx={{ p: 2 }}>
+      <div className="p-2">
         {loading && (
-          <Box display="flex" justifyContent="center" py={8}>
-            <CircularProgress sx={{ color: "#FF2D2D" }} size={40} />
-          </Box>
+          <div className="flex justify-center py-16">
+            <Spinner size={40} className="text-primary" />
+          </div>
         )}
 
         {!loading && error && (
-          <Typography color="error" textAlign="center" py={8} fontWeight="bold">
-            {error}
-          </Typography>
+          <p className="py-16 text-center font-bold text-danger">{error}</p>
         )}
 
         {!loading && !error && displayedEpisodes.length === 0 && (
-          <Box sx={{ textAlign: "center", py: 12, opacity: 0.5 }}>
-            <PlayCircleOutlineIcon
-              sx={{ fontSize: 60, mb: 2, color: "#FF2D2D" }}
-            />
-            <Typography fontWeight="bold" sx={{ color: "#A1A1AA" }}>
+          <div className="py-24 text-center opacity-50">
+            <PlayCircle size={60} className="mx-auto mb-2 text-primary" />
+            <p className="font-bold text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark">
               No episodes found.
-            </Typography>
-          </Box>
+            </p>
+          </div>
         )}
 
-        <Stack spacing={2}>
-          {displayedEpisodes.map((ep, idx) => (
-            <Paper
+        <div className="flex flex-col gap-3">
+          {displayedEpisodes.map((ep) => (
+            <div
               key={ep.episode_id}
-              elevation={0}
               onClick={() => handleEpisodeClick(ep)}
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                p: 1.5,
-                bgcolor: "rgba(26,26,34,0.7)",
-                backdropFilter: "blur(12px)",
-                borderRadius: "16px",
-                border: "1px solid rgba(255,255,255,0.06)",
-                cursor: "pointer",
-                transition: "all 300ms cubic-bezier(0.4, 0, 0.2, 1)",
-                "&:hover": {
-                  bgcolor: "rgba(30,30,40,0.9)",
-                  borderColor: "rgba(255,45,45,0.3)",
-                  transform: "scale(1.05)",
-                  boxShadow:
-                    "0 10px 30px rgba(0,0,0,0.3), 0 0 20px rgba(255,45,45,0.15)",
-                },
-                "&:active": {
-                  transform: "scale(0.98)",
-                },
-              }}
+              className="flex cursor-pointer items-center gap-4 rounded-2xl border border-ocean-border-light dark:border-ocean-border-dark bg-ocean-card-light dark:bg-ocean-card-dark p-3 transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-soft active:scale-[0.98]"
             >
-              <Box
-                sx={{
-                  width: 100,
-                  height: 60,
-                  bgcolor: "#0B0B0F",
-                  borderRadius: "10px",
-                  position: "relative",
-                  mr: 2,
-                  overflow: "hidden",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                }}
-              >
+              <div className="relative h-[60px] w-[100px] shrink-0 overflow-hidden rounded-xl border border-ocean-border-light dark:border-ocean-border-dark bg-ocean-background-light dark:bg-ocean-background-dark">
                 {(video.thumbnail_url || video.thumbnailUrl) && (
                   <img
                     src={video.thumbnail_url || video.thumbnailUrl}
                     alt="thumb"
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                      opacity: 0.4,
-                    }}
+                    className="h-full w-full object-cover opacity-40"
                   />
                 )}
-                <Box
-                  sx={{
-                    position: "absolute",
-                    inset: 0,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    bgcolor: "rgba(0,0,0,0.2)",
-                  }}
-                >
+                <div className="absolute inset-0 flex items-center justify-center bg-black/20">
                   {ep.has_access ? (
-                    <PlayCircleOutlineIcon
-                      sx={{
-                        color: "white",
-                        fontSize: 28,
-                        filter: "drop-shadow(0 0 8px rgba(255,45,45,0.4))",
-                      }}
-                    />
+                    <PlayCircle size={28} className="text-white drop-shadow" />
                   ) : (
-                    <LockIcon sx={{ color: "#FF2D2D", fontSize: 22 }} />
+                    <Lock size={22} className="text-primary" />
                   )}
-                </Box>
-              </Box>
-              <Box sx={{ flex: 1 }}>
-                <Typography
-                  variant="subtitle1"
-                  sx={{
-                    fontWeight: 700,
-                    mb: 0.2,
-                    fontSize: 15,
-                    color: "white",
-                    fontFamily: "'Poppins', sans-serif",
-                  }}
-                >
+                </div>
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="mb-0.5 truncate text-[15px] font-bold text-ocean-text-primary-light dark:text-ocean-text-primary-dark">
                   EP {ep.episode_number} · {ep.title}
-                </Typography>
-                <Stack direction="row" alignItems="center" spacing={1}>
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      color: "#A1A1AA",
-                      fontWeight: 600,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 0.5,
-                      fontSize: 11,
-                    }}
-                  >
+                </p>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-semibold text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark">
                     {formatDuration(ep.duration)}
-                  </Typography>
-                  <Box
-                    sx={{
-                      width: 4,
-                      height: 4,
-                      borderRadius: "50%",
-                      bgcolor: "rgba(255,255,255,0.1)",
-                    }}
-                  />
+                  </span>
+                  <span className="h-1 w-1 rounded-full bg-ocean-border-light dark:bg-ocean-border-dark" />
                   {ep.has_access ? (
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        color: "#FF2D2D",
-                        fontWeight: 800,
-                        textTransform: "uppercase",
-                        fontSize: 10,
-                        letterSpacing: "0.5px",
-                      }}
-                    >
+                    <span className="text-[10px] font-extrabold uppercase tracking-wide text-primary">
                       Unlocked
-                    </Typography>
+                    </span>
                   ) : (
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        color: "#A1A1AA",
-                        fontWeight: 700,
-                        textTransform: "uppercase",
-                        fontSize: 10,
-                        letterSpacing: "0.5px",
-                      }}
-                    >
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark">
                       Premium
-                    </Typography>
+                    </span>
                   )}
-                </Stack>
-              </Box>
-              
+                </div>
+              </div>
+
               {!ep.has_access && (
                 <Button
-                  size="small"
+                  size="sm"
                   variant="outlined"
+                  color="primary"
                   onClick={(e) => {
                     e.stopPropagation();
                     openPurchaseModal(ep);
-                  }}
-                  sx={{ 
-                    ml: 1, 
-                    borderRadius: '8px', 
-                    color: '#FF2D2D', 
-                    borderColor: 'rgba(255,45,45,0.3)',
-                    fontWeight: 700,
-                    textTransform: 'none',
-                    fontSize: '0.75rem',
-                    '&:hover': { borderColor: '#FF2D2D', bgcolor: 'rgba(255,45,45,0.05)' }
                   }}
                 >
                   Buy
                 </Button>
               )}
-            </Paper>
+            </div>
           ))}
-        </Stack>
-      </Box>
+        </div>
+      </div>
 
       {/* ── Sticky Bottom CTA ─────────────────────────────────── */}
-      <Box
-        sx={{
-          position: "fixed",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          p: 3,
-          bgcolor: "rgba(11,11,15,0.9)",
-          backdropFilter: "blur(24px)",
-          borderTop: "1px solid rgba(255,255,255,0.08)",
-          display: "flex",
-          justifyContent: "center",
-          zIndex: 1000,
-        }}
-      >
-        <Button
-          variant="contained"
-          fullWidth
-          onClick={() => setModalOpen(true)}
-          sx={{
-            bgcolor: "#FF2D2D",
-            color: "white",
-            py: 1.8,
-            borderRadius: "100px",
-            fontSize: 16,
-            fontWeight: 800,
-            textTransform: "none",
-            boxShadow:
-              "0 10px 10px rgba(255,45,45,0.4), 0 0 15px rgba(255,45,45,0.2)",
-            transition: "all 300ms cubic-bezier(0.4, 0, 0.2, 1)",
-            "&:hover": {
-              bgcolor: "#CC1F1F",
-              boxShadow:
-                "0 15px 15px rgba(255,45,45,0.6), 0 0 15px rgba(255,45,45,0.3)",
-              transform: "translateY(-3px)",
-            },
-            "&:active": {
-              transform: "translateY(-1px)",
-            },
-          }}
-        >
+      {/* Sits above the floating tab bar on mobile (--tab-bar-h, index.css); the
+          bar is md:hidden, so on desktop the CTA drops back to the bottom edge. */}
+      <div className="fixed inset-x-0 bottom-[var(--tab-bar-h)] z-[1000] flex justify-center border-t border-ocean-border-light dark:border-ocean-border-dark bg-ocean-background-light/90 dark:bg-ocean-background-dark/90 p-4 backdrop-blur-2xl md:bottom-0">
+        <Button fullWidth size="lg" color="primary" onClick={() => setModalOpen(true)}>
           Unlock Full Series — {video.price > 0 ? `$${video.price}` : "Free"}
         </Button>
-      </Box>
+      </div>
 
       {/* ── Purchase Modal ────────────────────────────────────── */}
-      <Dialog
+      <Modal
         open={modalOpen}
         onClose={() => {
-          if (!purchasing) {
-            if (pollingRef.current) clearInterval(pollingRef.current);
-            setModalOpen(false);
-            setPaymentInfo(null);
-          }
+          if (!purchasing) closePurchaseModal();
         }}
-        PaperProps={{
-          sx: {
-            bgcolor: "#14141A",
-            color: "white",
-            borderRadius: "24px",
-            p: 1,
-            minWidth: 320,
-            border: "1px solid #2A2A35",
-            boxShadow: "0 25px 50px -12px rgba(0,0,0,0.6)",
-            backgroundImage:
-              "radial-gradient(circle at top, rgba(255,45,45,0.1), transparent 70%)",
-          },
-        }}
+        maxWidth="sm"
       >
-        <DialogContent sx={{ textAlign: "center", pt: 4, pb: 2 }}>
+        <ModalBody className="max-h-[85vh] overflow-y-auto px-6 pb-4 pt-8 text-center">
           {!paymentInfo ? (
             <>
-              <Box
-                sx={{
-                  width: 80,
-                  height: 80,
-                  borderRadius: "50%",
-                  bgcolor: "rgba(255,45,45,0.15)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  mx: "auto",
-                  mb: 3,
-                  border: "2px solid rgba(255,45,45,0.2)",
-                  boxShadow: "0 0 20px rgba(255,45,45,0.1)",
-                }}
-              >
-                <LockIcon sx={{ color: "#FF2D2D", fontSize: 36 }} />
-              </Box>
-              <Typography
-                variant="h5"
-                sx={{
-                  fontWeight: 800,
-                  mb: 1,
-                  fontFamily: "'Poppins', sans-serif",
-                  letterSpacing: "-0.5px",
-                }}
-              >
+              <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full border-2 border-primary/20 bg-primary/15 shadow-glow">
+                <Lock size={36} className="text-primary" />
+              </div>
+              <h3 className="mb-1 text-xl font-extrabold tracking-tight text-ocean-text-primary-light dark:text-ocean-text-primary-dark">
                 Cinematic Pass
-              </Typography>
-              <Typography
-                variant="body2"
-                sx={{ color: "#A1A1AA", mb: 4, px: 2, lineHeight: 1.6 }}
-              >
+              </h3>
+              <p className="mb-6 px-2 text-sm leading-relaxed text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark">
                 Get lifetime access to all episodes of{" "}
-                <Box component="span" sx={{ color: "white", fontWeight: 700 }}>
+                <span className="font-bold text-ocean-text-primary-light dark:text-ocean-text-primary-dark">
                   {video.title}
-                </Box>
-              </Typography>
+                </span>
+              </p>
             </>
           ) : (
-            <Box sx={{ mb: 3 }}>
+            <div className="mb-3">
               <QRPaymentCard
                 name={video.creator?.name || "OceanDrama Premium"}
                 amount={video.price}
                 currency="USD"
                 qrValue={paymentInfo.qrString || paymentInfo.qrCode || ""}
               />
-            </Box>
+            </div>
           )}
 
-          <Box sx={{ mb: 1 }}>
-            <Typography
-              variant="h3"
-              sx={{
-                color: "#FF2D2D",
-                fontWeight: 900,
-                mb: 0.5,
-                letterSpacing: "-1.5px",
-                textShadow: "0 0 20px rgba(255,45,45,0.2)",
-              }}
-            >
+          <div className="mb-1">
+            <p className="mb-0.5 text-3xl font-black tracking-tight text-primary">
               ${video.price}
-            </Typography>
-            <Typography
-              variant="caption"
-              sx={{
-                color: "#A1A1AA",
-                fontWeight: 700,
-                textTransform: "uppercase",
-                letterSpacing: "1.5px",
-                fontSize: 10,
-              }}
-            >
+            </p>
+            <p className="text-[10px] font-bold uppercase tracking-wide text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark">
               {paymentInfo
                 ? "Waiting for verification..."
                 : "ONE-TIME PAYMENT · UNLIMITED ACCESS"}
-            </Typography>
-          </Box>
-        </DialogContent>
-        <DialogActions sx={{ flexDirection: 'column', p: 4, pt: 2, gap: 2 }}>
-          <Stack direction="row" spacing={2} sx={{ width: '100%' }}>
+            </p>
+          </div>
+        </ModalBody>
+
+        <div className="flex flex-col gap-3 px-6 pb-6 pt-2">
+          <div className="flex gap-3">
             <Button
-              onClick={() => {
-                if (pollingRef.current) clearInterval(pollingRef.current);
-                setModalOpen(false);
-                setPaymentInfo(null);
-              }}
+              type="button"
+              variant="text"
+              color="default"
+              fullWidth
               disabled={purchasing}
-              sx={{
-                flex: 1,
-                color: "#A1A1AA",
-                fontWeight: 700,
-                textTransform: "none",
-                px: 3,
-                borderRadius: "12px",
-                "&:hover": { color: "#fff", bgcolor: "rgba(255,255,255,0.05)" },
-              }}
+              onClick={closePurchaseModal}
             >
               Not now
             </Button>
             {!paymentInfo && (
               <Button
-                variant="contained"
+                type="button"
+                color="primary"
+                fullWidth
+                loading={purchasing}
                 onClick={() => handlePurchase(numericVideoId)}
-                disabled={purchasing}
-                sx={{
-                  flex: 1,
-                  bgcolor: "#FF2D2D",
-                  color: "white",
-                  fontWeight: 800,
-                  px: 4,
-                  py: 1.5,
-                  borderRadius: "100px",
-                  textTransform: "none",
-                  boxShadow: "0 0 20px rgba(255,45,45,0.3)",
-                  "&:hover": {
-                    bgcolor: "#CC1F1F",
-                    boxShadow: "0 0 30px rgba(255,45,45,0.5)",
-                    transform: "translateY(-2px)",
-                  },
-                  "&:active": { transform: "translateY(0)" },
-                }}
               >
-                {purchasing ? (
-                  <CircularProgress size={22} color="inherit" />
-                ) : (
-                  "Pay USD"
-                )}
+                Pay USD
               </Button>
             )}
-          </Stack>
-          
+          </div>
+
           {!paymentInfo && (
             <Button
-              fullWidth
+              type="button"
               variant="outlined"
-              startIcon={<MonetizationOnIcon />}
-              onClick={handleUnlockWithCoins}
+              color="primary"
+              fullWidth
+              startIcon={<Coins size={18} />}
               disabled={purchasing}
-              sx={{
-                borderColor: 'rgba(255,165,0,0.3)',
-                color: '#FFA500',
-                borderRadius: '100px',
-                py: 1.5,
-                fontWeight: 800,
-                textTransform: 'none',
-                '&:hover': {
-                  borderColor: '#FFA500',
-                  bgcolor: 'rgba(255,165,0,0.05)',
-                  transform: 'translateY(-2px)'
-                }
-              }}
+              onClick={handleUnlockWithCoins}
             >
               Unlock with {Math.round((Number(video.price) || 0) * 10000).toLocaleString()} Coins
             </Button>
           )}
-          
+
           {isAuthenticated && !paymentInfo && (
-            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>
+            <p className="text-center text-xs font-semibold text-ocean-text-secondary-light dark:text-ocean-text-secondary-dark">
               Your Balance: {userCoins.toLocaleString()} Coins
-            </Typography>
+            </p>
           )}
-        </DialogActions>
-      </Dialog>
+        </div>
+      </Modal>
 
       {/* ── Full Screen Video Player Modal ────────────────────── */}
-      <Dialog
-        fullScreen
-        open={playerOpen}
-        onClose={() => setPlayerOpen(false)}
-        PaperProps={{ sx: { bgcolor: "black" } }}
-      >
-        <Box
-          sx={{
-            width: "100vw",
-            height: "100vh",
-            bgcolor: "black",
-            position: "relative",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
+      {playerOpen && (
+        <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black">
           <IconButton
+            plain
             onClick={() => setPlayerOpen(false)}
-            sx={{
-              position: "absolute",
-              top: 30,
-              left: 30,
-              zIndex: 100,
-              color: "white",
-              bgcolor: "rgba(0,0,0,0.6)",
-              backdropFilter: "blur(10px)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              "&:hover": { bgcolor: "rgba(255,45,45,0.2)", color: "#FF2D2D" },
-            }}
+            className="absolute left-6 top-6 z-[100] rounded-full border border-white/10 bg-black/60 text-white backdrop-blur hover:bg-primary/20 hover:text-primary"
           >
-            <ArrowBackIosNewIcon />
+            <ArrowLeft size={20} />
           </IconButton>
-          
+
           {activeEpisode && (
-            <Box sx={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-               <HLSPlayer
+            <div className="flex h-full w-full items-center justify-center">
+              <HLSPlayer
                 key={activeEpisode.episode_id + activeVideoType}
                 episodeId={activeEpisode.episode_id}
                 url={activeVideoType === 'full' ? activeEpisode.full_video_url : activeEpisode.preview_video_url}
@@ -982,29 +566,28 @@ const EpisodeListPage: React.FC<EpisodeListPageProps> = ({ videoIdProp, onClose 
                 autoPlay
                 objectFit="contain"
               />
-              
+
               {!activeEpisode.has_access && activeVideoType === 'preview' && (
-                <Box sx={{ position: 'absolute', bottom: 40, left: '50%', transform: 'translateX(-50%)', zIndex: 10, textAlign: 'center' }}>
-                  <Typography variant="body2" sx={{ color: 'white', mb: 2, textShadow: '0 2px 4px rgba(0,0,0,0.5)', fontWeight: 600 }}>
+                <div className="absolute bottom-10 left-1/2 z-10 -translate-x-1/2 text-center">
+                  <p className="mb-4 text-sm font-semibold text-white [text-shadow:0_2px_4px_rgba(0,0,0,0.5)]">
                     You are watching a preview. Unlock the full series to continue.
-                  </Typography>
-                  <Button 
-                    variant="contained" 
+                  </p>
+                  <Button
+                    color="primary"
                     onClick={() => {
                       setPlayerOpen(false);
                       setModalOpen(true);
                     }}
-                    sx={{ bgcolor: '#FF2D2D', borderRadius: '50px', px: 4, fontWeight: 800 }}
                   >
                     Unlock Full Series
                   </Button>
-                </Box>
+                </div>
               )}
-            </Box>
+            </div>
           )}
-        </Box>
-      </Dialog>
-    </Box>
+        </div>
+      )}
+    </div>
   );
 };
 
